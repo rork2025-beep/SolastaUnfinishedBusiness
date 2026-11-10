@@ -430,7 +430,7 @@ public static partial class Tabletop2024Context
                 return;
             }
 
-            var classLevel = rulesetCharacterDefender.GetClassLevel(Fighter);
+            var classLevel = FighterProgressionContext.EffectiveLevel(rulesetCharacterDefender);
 
             rollModifier += classLevel;
             modifierTrends.Add(

@@ -41,6 +41,8 @@ internal static class MulticlassInOutRulesHelper
                                                  ApproveMultiClassInOut(hero, classDefinition))));
         }
 
+        allowedClasses.RemoveAll(c => Models.FighterProgressionContext.IsCapped(hero, c));
+
         allowedClasses.Sort((a, b) =>
         {
             hero.ClassesAndLevels.TryGetValue(a, out var aLevels);
@@ -52,6 +54,10 @@ internal static class MulticlassInOutRulesHelper
         });
 
         selectedClass = allowedClasses.IndexOf(hero.ClassesHistory[hero.ClassesHistory.Count - 1]);
+        if (selectedClass < 0 && allowedClasses.Count > 0)
+        {
+            selectedClass = 0;
+        }
     }
 
     private static int MyGetAttribute([NotNull] RulesetEntity hero, string attributeName)

@@ -40,7 +40,11 @@ public class ModifyPowerPoolAmount : IModifyPowerPoolAmount
                 return 0;
             }
 
-            return character.GetClassLevel(Attribute) switch
+            var level = SolastaUnfinishedBusiness.Models.FighterProgressionContext.Active &&
+                        Attribute == RuleDefinitions.FighterClass
+                ? SolastaUnfinishedBusiness.Models.FighterProgressionContext.EffectiveLevel(character)
+                : character.GetClassLevel(Attribute);
+            return level switch
             {
                 >= 10 => 3,
                 >= 4 => 2,

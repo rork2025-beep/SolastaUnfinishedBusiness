@@ -29,6 +29,8 @@ public class Tag : Attribute
 [XmlRoot(ElementName = "Settings")]
 public class Settings : UnityModManager.ModSettings
 {
+    public bool EnableFighterCompressedProgressionPrototype { get; set; }
+
     //
     // UI Saved State
     //

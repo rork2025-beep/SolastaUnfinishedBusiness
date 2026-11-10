@@ -281,7 +281,7 @@ public sealed class MartialWeaponMaster : AbstractSubclass
                 return;
             }
 
-            var classLevel = character.GetClassLevel(CharacterClassDefinitions.Fighter);
+            var classLevel = FighterProgressionContext.EffectiveLevel(character);
             var bonus = !IsWeaponMaster(character)
                 ? 1
                 : classLevel >= 17
@@ -399,7 +399,7 @@ public sealed class MartialWeaponMaster : AbstractSubclass
                 return;
             }
 
-            var classLevel = rulesetCharacter.GetClassLevel(CharacterClassDefinitions.Fighter);
+            var classLevel = FighterProgressionContext.EffectiveLevel(rulesetCharacter);
             var constitution = rulesetCharacter.TryGetAttributeValue(AttributeDefinitions.Constitution);
             var constitutionModifier = AttributeDefinitions.ComputeAbilityScoreModifier(constitution);
             var totalHealing = classLevel + constitutionModifier;

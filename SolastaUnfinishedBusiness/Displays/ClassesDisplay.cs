@@ -8,6 +8,13 @@ internal static class ClassesDisplay
 {
     internal static void DisplayClasses()
     {
+        var prototype = Main.Settings.EnableFighterCompressedProgressionPrototype;
+        if (UI.Toggle("Fighter 20 to 12 prototype (NEW TEST HEROES ONLY; restart required)",
+                ref prototype, UI.AutoWidth()))
+        {
+            Main.Settings.EnableFighterCompressedProgressionPrototype = prototype;
+        }
+
         UI.Label();
 
         UI.ActionButton(Gui.Localize("ModUi/&DocsClasses").Bold().Khaki(),

@@ -1330,6 +1330,11 @@ public static class RulesetCharacterHeroPatcher
         [UsedImplicitly]
         public static bool Prefix([NotNull] RulesetCharacterHero __instance, CharacterClassDefinition classDefinition)
         {
+            if (FighterProgressionContext.IsCapped(__instance, classDefinition))
+            {
+                return false;
+            }
+
             var isLevelingUp = LevelUpHelper.IsLevelingUp(__instance);
 
             if (!isLevelingUp)

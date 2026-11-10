@@ -132,6 +132,8 @@ internal static class BootContext
             // Spell Points should load closer to the bottom after all other blueprints initiated
             SpellPointsContext.LateLoad();
 
+            FighterProgressionContext.LateLoad();
+
             // Save by location initialization depends on services to be ready
             SaveByLocationContext.LateLoad();
 

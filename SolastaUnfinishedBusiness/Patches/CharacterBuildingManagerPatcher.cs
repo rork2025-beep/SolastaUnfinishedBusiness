@@ -418,6 +418,12 @@ public static class CharacterBuildingManagerPatcher
         [UsedImplicitly]
         public static bool Prefix([NotNull] RulesetCharacterHero hero, CharacterClassDefinition classDefinition)
         {
+            if (FighterProgressionContext.IsCapped(hero, classDefinition))
+            {
+                Main.Error("Fighter prototype: level 13 blocked. Select another eligible class.");
+                return false;
+            }
+
             //PATCH: captures the desired class
             LevelUpHelper.SetSelectedClass(hero, classDefinition);
 
