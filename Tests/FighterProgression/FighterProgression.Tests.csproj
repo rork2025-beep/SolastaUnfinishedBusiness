@@ -7,4 +7,5 @@
     <Compile Include="../../SolastaUnfinishedBusiness/Models/CompressedProgressionDefinitions.cs" Link="CompressedProgressionDefinitions.cs" />
   </ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/MonkProgressionRules.cs" Link="MonkProgressionRules.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/RogueProgressionRules.cs" Link="RogueProgressionRules.cs" /></ItemGroup>
 </Project>

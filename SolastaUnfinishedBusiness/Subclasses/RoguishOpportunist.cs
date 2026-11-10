@@ -247,7 +247,7 @@ public sealed class RoguishOpportunist : AbstractSubclass
             var attackerDexModifier = ComputeAbilityScoreModifier(rulesetAttacker.TryGetAttributeValue(Dexterity));
             var pb = rulesetAttacker.TryGetAttributeValue(ProficiencyBonus);
             var defenderConModifier = ComputeAbilityScoreModifier(rulesetDefender.TryGetAttributeValue(Constitution));
-            var level = rulesetAttacker.GetClassLevel(CharacterClassDefinitions.Rogue);
+            var level = RogueProgressionContext.EffectiveLevel(rulesetAttacker);
             var feature = level < 13 ? powerDebilitatingStrike : powerImprovedDebilitatingStrike;
 
             rulesetDefender.RollSavingThrow(0, Constitution, feature, modifierTrend,

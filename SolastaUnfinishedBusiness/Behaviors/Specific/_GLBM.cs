@@ -158,7 +158,7 @@ internal static class GLBM
                  */
                 if (classDefinition)
                 {
-                    var classLevel = Models.MonkProgressionContext.ScalingLevel(hero, classDefinition);
+                    var classLevel = Models.RogueProgressionContext.ScalingLevel(hero, classDefinition);
                     diceNumber = provider.GetDiceOfRank(classLevel);
                 }
             }
@@ -259,7 +259,7 @@ internal static class GLBM
 
                 if (classDefinition)
                 {
-                    var classLevel = Models.MonkProgressionContext.ScalingLevel(hero, classDefinition);
+                    var classLevel = Models.RogueProgressionContext.ScalingLevel(hero, classDefinition);
                     bonus += provider.GetDiceOfRank(classLevel);
                 }
             }

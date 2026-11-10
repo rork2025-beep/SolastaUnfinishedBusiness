@@ -473,7 +473,7 @@ public sealed class RoguishUmbralStalker : AbstractSubclass
 
             void ReactionValidated()
             {
-                var hitPoints = 2 * rulesetCharacter.GetClassLevel(CharacterClassDefinitions.Rogue);
+                var hitPoints = 2 * RogueProgressionContext.EffectiveLevel(rulesetCharacter);
 
                 defender.MyExecuteActionStabilizeAndStandUp(hitPoints);
             }

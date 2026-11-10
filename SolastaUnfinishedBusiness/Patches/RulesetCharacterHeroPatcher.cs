@@ -1332,7 +1332,8 @@ public static class RulesetCharacterHeroPatcher
         {
             if (FighterProgressionContext.IsCapped(__instance, classDefinition) ||
                 BarbarianProgressionContext.IsCapped(__instance, classDefinition) ||
-                MonkProgressionContext.IsCapped(__instance, classDefinition))
+                MonkProgressionContext.IsCapped(__instance, classDefinition) ||
+                RogueProgressionContext.IsCapped(__instance, classDefinition))
             {
                 return false;
             }

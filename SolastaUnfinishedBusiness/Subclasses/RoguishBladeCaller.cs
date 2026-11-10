@@ -15,6 +15,8 @@ using static SolastaUnfinishedBusiness.Api.DatabaseHelper;
 using static SolastaUnfinishedBusiness.Api.DatabaseHelper.FeatureDefinitionActionAffinitys;
 using static SolastaUnfinishedBusiness.Api.DatabaseHelper.WeaponTypeDefinitions;
 
+using SolastaUnfinishedBusiness.Models;
+
 namespace SolastaUnfinishedBusiness.Subclasses;
 
 [UsedImplicitly]
@@ -251,7 +253,7 @@ public sealed class RoguishBladeCaller : AbstractSubclass
 
             if (_bladeMarkStatus == BladeMarkStatus.With)
             {
-                var classLevel = rulesetAttacker.GetClassLevel(CharacterClassDefinitions.Rogue);
+                var classLevel = RogueProgressionContext.EffectiveLevel(rulesetAttacker);
 
                 // inflict Blade Surge
                 if (classLevel >= 13 &&

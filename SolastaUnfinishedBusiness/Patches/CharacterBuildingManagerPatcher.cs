@@ -420,7 +420,8 @@ public static class CharacterBuildingManagerPatcher
         {
             if (FighterProgressionContext.IsCapped(hero, classDefinition) ||
                 BarbarianProgressionContext.IsCapped(hero, classDefinition) ||
-                MonkProgressionContext.IsCapped(hero, classDefinition))
+                MonkProgressionContext.IsCapped(hero, classDefinition) ||
+                RogueProgressionContext.IsCapped(hero, classDefinition))
             {
                 Main.Error("Compressed progression: class level 13 blocked. Select another eligible class.");
                 return false;

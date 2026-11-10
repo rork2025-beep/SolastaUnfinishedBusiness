@@ -16,6 +16,8 @@ using static SolastaUnfinishedBusiness.Api.DatabaseHelper.SpellDefinitions;
 using static SolastaUnfinishedBusiness.Builders.Features.AutoPreparedSpellsGroupBuilder;
 using static SolastaUnfinishedBusiness.Api.DatabaseHelper.FeatureDefinitionAdditionalDamages;
 
+using SolastaUnfinishedBusiness.Models;
+
 namespace SolastaUnfinishedBusiness.Subclasses;
 
 [UsedImplicitly]
@@ -252,7 +254,7 @@ public sealed class RoguishArcaneScoundrel : AbstractSubclass
             EffectDescription effectDescription)
         {
             return definition == powerArcaneBackslashCounterSpell &&
-                   character.GetClassLevel(CharacterClassDefinitions.Rogue) >= 19;
+                   RogueProgressionContext.EffectiveLevel(character) >= 19;
         }
 
         public EffectDescription GetEffectDescription(

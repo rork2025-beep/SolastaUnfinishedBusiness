@@ -29,6 +29,13 @@ internal static class ClassesDisplay
             Main.Settings.EnableMonkCompressedProgressionPrototype = monkPrototype;
         }
 
+        var roguePrototype = Main.Settings.EnableRogueCompressedProgressionPrototype;
+        if (UI.Toggle("Rogue 20 to 12 prototype (NEW TEST HEROES; restart; caster magic NOT compressed)",
+                ref roguePrototype, UI.AutoWidth()))
+        {
+            Main.Settings.EnableRogueCompressedProgressionPrototype = roguePrototype;
+        }
+
         UI.Label();
 
         UI.ActionButton(Gui.Localize("ModUi/&DocsClasses").Bold().Khaki(),

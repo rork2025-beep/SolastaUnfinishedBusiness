@@ -803,7 +803,7 @@ internal static class FixesContext
     {
         //BEHAVIOR: Allow Duelist higher level feature to interact correctly with Uncanny Dodge
         ActionAffinityUncannyDodge.AddCustomSubFeatures(new ValidateDefinitionApplication(
-            character => character.GetSubclassLevel(Rogue, RoguishDuelist.Name) < 13 ||
+            character => RogueProgressionContext.EffectiveSubclassLevel(character, RoguishDuelist.Name) < 13 ||
                          character.HasConditionOfType(RoguishDuelist.ConditionReflexiveParryName)));
     }
 
@@ -1153,7 +1153,7 @@ internal static class FixesContext
             }
 
             // handle arcane scoundrel distracting ambush feature
-            var arcaneScoundrelLevels = rulesetAttacker.GetSubclassLevel(Rogue, RoguishArcaneScoundrel.Name);
+            var arcaneScoundrelLevels = RogueProgressionContext.EffectiveSubclassLevel(rulesetAttacker, RoguishArcaneScoundrel.Name);
 
             if (arcaneScoundrelLevels >= RoguishArcaneScoundrel.DistractingAmbushLevel)
             {
@@ -1161,7 +1161,7 @@ internal static class FixesContext
             }
 
             // handle slayer chain of execution features
-            var slayerLevels = rulesetAttacker.GetSubclassLevel(Rogue, RoguishSlayer.Name);
+            var slayerLevels = RogueProgressionContext.EffectiveSubclassLevel(rulesetAttacker, RoguishSlayer.Name);
 
             if (slayerLevels >= RoguishSlayer.ChainOfExecutionLevel)
             {

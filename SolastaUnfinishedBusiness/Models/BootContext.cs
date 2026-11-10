@@ -135,6 +135,7 @@ internal static class BootContext
             FighterProgressionContext.LateLoad();
             BarbarianProgressionContext.LateLoad();
             MonkProgressionContext.LateLoad();
+            RogueProgressionContext.LateLoad();
 
             // Save by location initialization depends on services to be ready
             SaveByLocationContext.LateLoad();

@@ -510,7 +510,7 @@ public static partial class Tabletop2024Context
             }
 
             var aborted = false;
-            var attempts = rulesetAttacker.GetClassLevel(Rogue) >= 11 ? 2 : 1;
+            var attempts = RogueProgressionRules.CunningStrikeChoices(RogueProgressionContext.EffectiveLevel(rulesetAttacker));
             var usablePower = PowerProvider.Get(powerRogueCunningStrike, rulesetAttacker);
             RulesetUsablePower savedUsablePower = null;
 
