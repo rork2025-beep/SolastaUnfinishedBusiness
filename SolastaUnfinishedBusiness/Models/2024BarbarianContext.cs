@@ -436,7 +436,8 @@ public static partial class Tabletop2024Context
                 0);
 
             var aborted = false;
-            var attempts = rulesetAttacker.GetClassLevel(Barbarian) >= 17 ? 2 : 1;
+            var attempts = BarbarianProgressionRules.BrutalStrikeChoices(
+                BarbarianProgressionContext.EffectiveLevel(rulesetAttacker));
             var usablePower = PowerProvider.Get(powerBarbarianBrutalStrike, rulesetAttacker);
             List<FeatureDefinitionPower> selectedPowers = [];
             RulesetUsablePower savedUsablePower = null;
@@ -657,7 +658,7 @@ public static partial class Tabletop2024Context
             var attacker = action.ActingCharacter;
             var rulesetAttacker = attacker.RulesetCharacter;
 
-            if (rulesetAttacker.GetClassLevel(Barbarian) < 7)
+            if (BarbarianProgressionContext.EffectiveLevel(rulesetAttacker) < 7)
             {
                 yield break;
             }

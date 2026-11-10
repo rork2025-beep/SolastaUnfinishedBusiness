@@ -10,6 +10,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using SolastaUnfinishedBusiness.Validators;
 using static RuleDefinitions;
@@ -237,7 +238,7 @@ public sealed class PathOfTheReaver : AbstractSubclass
                 yield break;
             }
 
-            var classLevel = rulesetAttacker.GetClassLevel(CharacterClassDefinitions.Barbarian);
+            var classLevel = BarbarianProgressionContext.EffectiveLevel(rulesetAttacker);
             var totalHealing = 2 * classLevel;
 
             yield return attacker.MyReactToSpendPower(

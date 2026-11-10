@@ -150,7 +150,7 @@ internal static class GLBM
                  */
                 if (classDefinition)
                 {
-                    var classLevel = hero.ClassesAndLevels[classDefinition];
+                    var classLevel = Models.BarbarianProgressionContext.ScalingLevel(hero, classDefinition);
                     diceNumber = provider.GetDiceOfRank(classLevel);
                 }
             }
@@ -251,7 +251,7 @@ internal static class GLBM
 
                 if (classDefinition)
                 {
-                    var classLevel = hero.ClassesAndLevels[classDefinition];
+                    var classLevel = Models.BarbarianProgressionContext.ScalingLevel(hero, classDefinition);
                     bonus += provider.GetDiceOfRank(classLevel);
                 }
             }

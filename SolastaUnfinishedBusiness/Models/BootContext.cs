@@ -133,6 +133,7 @@ internal static class BootContext
             SpellPointsContext.LateLoad();
 
             FighterProgressionContext.LateLoad();
+            BarbarianProgressionContext.LateLoad();
 
             // Save by location initialization depends on services to be ready
             SaveByLocationContext.LateLoad();

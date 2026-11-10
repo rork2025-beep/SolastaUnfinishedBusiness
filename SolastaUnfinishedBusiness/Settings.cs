@@ -30,6 +30,7 @@ public class Tag : Attribute
 public class Settings : UnityModManager.ModSettings
 {
     public bool EnableFighterCompressedProgressionPrototype { get; set; }
+    public bool EnableBarbarianCompressedProgressionPrototype { get; set; }
 
     //
     // UI Saved State

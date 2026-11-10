@@ -8,6 +8,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using SolastaUnfinishedBusiness.Validators;
 using static ActionDefinitions;
@@ -283,7 +284,7 @@ public sealed class PathOfTheYeoman : AbstractSubclass
             var damageForm = effectDescription.FindFirstDamageForm();
             var strength = character.TryGetAttributeValue(AttributeDefinitions.Strength);
             var strMod = AttributeDefinitions.ComputeAbilityScoreModifier(strength);
-            var levels = character.GetClassLevel(CharacterClassDefinitions.Barbarian);
+            var levels = BarbarianProgressionContext.EffectiveLevel(character);
             var rageBonus = levels switch
             {
                 >= 16 => 4,

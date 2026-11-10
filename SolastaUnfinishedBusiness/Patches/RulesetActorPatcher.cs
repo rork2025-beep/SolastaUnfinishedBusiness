@@ -259,7 +259,9 @@ public static class RulesetActorPatcher
                     break;
 
                 case (ConditionDefinition.OriginOfAmount)ExtraOriginOfAmount.SourceClassLevel:
-                    sourceAmount = sourceCharacter.GetClassLevel(source);
+                    sourceAmount = source == RuleDefinitions.BarbarianClass
+                        ? BarbarianProgressionContext.EffectiveLevel(sourceCharacter)
+                        : sourceCharacter.GetClassLevel(source);
                     break;
 
                 case (ConditionDefinition.OriginOfAmount)ExtraOriginOfAmount.SourceAbilityBonus:

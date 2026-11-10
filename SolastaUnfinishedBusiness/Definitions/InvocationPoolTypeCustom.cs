@@ -46,7 +46,7 @@ internal class InvocationPoolTypeCustom
             return SolastaUnfinishedBusiness.Models.FighterProgressionContext.Active &&
                    classDefinition == CharacterClassDefinitions.Fighter
                 ? SolastaUnfinishedBusiness.Models.FighterProgressionContext.EffectiveLevel(hero)
-                : hero.GetClassLevel(classDefinition);
+                : SolastaUnfinishedBusiness.Models.BarbarianProgressionContext.ScalingLevel(hero, classDefinition);
         }
 
         if (!TryGetDefinition<CharacterSubclassDefinition>(classOrSubclassName, out var subclassDefinition) ||

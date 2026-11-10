@@ -36,6 +36,16 @@ internal static class CustomizedSubFeatureDefinitions
         GetOrCreateForKey(definition).AddRange(subFeatures);
     }
 
+    // Unity's definition clone does not copy this external registry. Preserve behavior on choice clones.
+    internal static void CopyCustomSubFeatures(BaseDefinition source, BaseDefinition target)
+    {
+        var features = GetForKey(source);
+        if (features != null)
+        {
+            GetOrCreateForKey(target).AddRange(features);
+        }
+    }
+
     [NotNull]
     internal static List<T> GetAllSubFeaturesOfType<T>([CanBeNull] this BaseDefinition definition) where T : class
     {

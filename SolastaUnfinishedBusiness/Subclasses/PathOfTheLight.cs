@@ -5,6 +5,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using static RuleDefinitions;
 using static SolastaUnfinishedBusiness.Api.DatabaseHelper;
@@ -348,7 +349,7 @@ public sealed class PathOfTheLight : AbstractSubclass
                 return;
             }
 
-            var levels = conditionSource.GetClassLevel(CharacterClassDefinitions.Barbarian);
+            var levels = BarbarianProgressionContext.EffectiveLevel(conditionSource);
             if (levels < 6) { return; } //feature becomes active at level 6
 
             var amountHealed = levels / 2;

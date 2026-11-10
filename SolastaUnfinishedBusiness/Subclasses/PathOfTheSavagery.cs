@@ -7,6 +7,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using SolastaUnfinishedBusiness.Validators;
 using static RuleDefinitions;
@@ -154,7 +155,7 @@ public sealed class PathOfTheSavagery : AbstractSubclass
     {
         if (abilityScoreName != AttributeDefinitions.Dexterity ||
             !defender.HasConditionOfTypeOrSubType(ConditionRaging) ||
-            defender.GetSubclassLevel(CharacterClassDefinitions.Barbarian, Name) < 6)
+            BarbarianProgressionContext.EffectiveSubclassLevel(defender, Name) < 6)
         {
             return;
         }
@@ -195,7 +196,7 @@ public sealed class PathOfTheSavagery : AbstractSubclass
                 return effectDescription;
             }
 
-            var classLevel = character.GetClassLevel(CharacterClassDefinitions.Barbarian);
+            var classLevel = BarbarianProgressionContext.EffectiveLevel(character);
 
             // persistent rage is only granted at 15
             if (classLevel < 15)
@@ -275,7 +276,7 @@ public sealed class PathOfTheSavagery : AbstractSubclass
                 yield break;
             }
 
-            var classLevel = rulesetCharacter.GetClassLevel(CharacterClassDefinitions.Barbarian);
+            var classLevel = BarbarianProgressionContext.EffectiveLevel(rulesetCharacter);
             var temporaryHitPoints = (classLevel + 1) / 2;
 
             rulesetCharacter.ReceiveTemporaryHitPoints(

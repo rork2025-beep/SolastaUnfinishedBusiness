@@ -2362,7 +2362,7 @@ public static class RulesetCharacterPatcher
                 return;
             }
 
-            var barbarianLevels = rulesetCharacter.GetClassLevel(Barbarian);
+            var barbarianLevels = BarbarianProgressionContext.EffectiveLevel(rulesetCharacter);
 
             if (barbarianLevels == 0)
             {
@@ -2371,7 +2371,7 @@ public static class RulesetCharacterPatcher
                 return;
             }
 
-            actor.CurrentHitPoints = success ? rulesetCharacter.GetClassLevel(Barbarian) * 2 : currentHitPoints;
+            actor.CurrentHitPoints = success ? BarbarianProgressionContext.EffectiveLevel(rulesetCharacter) * 2 : currentHitPoints;
         }
     }
 

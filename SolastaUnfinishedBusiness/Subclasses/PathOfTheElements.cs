@@ -491,7 +491,7 @@ public sealed class PathOfTheElements : AbstractSubclass
             RulesetCharacter character,
             RulesetEffect rulesetEffect)
         {
-            var classLevel = character.GetClassLevel(CharacterClassDefinitions.Barbarian);
+            var classLevel = BarbarianProgressionContext.EffectiveLevel(character);
             int diceNumber;
             DieType dieType;
 

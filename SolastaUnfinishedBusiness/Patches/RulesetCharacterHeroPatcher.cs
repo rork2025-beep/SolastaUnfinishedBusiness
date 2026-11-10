@@ -1330,7 +1330,8 @@ public static class RulesetCharacterHeroPatcher
         [UsedImplicitly]
         public static bool Prefix([NotNull] RulesetCharacterHero __instance, CharacterClassDefinition classDefinition)
         {
-            if (FighterProgressionContext.IsCapped(__instance, classDefinition))
+            if (FighterProgressionContext.IsCapped(__instance, classDefinition) ||
+                BarbarianProgressionContext.IsCapped(__instance, classDefinition))
             {
                 return false;
             }

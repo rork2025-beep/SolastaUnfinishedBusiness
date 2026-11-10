@@ -16,9 +16,10 @@ internal static class FighterProgressionContext
 {
     private static readonly FighterProgressionInitialization Initialization = new();
     internal static bool Active { get; private set; }
-    private static readonly Dictionary<FeatureDefinition, string> PoolOrigins = new();
-    private static readonly HashSet<FeatureDefinitionPower> FighterPowers = new();
-    private static readonly HashSet<FeatureDefinition> WrappedFeatures = new();
+    private static readonly CompressedProgressionDefinitions Definitions = new("Fighter12");
+    private static Dictionary<FeatureDefinition, string> PoolOrigins => Definitions.PoolOrigins;
+    private static HashSet<FeatureDefinitionPower> FighterPowers => Definitions.Powers;
+    private static HashSet<FeatureDefinition> WrappedFeatures => Definitions.WrappedFeatures;
     private static readonly HashSet<RulesetCharacterHero> ReportedDeadlocks = new();
     private static string settingsSignature;
 
@@ -85,98 +86,11 @@ internal static class FighterProgressionContext
         Main.Info("Fighter 20-to-12 TEST prototype active. New test heroes only; restart after settings changes.");
     }
 
-    private static IEnumerable<FeatureDefinition> Flatten(FeatureDefinition feature)
-    {
-        yield return feature;
-        if (feature is FeatureDefinitionFeatureSet set)
-        {
-            foreach (var child in set.FeatureSet.SelectMany(Flatten))
-            {
-                yield return child;
-            }
-        }
-    }
+    private static IEnumerable<FeatureDefinition> Flatten(FeatureDefinition feature) =>
+        CompressedProgressionDefinitions.Flatten(feature);
 
-    private static List<FeatureUnlockByLevel> Transform(List<FeatureUnlockByLevel> target, string owner)
-    {
-        var plan = new FighterProgressionPlan<FeatureDefinition>(target.Select(x => (x.FeatureDefinition, x.Level)));
-        var result = new List<FeatureUnlockByLevel>();
-        foreach (var power in target.SelectMany(x => Flatten(x.FeatureDefinition)).OfType<FeatureDefinitionPower>())
-        {
-            FighterPowers.Add(power);
-        }
-
-        foreach (var group in plan.Events.GroupBy(x => x.Level))
-        {
-            // Keep low-level identities intact: UB multiclass proficiency filters compare definitions by identity.
-            if (group.Key <= 5)
-            {
-                result.AddRange(group.Select(x => new FeatureUnlockByLevel(x.Feature, x.Level)));
-                continue;
-            }
-
-            var wrapper = FeatureDefinitionFeatureSetBuilder.Create($"Fighter12{owner}Level{group.Key}")
-                .SetGuiPresentationNoContent(true)
-                .SetMode(FeatureDefinitionFeatureSet.FeatureSetMode.Union).AddToDB();
-            // Add directly: the builder sorts by title, which would destroy acquisition order.
-            foreach (var item in group)
-            {
-                var origin = $"{owner}Original{item.OriginalLevel}Event{item.OriginalIndex}";
-                var cloned = CloneChoices(item.Feature, origin);
-                wrapper.FeatureSet.Add(cloned);
-                foreach (var feature in Flatten(cloned))
-                {
-                    WrappedFeatures.Add(feature);
-                }
-                foreach (var power in Flatten(item.Feature).OfType<FeatureDefinitionPower>())
-                {
-                    FighterPowers.Add(power);
-                }
-            }
-
-            result.Add(new FeatureUnlockByLevel(wrapper, group.Key));
-        }
-
-        // Validate the actual generated definitions, not only the planning layer.
-        string Signature(FeatureDefinition feature) => feature is FeatureDefinitionPointPool pool
-            ? $"Pool:{pool.PoolType}:{pool.PoolAmount}"
-            : feature.Name;
-        var before = plan.Events.SelectMany(x => Flatten(x.Feature))
-            .Where(x => x is not FeatureDefinitionFeatureSet).Select(Signature).ToArray();
-        var after = result.SelectMany(x => Flatten(x.FeatureDefinition))
-            .Where(x => x is not FeatureDefinitionFeatureSet).Select(Signature).ToArray();
-        if (!before.SequenceEqual(after))
-        {
-            throw new InvalidOperationException("Fighter prototype changed reward counts or acquisition order: " + owner);
-        }
-
-        Main.Info($"Fighter prototype verified {owner}: {plan.Events.Count} original acquisition events.");
-        return result;
-    }
-
-    private static FeatureDefinition CloneChoices(FeatureDefinition source, string origin)
-    {
-        if (source is FeatureDefinitionPointPool pool)
-        {
-            var clone = FeatureDefinitionPointPoolBuilder.Create(pool, $"Fighter12{origin}{pool.Name}").AddToDB();
-            PoolOrigins.Add(clone, origin);
-            return clone;
-        }
-
-        if (source is not FeatureDefinitionFeatureSet set || !Flatten(set).OfType<FeatureDefinitionPointPool>().Any())
-        {
-            return source;
-        }
-
-        var copy = FeatureDefinitionFeatureSetBuilder.Create(set, $"Fighter12{origin}{set.Name}").AddToDB();
-        copy.FeatureSet.Clear();
-        for (var i = 0; i < set.FeatureSet.Count; i++)
-        {
-            copy.FeatureSet.Add(CloneChoices(set.FeatureSet[i], $"{origin}Child{i}"));
-        }
-
-        return copy;
-    }
+    private static List<FeatureUnlockByLevel> Transform(List<FeatureUnlockByLevel> target, string owner) =>
+        Definitions.Prepare(target, owner);
 
     internal static bool CanContinue(RulesetCharacterHero hero)
     {

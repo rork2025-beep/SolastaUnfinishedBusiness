@@ -15,6 +15,13 @@ internal static class ClassesDisplay
             Main.Settings.EnableFighterCompressedProgressionPrototype = prototype;
         }
 
+        var barbarianPrototype = Main.Settings.EnableBarbarianCompressedProgressionPrototype;
+        if (UI.Toggle("Barbarian 20 to 12 prototype (NEW TEST HEROES ONLY; restart required)",
+                ref barbarianPrototype, UI.AutoWidth()))
+        {
+            Main.Settings.EnableBarbarianCompressedProgressionPrototype = barbarianPrototype;
+        }
+
         UI.Label();
 
         UI.ActionButton(Gui.Localize("ModUi/&DocsClasses").Bold().Khaki(),

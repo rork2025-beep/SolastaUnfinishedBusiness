@@ -8,6 +8,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using SolastaUnfinishedBusiness.Validators;
 using static RuleDefinitions;
@@ -411,7 +412,7 @@ public sealed class PathOfTheSpirits : AbstractSubclass
                 return effectDescription;
             }
 
-            var classLevel = character.GetClassLevel(CharacterClassDefinitions.Barbarian);
+            var classLevel = BarbarianProgressionContext.EffectiveLevel(character);
 
             // persistent rage is only granted at 15
             if (classLevel < 15)

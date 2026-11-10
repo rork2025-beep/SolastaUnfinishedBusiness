@@ -418,9 +418,10 @@ public static class CharacterBuildingManagerPatcher
         [UsedImplicitly]
         public static bool Prefix([NotNull] RulesetCharacterHero hero, CharacterClassDefinition classDefinition)
         {
-            if (FighterProgressionContext.IsCapped(hero, classDefinition))
+            if (FighterProgressionContext.IsCapped(hero, classDefinition) ||
+                BarbarianProgressionContext.IsCapped(hero, classDefinition))
             {
-                Main.Error("Fighter prototype: level 13 blocked. Select another eligible class.");
+                Main.Error("Compressed progression: class level 13 blocked. Select another eligible class.");
                 return false;
             }
 
