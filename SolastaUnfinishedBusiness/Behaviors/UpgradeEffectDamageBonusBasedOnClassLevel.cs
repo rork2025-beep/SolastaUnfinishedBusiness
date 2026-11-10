@@ -23,7 +23,7 @@ internal sealed class UpgradeEffectDamageBonusBasedOnClassLevel(
         RulesetCharacter rulesetCharacter,
         RulesetEffect rulesetEffect)
     {
-        var bonus = (int)Math.Ceiling(Models.BarbarianProgressionContext.ScalingLevel(rulesetCharacter, characterClassDefinition) * modifier);
+        var bonus = (int)Math.Ceiling(Models.MonkProgressionContext.ScalingLevel(rulesetCharacter, characterClassDefinition) * modifier);
 
         effectDescription.FindFirstDamageForm().BonusDamage = bonus;
 

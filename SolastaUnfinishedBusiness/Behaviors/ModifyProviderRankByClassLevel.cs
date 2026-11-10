@@ -11,6 +11,8 @@ internal class ModifyProviderRankByClassLevel(CharacterClassDefinition klass) : 
 {
     public int GetRank(RulesetCharacter character)
     {
-        return character.GetClassLevel(klass);
+        return klass == Api.DatabaseHelper.CharacterClassDefinitions.Monk
+            ? Models.MonkProgressionContext.EffectiveLevel(character)
+            : character.GetClassLevel(klass);
     }
 }

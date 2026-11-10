@@ -8,6 +8,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using SolastaUnfinishedBusiness.Validators;
 using static ActionDefinitions;
@@ -260,7 +261,7 @@ public sealed class WayOfTheStormSoul : AbstractSubclass
             RulesetCharacter character,
             RulesetEffect rulesetEffect)
         {
-            if (character.GetClassLevel(CharacterClassDefinitions.Monk) >= 17)
+            if (MonkProgressionContext.EffectiveLevel(character) >= 17)
             {
                 effectDescription.EffectForms.TryAdd(_effectFormEyeOfTheStorm);
             }

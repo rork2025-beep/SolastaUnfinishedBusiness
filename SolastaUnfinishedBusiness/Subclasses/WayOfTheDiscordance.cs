@@ -10,6 +10,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using SolastaUnfinishedBusiness.Validators;
 using static AttributeDefinitions;
@@ -254,7 +255,7 @@ public sealed class WayOfTheDiscordance : AbstractSubclass
                     conditionDiscordance, powerDiscordance, conditionHadTurmoil, powerTurmoil),
                 new ValidatorsValidatePowerUse(
                     c => c.RemainingKiPoints >= kiNumber &&
-                         c.GetClassLevel(CharacterClassDefinitions.Monk) >= minimumClassLevelAllowed));
+                         MonkProgressionContext.EffectiveLevel(c) >= minimumClassLevelAllowed));
 
             powerBurstOfDisharmonyList.Add(powerBurstOfDisharmony);
         }
@@ -379,7 +380,7 @@ public sealed class WayOfTheDiscordance : AbstractSubclass
                 yield break;
             }
 
-            var monkLevel = rulesetAttacker.GetClassLevel(CharacterClassDefinitions.Monk);
+            var monkLevel = MonkProgressionContext.EffectiveLevel(rulesetAttacker);
             var rulesetDefender = defender.RulesetActor;
 
             if (rulesetDefender.HasConditionOfType(conditionHadDiscordanceDamageThisTurn) &&
@@ -490,7 +491,7 @@ public sealed class WayOfTheDiscordance : AbstractSubclass
             actingCharacter.MyExecuteActionSpendPower(usablePowerDiscordance, [.. targets]);
 
             // Turmoil
-            var monkLevel = rulesetCharacter.GetClassLevel(CharacterClassDefinitions.Monk);
+            var monkLevel = MonkProgressionContext.EffectiveLevel(rulesetCharacter);
 
             if (monkLevel < TurmoilLevel)
             {
@@ -533,7 +534,7 @@ public sealed class WayOfTheDiscordance : AbstractSubclass
             RulesetEffect rulesetEffect)
         {
             var temporaryHitPointsForm = effectDescription.EffectForms[0].TemporaryHitPointsForm;
-            var monkLevel = character.GetClassLevel(CharacterClassDefinitions.Monk);
+            var monkLevel = MonkProgressionContext.EffectiveLevel(character);
 
             temporaryHitPointsForm.BonusHitPoints = monkLevel;
 
@@ -571,7 +572,7 @@ public sealed class WayOfTheDiscordance : AbstractSubclass
             rulesetAlly.KiPointsAltered?.Invoke(rulesetAlly, rulesetAlly.RemainingKiPoints);
 
             // temporarily heal
-            var monkLevel = rulesetAlly.GetClassLevel(CharacterClassDefinitions.Monk);
+            var monkLevel = MonkProgressionContext.EffectiveLevel(rulesetAlly);
 
             if (rulesetAlly.TemporaryHitPoints > monkLevel)
             {

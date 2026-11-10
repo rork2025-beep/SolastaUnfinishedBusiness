@@ -6,4 +6,5 @@
     <Compile Include="../../SolastaUnfinishedBusiness/Models/BarbarianProgressionRules.cs" Link="BarbarianProgressionRules.cs" />
     <Compile Include="../../SolastaUnfinishedBusiness/Models/CompressedProgressionDefinitions.cs" Link="CompressedProgressionDefinitions.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/MonkProgressionRules.cs" Link="MonkProgressionRules.cs" /></ItemGroup>
 </Project>

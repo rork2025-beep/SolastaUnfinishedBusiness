@@ -1896,6 +1896,17 @@ internal static class Level20SubclassesContext
 
     #region Monk
 
+    // Keep the original acquisition history intact. Both native physical and magical damage paths can
+    // bypass restricted-context validators for these providers, so the final damage dispatcher calls this.
+    // Removing/undoing the capstone immediately restores the old providers without definition mutation.
+    internal static bool ShouldSuppressOldRadiantStrikes(RulesetCharacter character, FeatureDefinition feature)
+    {
+        return MonkProgressionContext.Active &&
+               (feature == AdditionalDamageTraditionLightRadiantStrikesLuminousKi ||
+                feature == AdditionalDamageTraditionLightRadiantStrikesShine) &&
+               (character.GetOriginalHero() ?? character).HasAnyFeature("FeatureTraditionLightPurityOfLife");
+    }
+
     private sealed class OnReducedToZeroHpByEnemyPhysicalPerfection(FeatureDefinitionPower powerPhysicalPerfection)
         : IOnReducedToZeroHpByEnemy
     {
@@ -1932,6 +1943,12 @@ internal static class Level20SubclassesContext
     {
         public void ApplyFeature(RulesetCharacterHero hero, string tag)
         {
+            if (MonkProgressionContext.Active)
+            {
+                // The per-character damage suppression is reversible when the capstone is unassigned.
+                return;
+            }
+
             foreach (var featureDefinitions in hero.ActiveFeatures.Values)
             {
                 featureDefinitions.RemoveAll(x =>

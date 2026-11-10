@@ -261,7 +261,9 @@ public static class RulesetActorPatcher
                 case (ConditionDefinition.OriginOfAmount)ExtraOriginOfAmount.SourceClassLevel:
                     sourceAmount = source == RuleDefinitions.BarbarianClass
                         ? BarbarianProgressionContext.EffectiveLevel(sourceCharacter)
-                        : sourceCharacter.GetClassLevel(source);
+                        : source == RuleDefinitions.MonkClass
+                            ? MonkProgressionContext.EffectiveLevel(sourceCharacter)
+                            : sourceCharacter.GetClassLevel(source);
                     break;
 
                 case (ConditionDefinition.OriginOfAmount)ExtraOriginOfAmount.SourceAbilityBonus:
@@ -1184,7 +1186,7 @@ public static class RulesetActorPatcher
                                 AttributeDefinitions.HealingPool =>
                                     hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Paladin),
                                 AttributeDefinitions.KiPoints =>
-                                    hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Monk),
+                                    MonkProgressionContext.EffectiveLevel(hero),
                                 AttributeDefinitions.SorceryPoints =>
                                     hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Sorcerer),
                                 _ => 0

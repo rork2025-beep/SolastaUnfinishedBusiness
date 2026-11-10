@@ -22,6 +22,13 @@ internal static class ClassesDisplay
             Main.Settings.EnableBarbarianCompressedProgressionPrototype = barbarianPrototype;
         }
 
+        var monkPrototype = Main.Settings.EnableMonkCompressedProgressionPrototype;
+        if (UI.Toggle("Monk 20 to 12 prototype (NEW TEST HEROES ONLY; restart required)",
+                ref monkPrototype, UI.AutoWidth()))
+        {
+            Main.Settings.EnableMonkCompressedProgressionPrototype = monkPrototype;
+        }
+
         UI.Label();
 
         UI.ActionButton(Gui.Localize("ModUi/&DocsClasses").Bold().Khaki(),

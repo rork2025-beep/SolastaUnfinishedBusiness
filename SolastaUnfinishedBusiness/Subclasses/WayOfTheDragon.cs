@@ -9,6 +9,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using SolastaUnfinishedBusiness.Validators;
 using static ActionDefinitions;
@@ -641,7 +642,7 @@ public sealed class WayOfTheDragon : AbstractSubclass
         {
             var damageForm = effectDescription.FindFirstDamageForm();
 
-            if (character.GetClassLevel(CharacterClassDefinitions.Monk) >= 17)
+            if (MonkProgressionContext.EffectiveLevel(character) >= 17)
             {
                 damageForm.DiceNumber = 4;
             }
@@ -697,7 +698,7 @@ public sealed class WayOfTheDragon : AbstractSubclass
         {
             var damageForm = effectDescription.FindFirstDamageForm();
 
-            if (character.GetClassLevel(CharacterClassDefinitions.Monk) >= 17)
+            if (MonkProgressionContext.EffectiveLevel(character) >= 17)
             {
                 damageForm.DiceNumber = 4;
             }

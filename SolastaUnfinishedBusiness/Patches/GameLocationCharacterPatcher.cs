@@ -482,7 +482,7 @@ public static class GameLocationCharacterPatcher
             }
 
             var traditionFreedomLevel =
-                rulesetCharacter.GetSubclassLevel(DatabaseHelper.CharacterClassDefinitions.Monk, "TraditionFreedom");
+                MonkProgressionContext.EffectiveSubclassLevel(rulesetCharacter, "TraditionFreedom");
 
             //BUGFIX: Hide other Flurry of Blows actions on Way of Freedom Monk as it levels up
             // ReSharper disable once SwitchStatementMissingSomeEnumCasesNoDefault

@@ -566,7 +566,7 @@ public static partial class Tabletop2024Context
     internal static bool CanUseDexterityOnGrappleOrShove(GameLocationCharacter actingCharacter)
     {
         return Main.Settings.EnableMonkMartialArts2024 &&
-               actingCharacter.RulesetCharacter.GetClassLevel(Monk) > 0;
+               MonkProgressionContext.EffectiveLevel(actingCharacter.RulesetCharacter) > 0;
     }
 
     private sealed class CustomBehaviorMonkDeflectAttacks
@@ -639,7 +639,7 @@ public static partial class Tabletop2024Context
             }
 
             var rulesetDefender = defender.RulesetCharacter;
-            var classLevel = rulesetDefender.GetClassLevel(Monk);
+            var classLevel = MonkProgressionContext.EffectiveLevel(rulesetDefender);
 
             var damageForm = actualEffectForms.FirstOrDefault(x =>
                 x.FormType == EffectForm.EffectFormType.Damage &&
@@ -899,7 +899,7 @@ public static partial class Tabletop2024Context
         public bool IsValid(BaseDefinition definition, RulesetCharacter character, EffectDescription effectDescription)
         {
             return Main.Settings.EnableMonkHeightenedFocus2024 &&
-                   character.GetClassLevel(Monk) >= 10 &&
+                   MonkProgressionContext.EffectiveLevel(character) >= 10 &&
                    (definition == PowerMonkFlurryOfBlows ||
                     definition == PowerTraditionFreedomFlurryOfBlowsSwiftStepsImprovement ||
                     definition == PowerTraditionFreedomFlurryOfBlowsUnendingStrikesImprovement);
@@ -970,7 +970,7 @@ public static partial class Tabletop2024Context
 
             void ReactionValidated()
             {
-                var healing = rulesetCharacter.GetClassLevel(Monk) + rulesetCharacter.RollDiceAndSum(
+                var healing = MonkProgressionContext.EffectiveLevel(rulesetCharacter) + rulesetCharacter.RollDiceAndSum(
                     rulesetCharacter.GetMonkDieType(), RollContext.HealValueRoll, 1,
                     maximumDamage: rulesetCharacter.ReceivesMaximizedHealing());
 
@@ -986,7 +986,7 @@ public static partial class Tabletop2024Context
             void HandlePerfectFocus()
             {
                 if (!Main.Settings.EnableMonkHeightenedFocus2024 ||
-                    rulesetCharacter.GetClassLevel(Monk) < 15 ||
+                    MonkProgressionContext.EffectiveLevel(rulesetCharacter) < 15 ||
                     rulesetCharacter.RemainingKiPoints >= 4)
                 {
                     return;

@@ -875,7 +875,7 @@ public static class RulesetCharacterHeroPatcher
             string attribute,
             RulesetCharacterHero rulesetCharacterHero)
         {
-            var monkLevels = rulesetCharacterHero.GetClassLevel(Monk);
+            var monkLevels = MonkProgressionContext.EffectiveLevel(rulesetCharacterHero);
 
             return monkLevels;
         }
@@ -1331,7 +1331,8 @@ public static class RulesetCharacterHeroPatcher
         public static bool Prefix([NotNull] RulesetCharacterHero __instance, CharacterClassDefinition classDefinition)
         {
             if (FighterProgressionContext.IsCapped(__instance, classDefinition) ||
-                BarbarianProgressionContext.IsCapped(__instance, classDefinition))
+                BarbarianProgressionContext.IsCapped(__instance, classDefinition) ||
+                MonkProgressionContext.IsCapped(__instance, classDefinition))
             {
                 return false;
             }

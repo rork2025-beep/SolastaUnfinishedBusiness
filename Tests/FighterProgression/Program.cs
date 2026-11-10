@@ -87,4 +87,5 @@ foreach (var patch in context.NestedTypes)
 }
 Check(bindings == 7, "all prototype Harmony patch targets checked against actual game metadata");
 BarbarianTests.Run(Check, game, mod);
+MonkTests.Run(Check, game, mod);
 Console.WriteLine($"{count} checks passed; these are game-independent planner tests, not gameplay tests.");

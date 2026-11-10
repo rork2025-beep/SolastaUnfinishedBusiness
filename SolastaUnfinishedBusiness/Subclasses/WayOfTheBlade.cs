@@ -195,7 +195,7 @@ public sealed class WayOfBlade : AbstractSubclass
     internal static bool IsAgileParryValid(GameLocationCharacter defender, GameLocationCharacter attacker)
     {
         var rulesetDefender = defender.RulesetCharacter;
-        var subclassLevel = rulesetDefender.GetSubclassLevel(Monk, Name);
+        var subclassLevel = MonkProgressionContext.EffectiveSubclassLevel(rulesetDefender, Name);
 
         if (subclassLevel < 6 || !ValidatorsCharacter.IsMonkMeleeWeapon(rulesetDefender))
         {
@@ -405,7 +405,7 @@ public sealed class WayOfBlade : AbstractSubclass
         public IEnumerator OnPowerOrSpellFinishedByMe(CharacterActionMagicEffect action, BaseDefinition baseDefinition)
         {
             var rulesetCharacter = action.ActingCharacter.RulesetCharacter;
-            var subclassLevel = rulesetCharacter.GetSubclassLevel(Monk, Name);
+            var subclassLevel = MonkProgressionContext.EffectiveSubclassLevel(rulesetCharacter, Name);
 
             if (subclassLevel < 11 || !ValidatorsCharacter.IsMonkMeleeWeapon(rulesetCharacter))
             {

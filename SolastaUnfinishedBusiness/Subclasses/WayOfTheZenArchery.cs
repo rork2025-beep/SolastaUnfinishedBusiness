@@ -9,6 +9,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using SolastaUnfinishedBusiness.Validators;
 using UnityEngine.AddressableAssets;
@@ -181,7 +182,7 @@ public sealed class WayOfZenArchery : AbstractSubclass
             rulesetActor is RulesetCharacter rulesetCharacter &&
             (weaponDescription.WeaponTypeDefinition == WeaponTypeDefinitions.ShortbowType ||
              weaponDescription.WeaponTypeDefinition == WeaponTypeDefinitions.LongbowType) &&
-            rulesetCharacter.GetSubclassLevel(CharacterClassDefinitions.Monk, Name) >= 3;
+            MonkProgressionContext.EffectiveSubclassLevel(rulesetCharacter, Name) >= 3;
     }
 
     //

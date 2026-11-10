@@ -97,6 +97,14 @@ internal static class GLBM
         RulesetAttackMode attackMode,
         bool criticalHit)
     {
+        // Light capstone replaces earlier D4 providers, which may remain nested in progression wrappers.
+        // Check before allocating a pooled DamageForm and before applying any provider side effects.
+        if (Level20SubclassesContext.ShouldSuppressOldRadiantStrikes(
+                attacker.RulesetCharacter, provider as FeatureDefinition))
+        {
+            return;
+        }
+
         var additionalDamageForm = DamageForm.Get();
         var featureDefinition = provider as FeatureDefinition;
 
@@ -150,7 +158,7 @@ internal static class GLBM
                  */
                 if (classDefinition)
                 {
-                    var classLevel = Models.BarbarianProgressionContext.ScalingLevel(hero, classDefinition);
+                    var classLevel = Models.MonkProgressionContext.ScalingLevel(hero, classDefinition);
                     diceNumber = provider.GetDiceOfRank(classLevel);
                 }
             }
@@ -251,7 +259,7 @@ internal static class GLBM
 
                 if (classDefinition)
                 {
-                    var classLevel = Models.BarbarianProgressionContext.ScalingLevel(hero, classDefinition);
+                    var classLevel = Models.MonkProgressionContext.ScalingLevel(hero, classDefinition);
                     bonus += provider.GetDiceOfRank(classLevel);
                 }
             }
@@ -831,6 +839,13 @@ internal static class GLBM
 
         foreach (var featureDefinition in instance.featuresToBrowseReaction)
         {
+            // Skip obsolete Light providers before the caller records their shared notification tag;
+            // otherwise an ignored D4 event could prevent the replacement D6 event on the same attack.
+            if (Level20SubclassesContext.ShouldSuppressOldRadiantStrikes(attacker.RulesetCharacter, featureDefinition))
+            {
+                continue;
+            }
+
             var provider = featureDefinition as IAdditionalDamageProvider;
             var additionalDamage = provider as FeatureDefinitionAdditionalDamage;
 

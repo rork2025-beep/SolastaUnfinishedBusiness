@@ -1045,7 +1045,7 @@ internal static class FixesContext
                 }
             }
 
-            var wayOfZenArcheryLevels = rulesetAttacker.GetSubclassLevel(Monk, WayOfZenArchery.Name);
+            var wayOfZenArcheryLevels = MonkProgressionContext.EffectiveSubclassLevel(rulesetAttacker, WayOfZenArchery.Name);
 
             // Zen Archery get stunning strike with bows at 6
             if (!ValidatorsWeapon.IsMeleeOrUnarmed(attackMode) &&

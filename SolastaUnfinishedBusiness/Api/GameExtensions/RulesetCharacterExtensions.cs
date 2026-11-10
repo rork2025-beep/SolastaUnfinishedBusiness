@@ -57,7 +57,7 @@ internal static class RulesetCharacterExtensions
 
     internal static DieType GetMonkDieType(this RulesetCharacter character)
     {
-        var monkLevel = character.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Monk);
+        var monkLevel = Models.MonkProgressionContext.EffectiveLevel(character);
         var dieType = DatabaseHelper.FeatureDefinitionAttackModifiers.AttackModifierMonkMartialArtsImprovedDamage
             .DieTypeByRankTable
             .Find(x => x.Rank == monkLevel)?.DieType ?? DieType.D1;
