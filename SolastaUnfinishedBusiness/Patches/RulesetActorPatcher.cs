@@ -267,7 +267,9 @@ public static class RulesetActorPatcher
                                 ? RogueProgressionContext.EffectiveLevel(sourceCharacter)
                                 : source == RuleDefinitions.WizardClass
                                     ? WizardProgressionContext.EffectiveLevel(sourceCharacter)
-                                    : sourceCharacter.GetClassLevel(source);
+                                    : source == RuleDefinitions.SorcererClass
+                                        ? SorcererProgressionContext.EffectiveLevel(sourceCharacter)
+                                        : sourceCharacter.GetClassLevel(source);
                     break;
 
                 case (ConditionDefinition.OriginOfAmount)ExtraOriginOfAmount.SourceAbilityBonus:
@@ -1192,7 +1194,7 @@ public static class RulesetActorPatcher
                                 AttributeDefinitions.KiPoints =>
                                     MonkProgressionContext.EffectiveLevel(hero),
                                 AttributeDefinitions.SorceryPoints =>
-                                    hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Sorcerer),
+                                    SorcererProgressionContext.EffectiveLevel(hero),
                                 _ => 0
                             };
                             break;

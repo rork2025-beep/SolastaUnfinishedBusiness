@@ -61,7 +61,7 @@ public sealed class SorcerousPsion : AbstractSubclass
         powerPsychokinesisFixed.AddCustomSubFeatures(
             new ValidatorsValidatePowerUse(c =>
                 c.GetRemainingPowerUses(powerPsychokinesisFixed) > 0 ||
-                c.GetClassLevel(CharacterClassDefinitions.Sorcerer) < 2));
+                SorcererProgressionContext.EffectiveLevel(c) < 2));
 
         var powerPsychokinesisFixedDrag = FeatureDefinitionPowerSharedPoolBuilder
             .Create($"Power{Name}PsychokinesisFixedDrag")
@@ -156,7 +156,7 @@ public sealed class SorcerousPsion : AbstractSubclass
         powerPsychokinesisPoints.AddCustomSubFeatures(
             new ValidatorsValidatePowerUse(c =>
                 c.GetRemainingPowerUses(powerPsychokinesisFixed) == 0 &&
-                c.GetClassLevel(CharacterClassDefinitions.Sorcerer) >= 2));
+                SorcererProgressionContext.EffectiveLevel(c) >= 2));
 
         PowerBundle.RegisterPowerBundle(powerPsychokinesisFixed, true,
             powerPsychokinesisFixedPush, powerPsychokinesisFixedDrag);
@@ -372,7 +372,7 @@ public sealed class SorcerousPsion : AbstractSubclass
             {
                 defender.MyExecuteActionStabilizeAndStandUp(1);
 
-                var tempHitPoints = rulesetCharacter.GetClassLevel(CharacterClassDefinitions.Sorcerer) * 3;
+                var tempHitPoints = SorcererProgressionContext.EffectiveLevel(rulesetCharacter) * 3;
 
                 rulesetCharacter.ReceiveTemporaryHitPoints(
                     tempHitPoints, DurationType.UntilAnyRest, 0, TurnOccurenceType.StartOfTurn, rulesetCharacter.Guid);

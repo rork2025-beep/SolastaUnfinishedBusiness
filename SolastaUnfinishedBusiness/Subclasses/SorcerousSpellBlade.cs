@@ -222,7 +222,7 @@ public sealed class SorcerousSpellBlade : AbstractSubclass
             RulesetCharacter character,
             RulesetEffect rulesetEffect)
         {
-            var classLevel = character.GetClassLevel(CharacterClassDefinitions.Sorcerer);
+            var classLevel = SorcererProgressionContext.EffectiveLevel(character);
             var charisma = character.TryGetAttributeValue(AttributeDefinitions.Charisma);
             var charismaModifier = AttributeDefinitions.ComputeAbilityScoreModifier(charisma);
             var healing = classLevel + Math.Max(1, charismaModifier);

@@ -170,6 +170,11 @@ internal static class SharedSpellsContext
             return 0;
         }
 
+        // A single compressed Sorcerer also uses this helper for reaction/upcast selection.
+        // Mixed casters stay on the original path: no virtual levels are added to shared progression.
+        var compressedSorcerer = SorcererSpellcastingContext.SingleCasterLevel(rulesetCharacterHero);
+        if (compressedSorcerer > 0) return compressedSorcerer;
+
         var casterLevelContext = new CasterLevelContext();
 
         foreach (var classAndLevel in rulesetCharacterHero.ClassesAndLevels)

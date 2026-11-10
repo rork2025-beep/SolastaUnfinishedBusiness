@@ -12,4 +12,8 @@
     <Compile Include="../../SolastaUnfinishedBusiness/Models/WizardProgressionRules.cs" Link="WizardProgressionRules.cs" />
     <Compile Include="../../SolastaUnfinishedBusiness/Models/SpellcastingProgressionPlan.cs" Link="SpellcastingProgressionPlan.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../SolastaUnfinishedBusiness/Models/SorcererProgressionRules.cs" Link="SorcererProgressionRules.cs" />
+    <Compile Include="../../SolastaUnfinishedBusiness/Models/KnownSpellsProgressionPlan.cs" Link="KnownSpellsProgressionPlan.cs" />
+  </ItemGroup>
 </Project>

@@ -423,9 +423,11 @@ public static class CharacterBuildingManagerPatcher
                 MonkProgressionContext.IsCapped(hero, classDefinition) ||
                 RogueProgressionContext.IsCapped(hero, classDefinition) ||
                 WizardProgressionContext.IsCapped(hero, classDefinition) ||
-                !WizardSpellcastingContext.CanSelectClass(hero, classDefinition))
+                !WizardSpellcastingContext.CanSelectClass(hero, classDefinition) ||
+                SorcererProgressionContext.IsCapped(hero, classDefinition) ||
+                !SorcererSpellcastingContext.CanSelectClass(hero, classDefinition))
             {
-                Main.Error("Compressed progression: class cap or unsupported Wizard casting combination. Select another eligible class.");
+                Main.Error("Compressed progression: class cap or unsupported casting combination. Select another eligible class.");
                 return false;
             }
 

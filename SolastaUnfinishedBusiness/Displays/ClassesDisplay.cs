@@ -43,6 +43,13 @@ internal static class ClassesDisplay
             Main.Settings.EnableWizardCompressedProgressionPrototype = wizardPrototype;
         }
 
+        var sorcererPrototype = Main.Settings.EnableSorcererCompressedProgressionPrototype;
+        if (UI.Toggle("Sorcerer 20 to 12 prototype (NEW HEROES; restart; SINGLE CASTER ONLY)",
+                ref sorcererPrototype, UI.AutoWidth()))
+        {
+            Main.Settings.EnableSorcererCompressedProgressionPrototype = sorcererPrototype;
+        }
+
         UI.Label();
 
         UI.ActionButton(Gui.Localize("ModUi/&DocsClasses").Bold().Khaki(),

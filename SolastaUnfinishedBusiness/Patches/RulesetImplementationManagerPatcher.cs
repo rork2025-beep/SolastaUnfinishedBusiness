@@ -755,7 +755,7 @@ public static class RulesetImplementationManagerPatcher
                     break;
                 case SpellSlotsForm.EffectType.RecovererSorceryHalfLevelUp:
                 {
-                    var currentValue = originalHero.ClassesAndLevels[Sorcerer];
+                    var currentValue = SorcererProgressionContext.EffectiveLevel(originalHero);
                     var sorceryPointsGain = (currentValue % 2) + (currentValue / 2);
 
                     formsParams.sourceCharacter.GainSorceryPoints(sorceryPointsGain);
@@ -763,7 +763,7 @@ public static class RulesetImplementationManagerPatcher
                 }
                 case (SpellSlotsForm.EffectType)ExtraEffectType.RecoverSorceryHalfLevelDown:
                 {
-                    var currentValue = originalHero.ClassesAndLevels[Sorcerer];
+                    var currentValue = SorcererProgressionContext.EffectiveLevel(originalHero);
                     var sorceryPointsGain = currentValue / 2;
 
                     formsParams.sourceCharacter.GainSorceryPoints(sorceryPointsGain);

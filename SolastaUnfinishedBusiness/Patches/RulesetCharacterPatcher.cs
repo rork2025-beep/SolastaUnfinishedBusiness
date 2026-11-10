@@ -2461,18 +2461,21 @@ public static class RulesetCharacterPatcher
             }
 
             //BUGFIX: fix Sorcerer Child of the Rift missing PowerSorcererChildRiftRiftwalkDamage at 14th
-            if (hero.ClassesHistory.Count >= 14 &&
+            if ((SorcererProgressionContext.Active ? SorcererProgressionContext.EffectiveLevel(hero) >= 14 : hero.ClassesHistory.Count >= 14) &&
                 featureDefinitionPowers.Any(x => x == PowerSorcererChildRiftRiftwalk) &&
                 hero.UsablePowers.All(x =>
                     x.PowerDefinition != PowerSorcererChildRiftRiftwalkLandingDamage))
             {
-                var tag = AttributeDefinitions.GetClassTag(Sorcerer, 14);
+                var tag = AttributeDefinitions.GetClassTag(Sorcerer,
+                    SorcererProgressionContext.Active ? FighterProgressionPlan<int>.CompressedLevel(14) : 14);
                 var usablePower =
                     new RulesetUsablePower(PowerSorcererChildRiftRiftwalkLandingDamage, null, Sorcerer);
 
                 usablePower.Recharge();
 
-                hero.ActiveFeatures[tag].Add(PowerSorcererChildRiftRiftwalkLandingDamage);
+                if (!hero.ActiveFeatures.TryGetValue(tag, out var riftFeatures))
+                    hero.ActiveFeatures[tag] = riftFeatures = new List<FeatureDefinition>();
+                riftFeatures.Add(PowerSorcererChildRiftRiftwalkLandingDamage);
                 hero.UsablePowers.Add(usablePower);
             }
 

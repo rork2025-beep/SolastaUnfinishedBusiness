@@ -381,7 +381,7 @@ public sealed class SorcerousWildMagic : AbstractSubclass
     private static IEnumerator HandleWildSurge(GameLocationCharacter attacker, bool avoidOnes = false)
     {
         var rulesetAttacker = attacker.RulesetCharacter;
-        var levels = rulesetAttacker.GetSubclassLevel(CharacterClassDefinitions.Sorcerer, Name);
+        var levels = SorcererProgressionContext.EffectiveSubclassLevel(rulesetAttacker, Name);
 
         if (levels >= 14)
         {
@@ -1174,7 +1174,7 @@ public sealed class SorcerousWildMagic : AbstractSubclass
             List<GameLocationCharacter> targets)
         {
             var rulesetAttacker = attacker.RulesetCharacter;
-            var levels = rulesetAttacker.GetSubclassLevel(CharacterClassDefinitions.Sorcerer, Name);
+            var levels = SorcererProgressionContext.EffectiveSubclassLevel(rulesetAttacker, Name);
 
             attacker.UsedSpecialFeatures.Remove(FeatureSpellBombardment.Name);
 
@@ -1282,7 +1282,7 @@ public sealed class SorcerousWildMagic : AbstractSubclass
 
             // you gain a [class level / 4 (rounded up)] level spell slot
             case 9:
-                var levels = caster.RulesetCharacter.GetSubclassLevel(CharacterClassDefinitions.Sorcerer, Name);
+                var levels = SorcererProgressionContext.EffectiveSubclassLevel(caster.RulesetCharacter, Name);
                 var slotLevel = (levels + 3) / 4;
 
                 EffectHelpers.StartVisualEffect(

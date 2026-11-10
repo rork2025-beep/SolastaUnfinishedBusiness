@@ -48,14 +48,14 @@ public static partial class Tabletop2024Context
                 .SetCasterEffectParameters(PowerSorcererDraconicElementalResistance)
                 .Build())
         .AddCustomSubFeatures(new ValidatorsValidatePowerUse(c =>
-            c.GetClassLevel(Sorcerer) < 7 || c.GetRemainingPowerUses(PowerSorcererInnateSorcery) > 0))
+            SorcererProgressionContext.EffectiveLevel(c) < 7 || c.GetRemainingPowerUses(PowerSorcererInnateSorcery) > 0))
         .AddToDB();
 
     private static readonly FeatureDefinitionPower PowerSorcererSorceryIncarnate = FeatureDefinitionPowerBuilder
         .Create(PowerSorcererInnateSorcery, "PowerSorcererSorceryIncarnate")
         .SetUsesFixed(ActivationTime.BonusAction, RechargeRate.SorceryPoints, 2, 0)
         .AddCustomSubFeatures(new ValidatorsValidatePowerUse(c =>
-            c.GetClassLevel(Sorcerer) >= 7 && c.GetRemainingPowerUses(PowerSorcererInnateSorcery) == 0))
+            SorcererProgressionContext.EffectiveLevel(c) >= 7 && c.GetRemainingPowerUses(PowerSorcererInnateSorcery) == 0))
         .AddToDB();
 
     private static readonly FeatureDefinitionFeatureSet FeatureSetSorcererSorceryIncarnate =
@@ -183,7 +183,7 @@ public static partial class Tabletop2024Context
         }
 
         var rulesetCharacter = character.RulesetCharacter;
-        var sorcererLevel = rulesetCharacter.GetClassLevel(Sorcerer);
+        var sorcererLevel = SorcererProgressionContext.EffectiveLevel(rulesetCharacter);
 
         if (sorcererLevel < 20)
         {

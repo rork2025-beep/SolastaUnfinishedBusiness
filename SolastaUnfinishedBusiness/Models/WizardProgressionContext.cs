@@ -49,7 +49,8 @@ internal static class WizardProgressionContext
         klass == Wizard && WizardProgressionRules.IsCapped(Active, hero.GetClassLevel(Wizard));
 
     internal static int ScalingLevel(RulesetCharacter character, CharacterClassDefinition klass) =>
-        klass == Wizard ? EffectiveLevel(character) : RogueProgressionContext.ScalingLevel(character, klass);
+        klass == Wizard ? EffectiveLevel(character) : klass == Sorcerer
+            ? SorcererProgressionContext.EffectiveLevel(character) : RogueProgressionContext.ScalingLevel(character, klass);
 
     internal static int EffectiveSubclassLevel(RulesetCharacter character, string subclass)
     {
