@@ -485,6 +485,14 @@ internal static class MulticlassGameUi
         var heroBuildingData = localHeroCharacter.GetHeroBuildingData();
         var pointPool = GetCurrentPool(panel, heroBuildingData);
 
+        // Wizard compressed learning preserves the maximum circle at each original acquisition event.
+        if (WizardSpellcastingContext.TryGetLearningMaximum(localHeroCharacter, spellTag, out var maximum) &&
+            spellLevel > maximum)
+        {
+            group.gameObject.SetActive(false);
+            return;
+        }
+
         group.extraSpellsMap.Clear();
         group.spellsTable.gameObject.SetActive(true);
         group.slotStatusTable.gameObject.SetActive(true);

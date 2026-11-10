@@ -687,7 +687,9 @@ public static class RulesetImplementationManagerPatcher
 
                         if (spellRepertoire.SpellCastingClass == characterClassDefinition)
                         {
-                            currentValue = originalHero.ClassesAndLevels[characterClassDefinition];
+                            currentValue = characterClassDefinition == DatabaseHelper.CharacterClassDefinitions.Wizard
+                                ? WizardProgressionContext.EffectiveLevel(originalHero)
+                                : originalHero.ClassesAndLevels[characterClassDefinition];
                         }
                         else if (spellRepertoire.SpellCastingSubclass)
                         {
@@ -696,7 +698,9 @@ public static class RulesetImplementationManagerPatcher
 
                             if (characterClass == characterClassDefinition)
                             {
-                                currentValue = originalHero.ClassesAndLevels[characterClassDefinition];
+                                currentValue = characterClassDefinition == DatabaseHelper.CharacterClassDefinitions.Wizard
+                                    ? WizardProgressionContext.EffectiveLevel(originalHero)
+                                    : originalHero.ClassesAndLevels[characterClassDefinition];
                             }
                         }
 

@@ -1333,7 +1333,9 @@ public static class RulesetCharacterHeroPatcher
             if (FighterProgressionContext.IsCapped(__instance, classDefinition) ||
                 BarbarianProgressionContext.IsCapped(__instance, classDefinition) ||
                 MonkProgressionContext.IsCapped(__instance, classDefinition) ||
-                RogueProgressionContext.IsCapped(__instance, classDefinition))
+                RogueProgressionContext.IsCapped(__instance, classDefinition) ||
+                WizardProgressionContext.IsCapped(__instance, classDefinition) ||
+                !WizardSpellcastingContext.CanSelectClass(__instance, classDefinition))
             {
                 return false;
             }
@@ -1624,7 +1626,9 @@ public static class RulesetCharacterHeroPatcher
                 return true;
             }
 
-            var levels = __instance.ClassesAndLevels[spellRepertoire.SpellCastingClass];
+            var levels = WizardProgressionContext.Active && spellRepertoire.SpellCastingClass == Wizard
+                ? WizardProgressionContext.EffectiveLevel(__instance)
+                : __instance.ClassesAndLevels[spellRepertoire.SpellCastingClass];
 
             __result = preparedSpells[levels - 1];
 

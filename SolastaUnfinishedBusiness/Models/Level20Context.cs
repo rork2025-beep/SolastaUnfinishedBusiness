@@ -662,7 +662,7 @@ internal static class Level20Context
 
         internal static bool IsRestActivityAvailable(RestActivityDefinition activity, RulesetCharacterHero hero)
         {
-            return activity != RestActivitySpellMastery || hero.GetClassLevel(Wizard) >= 18;
+            return activity != RestActivitySpellMastery || WizardProgressionContext.EffectiveLevel(hero) >= 18;
         }
 
         internal static bool IsInvalidSelectedSpell(RulesetCharacter rulesetCharacter, SpellDefinition spell)
@@ -796,7 +796,7 @@ internal static class Level20Context
         {
             return
                 activity != RestActivitySignatureSpells ||
-                (hero.GetClassLevel(Wizard) >= 20 &&
+                (WizardProgressionContext.EffectiveLevel(hero) >= 20 &&
                  (Main.Settings.EnableSignatureSpellsRelearn ||
                   hero.SpellRepertoires.All(x =>
                       !x.ExtraSpellsByTag.TryGetValue(Signature, out var spells) ||

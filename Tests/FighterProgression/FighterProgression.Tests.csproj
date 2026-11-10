@@ -8,4 +8,8 @@
   </ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/MonkProgressionRules.cs" Link="MonkProgressionRules.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/RogueProgressionRules.cs" Link="RogueProgressionRules.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../SolastaUnfinishedBusiness/Models/WizardProgressionRules.cs" Link="WizardProgressionRules.cs" />
+    <Compile Include="../../SolastaUnfinishedBusiness/Models/SpellcastingProgressionPlan.cs" Link="SpellcastingProgressionPlan.cs" />
+  </ItemGroup>
 </Project>

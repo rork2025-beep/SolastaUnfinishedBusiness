@@ -11,6 +11,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using static RuleDefinitions;
 using static SolastaUnfinishedBusiness.Api.DatabaseHelper;
 using static SolastaUnfinishedBusiness.Api.DatabaseHelper.SpellDefinitions;
@@ -622,7 +623,7 @@ public sealed class WizardAbjuration : AbstractSubclass
         bool IModifyEffectDescription.IsValid(
             BaseDefinition definition, RulesetCharacter character, EffectDescription effectDescription)
         {
-            return character.GetSubclassLevel(CharacterClassDefinitions.Wizard, Name) >= 10 &&
+            return WizardProgressionContext.EffectiveSubclassLevel(character, Name) >= 10 &&
                    definition == Counterspell;
         }
     }
@@ -657,7 +658,7 @@ public sealed class WizardAbjuration : AbstractSubclass
         bool IModifyEffectDescription.IsValid(
             BaseDefinition definition, RulesetCharacter character, EffectDescription effectDescription)
         {
-            return character.GetSubclassLevel(CharacterClassDefinitions.Wizard, Name) >= 10 &&
+            return WizardProgressionContext.EffectiveSubclassLevel(character, Name) >= 10 &&
                    definition == DispelMagic;
         }
     }

@@ -36,6 +36,13 @@ internal static class ClassesDisplay
             Main.Settings.EnableRogueCompressedProgressionPrototype = roguePrototype;
         }
 
+        var wizardPrototype = Main.Settings.EnableWizardCompressedProgressionPrototype;
+        if (UI.Toggle("Wizard 20 to 12 prototype (NEW HEROES; restart; SINGLE CASTER ONLY)",
+                ref wizardPrototype, UI.AutoWidth()))
+        {
+            Main.Settings.EnableWizardCompressedProgressionPrototype = wizardPrototype;
+        }
+
         UI.Label();
 
         UI.ActionButton(Gui.Localize("ModUi/&DocsClasses").Bold().Khaki(),

@@ -265,7 +265,9 @@ public static class RulesetActorPatcher
                             ? MonkProgressionContext.EffectiveLevel(sourceCharacter)
                             : source == RuleDefinitions.RogueClass
                                 ? RogueProgressionContext.EffectiveLevel(sourceCharacter)
-                                : sourceCharacter.GetClassLevel(source);
+                                : source == RuleDefinitions.WizardClass
+                                    ? WizardProgressionContext.EffectiveLevel(sourceCharacter)
+                                    : sourceCharacter.GetClassLevel(source);
                     break;
 
                 case (ConditionDefinition.OriginOfAmount)ExtraOriginOfAmount.SourceAbilityBonus:

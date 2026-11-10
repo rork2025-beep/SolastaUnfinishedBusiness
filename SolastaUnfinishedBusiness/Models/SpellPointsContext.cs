@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using SolastaUnfinishedBusiness.Api;
 using SolastaUnfinishedBusiness.Api.GameExtensions;
 using SolastaUnfinishedBusiness.Behaviors;
 using SolastaUnfinishedBusiness.Builders;
@@ -411,6 +412,12 @@ internal static class SpellPointsContext
 
         private static int GetCasterLevel(RulesetCharacterHero hero)
         {
+            if (WizardProgressionContext.Active && WizardSpellcastingContext.IsSupportedHero(hero) &&
+                hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Wizard) > 0)
+            {
+                return SpellcastingProgressionPlan.CasterLevel(hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Wizard));
+            }
+
             if (SharedSpellsContext.IsMulticaster(hero))
             {
                 return SharedSpellsContext.GetSharedCasterLevel(hero);

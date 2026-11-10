@@ -13,6 +13,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using static ActionDefinitions;
 using static FeatureDefinitionAttributeModifier;
@@ -270,7 +271,7 @@ public sealed class WizardWarMagic : AbstractSubclass
         private void HandleDeflectionShroud(GameLocationCharacter helper)
         {
             var rulesetHelper = helper.RulesetCharacter;
-            var classLevel = rulesetHelper.GetClassLevel(CharacterClassDefinitions.Wizard);
+            var classLevel = WizardProgressionContext.EffectiveLevel(rulesetHelper);
 
             if (classLevel < 14 || Gui.Battle == null)
             {
@@ -370,7 +371,7 @@ public sealed class WizardWarMagic : AbstractSubclass
                 0);
 
             var index = actualEffectForms.IndexOf(damageForm);
-            var classLevel = rulesetAttacker.GetClassLevel(CharacterClassDefinitions.Wizard);
+            var classLevel = WizardProgressionContext.EffectiveLevel(rulesetAttacker);
             var effectForm = EffectFormBuilder.DamageForm(DamageTypeForce, bonusDamage: classLevel)
                 .WithSavingThrow(EffectSavingThrowType.Negates);
 

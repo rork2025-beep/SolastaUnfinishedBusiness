@@ -44,7 +44,9 @@ internal static class MulticlassInOutRulesHelper
         allowedClasses.RemoveAll(c => Models.FighterProgressionContext.IsCapped(hero, c) ||
                                       Models.BarbarianProgressionContext.IsCapped(hero, c) ||
                                       Models.MonkProgressionContext.IsCapped(hero, c) ||
-                                      Models.RogueProgressionContext.IsCapped(hero, c));
+                                      Models.RogueProgressionContext.IsCapped(hero, c) ||
+                                      Models.WizardProgressionContext.IsCapped(hero, c) ||
+                                      !Models.WizardSpellcastingContext.CanSelectClass(hero, c));
 
         allowedClasses.Sort((a, b) =>
         {

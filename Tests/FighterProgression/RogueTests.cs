@@ -68,7 +68,8 @@ internal static class RogueTests
             data.GetProperty("triggerCondition").GetString()=="AdvantageOrNearbyAlly",
             "source eligibility/frequency metadata stays distinct from rank transformation");
         var glbm=types.Single(x=>x.Name=="GLBM");
-        check(glbm.Methods.Any(m=>Calls(m,"ScalingLevel","RogueProgressionContext")),
+        check(glbm.Methods.Any(m=>Calls(m,"ScalingLevel","WizardProgressionContext")) &&
+            types.Single(x=>x.Name=="WizardProgressionContext").Methods.Any(m=>Calls(m,"ScalingLevel","RogueProgressionContext")),
             "damage dispatcher calls class-scoped Rogue rank adapter");
         var fixing=types.Single(x=>x.Name=="ModifyAdditionalDamageRogueSneakAttack");
         var modify=fixing.Methods.Single(x=>x.Name=="ModifyAdditionalDamage");

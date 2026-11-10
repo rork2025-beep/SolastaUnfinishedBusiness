@@ -103,7 +103,7 @@ public static partial class Tabletop2024Context
         RestActivityDefinition activity, RulesetCharacterHero hero)
     {
         return activity != RestActivityMemorizeSpell ||
-               (Main.Settings.EnableWizardMemorizeSpell2024 && hero.GetClassLevel(Wizard) >= 5);
+               (Main.Settings.EnableWizardMemorizeSpell2024 && WizardProgressionContext.EffectiveLevel(hero) >= 5);
     }
 
     private static bool TryGetMemorizeSpellCondition(RulesetCharacter character, out RulesetCondition condition)
