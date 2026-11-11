@@ -413,12 +413,13 @@ internal static class EldritchVersatilityBuilders
             var characterLevel = ownerHero.TryGetAttributeValue(AttributeDefinitions.CharacterLevel);
             var proficiencyBonus = ownerHero.TryGetAttributeValue(AttributeDefinitions.ProficiencyBonus);
 
-            MaxPoints = ownerHero.GetClassLevel(CharacterClassDefinitions.Warlock);
+            var actualWarlock = ownerHero.GetClassLevel(CharacterClassDefinitions.Warlock);
+            MaxPoints = WarlockProgressionContext.EffectiveLevel(ownerHero);
 
             if (ownerHero.HasSubFeatureOfType<ModifyEffectDescriptionEldritchBlast>())
             {
                 BeamNumber =
-                    1 + ModifyEffectDescriptionEldritchBlast.ComputeAdditionalBeamCount(characterLevel, MaxPoints);
+                    1 + ModifyEffectDescriptionEldritchBlast.ComputeAdditionalBeamCount(characterLevel - actualWarlock + MaxPoints, MaxPoints);
             }
             else
             {

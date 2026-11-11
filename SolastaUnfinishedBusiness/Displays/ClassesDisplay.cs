@@ -50,6 +50,18 @@ internal static class ClassesDisplay
             Main.Settings.EnableSorcererCompressedProgressionPrototype = sorcererPrototype;
         }
 
+        var warlockPrototype = Main.Settings.EnableWarlockCompressedProgressionPrototype;
+        if (UI.Toggle("Warlock 20 to 12 prototype (NEW HEROES; restart; SINGLE CASTER ONLY)",
+                ref warlockPrototype, UI.AutoWidth()))
+        {
+            Main.Settings.EnableWarlockCompressedProgressionPrototype = warlockPrototype;
+        }
+        if (warlockPrototype || WarlockProgressionContext.Active)
+        {
+            UI.Label("Test only: existing saves are incompatible. Invocation replacement chains within one advancement are limited.");
+        }
+
+
         UI.Label();
 
         UI.ActionButton(Gui.Localize("ModUi/&DocsClasses").Bold().Khaki(),

@@ -501,6 +501,14 @@ internal static class MulticlassGameUi
         }
         SorcererSpellcastingContext.FilterSelection(heroBuildingData, spellTag, unlearn, ref knownSpells);
 
+        if (WarlockSpellcastingContext.TryGetLearningMaximum(localHeroCharacter, spellTag, out var warlockMaximum) &&
+            spellLevel > warlockMaximum)
+        {
+            group.gameObject.SetActive(false);
+            return;
+        }
+        WarlockSpellcastingContext.FilterSelection(heroBuildingData, spellTag, unlearn, ref knownSpells);
+
         group.extraSpellsMap.Clear();
         group.spellsTable.gameObject.SetActive(true);
         group.slotStatusTable.gameObject.SetActive(true);

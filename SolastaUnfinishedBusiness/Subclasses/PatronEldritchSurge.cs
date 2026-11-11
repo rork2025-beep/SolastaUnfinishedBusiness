@@ -19,6 +19,8 @@ using static SolastaUnfinishedBusiness.Api.DatabaseHelper;
 using static SolastaUnfinishedBusiness.Api.DatabaseHelper.SpellDefinitions;
 using static SolastaUnfinishedBusiness.Subclasses.Builders.EldritchVersatilityBuilders;
 
+using SolastaUnfinishedBusiness.Models;
+
 namespace SolastaUnfinishedBusiness.Subclasses;
 
 [UsedImplicitly]
@@ -212,7 +214,9 @@ public class PatronEldritchSurge : AbstractSubclass
 
             var totalLevel = rulesetHero.classesHistory.Count;
             var warlockClassLevel = rulesetHero.GetClassLevel(CharacterClassDefinitions.Warlock);
-            var additionalBeamCount = ComputeAdditionalBeamCount(totalLevel, warlockClassLevel);
+            var effective = WarlockProgressionContext.EffectiveLevel(rulesetHero);
+            var progressionTotal = totalLevel - warlockClassLevel + effective;
+            var additionalBeamCount = ComputeAdditionalBeamCount(progressionTotal, effective);
 
             effectDescription.effectAdvancement.Clear();
             effectDescription.targetParameter = 1 + additionalBeamCount;

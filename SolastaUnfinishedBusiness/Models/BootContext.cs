@@ -138,6 +138,7 @@ internal static class BootContext
             RogueProgressionContext.LateLoad();
             WizardProgressionContext.LateLoad();
             SorcererProgressionContext.LateLoad();
+            WarlockProgressionContext.LateLoad();
 
             // Save by location initialization depends on services to be ready
             SaveByLocationContext.LateLoad();

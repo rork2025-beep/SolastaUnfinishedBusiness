@@ -295,7 +295,7 @@ public sealed class PatronSoulBlade : AbstractSubclass
                 return;
             }
 
-            var characterLevel = rulesetCaster.GetClassLevel(CharacterClassDefinitions.Warlock);
+            var characterLevel = WarlockProgressionContext.EffectiveLevel(rulesetCaster);
             var charisma = rulesetCaster.TryGetAttributeValue(AttributeDefinitions.Charisma);
             var charismaModifier = AttributeDefinitions.ComputeAbilityScoreModifier(charisma);
             var healingReceived = characterLevel + charismaModifier;
@@ -309,7 +309,7 @@ public sealed class PatronSoulBlade : AbstractSubclass
     {
         public bool IsValid(BaseDefinition definition, RulesetCharacter character, EffectDescription effectDescription)
         {
-            return definition == baseDefinition && character.GetClassLevel(CharacterClassDefinitions.Warlock) >= 10;
+            return definition == baseDefinition && WarlockProgressionContext.EffectiveLevel(character) >= 10;
         }
 
         public EffectDescription GetEffectDescription(
@@ -318,7 +318,7 @@ public sealed class PatronSoulBlade : AbstractSubclass
             RulesetCharacter character,
             RulesetEffect rulesetEffect)
         {
-            var classLevel = character.GetClassLevel(CharacterClassDefinitions.Warlock);
+            var classLevel = WarlockProgressionContext.EffectiveLevel(character);
             var dice = classLevel switch
             {
                 >= 14 => 3,

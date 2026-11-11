@@ -41,12 +41,16 @@ public static class CharacterBuildingManagerPatcher
     public static class TrainInvocation_Patch
     {
         [UsedImplicitly]
-        public static void Prefix(
+        public static bool Prefix(
             CharacterBuildingManager __instance,
             CharacterHeroBuildingData heroBuildingData,
             InvocationDefinition invocation,
-            ref bool checkPool)
+            ref bool checkPool,
+            string tag)
         {
+            // Validate before the existing prefix creates any invocation-granted spell pools.
+            if (!WarlockInvocationContext.CanTrain(heroBuildingData, invocation, tag)) return false;
+
             //PATCH: do not check or modify point pools when dealing with custom invocations
             if (invocation is InvocationDefinitionCustom)
             {
@@ -55,13 +59,13 @@ public static class CharacterBuildingManagerPatcher
 
             if (invocation.GrantedFeature is not FeatureDefinitionPointPool featureDefinitionPointPool)
             {
-                return;
+                return true;
             }
 
             if (!heroBuildingData.PointPoolStacks.TryGetValue(
                     featureDefinitionPointPool.PoolType, out var pointPoolStack))
             {
-                return;
+                return true;
             }
 
             var hero = heroBuildingData.HeroCharacter;
@@ -80,6 +84,7 @@ public static class CharacterBuildingManagerPatcher
             {
                 __instance.ApplyFeatureDefinitionPointPool(heroBuildingData, featureDefinitionPointPool, finaTag);
             }
+            return true;
         }
     }
 
@@ -425,7 +430,9 @@ public static class CharacterBuildingManagerPatcher
                 WizardProgressionContext.IsCapped(hero, classDefinition) ||
                 !WizardSpellcastingContext.CanSelectClass(hero, classDefinition) ||
                 SorcererProgressionContext.IsCapped(hero, classDefinition) ||
-                !SorcererSpellcastingContext.CanSelectClass(hero, classDefinition))
+                !SorcererSpellcastingContext.CanSelectClass(hero, classDefinition) ||
+                WarlockProgressionContext.IsCapped(hero, classDefinition) ||
+                !WarlockSpellcastingContext.CanSelectClass(hero, classDefinition))
             {
                 Main.Error("Compressed progression: class cap or unsupported casting combination. Select another eligible class.");
                 return false;
@@ -500,13 +507,17 @@ public static class CharacterBuildingManagerPatcher
                 var goodTag =
                     AttributeDefinitions.GetClassTag(DatabaseHelper.CharacterClassDefinitions.Warlock, levels);
 
-                foreach (var badKey in pointPoolStack.ActivePools.Keys.Where(x => x != goodTag).ToArray())
+                foreach (var badKey in pointPoolStack.ActivePools.Keys.Where(x => x != goodTag &&
+                             !(WarlockProgressionContext.Active &&
+                               (x.StartsWith(goodTag + "Warlock12", StringComparison.Ordinal) ||
+                                heroBuildingData.levelupTrainedFeats.Keys.Any(featTag => x.StartsWith(featTag, StringComparison.Ordinal))))).ToArray())
                 {
                     pointPoolStack.ActivePools.Remove(badKey);
                 }
             }
 
             FeatureDefinitionGrantInvocations.GrantInvocations(hero, tag, grantedFeatures);
+            WarlockInvocationContext.Configure(heroBuildingData);
         }
 
         [UsedImplicitly]

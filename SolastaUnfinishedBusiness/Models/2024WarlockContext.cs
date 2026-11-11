@@ -274,7 +274,7 @@ public static partial class Tabletop2024Context
                 yield break;
             }
 
-            hero.ClassesAndLevels.TryGetValue(Warlock, out var warlockClassLevel);
+            var warlockClassLevel = WarlockProgressionContext.EffectiveLevel(hero);
 
             var slotLevel = SharedSpellsContext.IsMulticaster(hero)
                 ? SharedSpellsContext.PactMagicSlotsTab

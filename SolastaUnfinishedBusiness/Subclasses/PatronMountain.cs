@@ -70,7 +70,7 @@ public class PatronMountain : AbstractSubclass
                     return 0;
                 }
 
-                var levels = rulesetCaster.GetClassLevel(CharacterClassDefinitions.Warlock);
+                var levels = WarlockProgressionContext.EffectiveLevel(rulesetCaster);
                 var charismaModifier = AttributeDefinitions.ComputeAbilityScoreModifier(
                     rulesetCaster.TryGetAttributeValue(AttributeDefinitions.Charisma));
 
@@ -243,7 +243,7 @@ public class PatronMountain : AbstractSubclass
             RulesetEffect rulesetEffect)
         {
             var rulesetHelper = helper.RulesetCharacter;
-            var levels = rulesetHelper.GetClassLevel(CharacterClassDefinitions.Warlock);
+            var levels = WarlockProgressionContext.EffectiveLevel(rulesetHelper);
             var power = levels < 6 ? powerBarrierOfStone : powerEternalGuardian;
             var usablePower = PowerProvider.Get(power, rulesetHelper);
 

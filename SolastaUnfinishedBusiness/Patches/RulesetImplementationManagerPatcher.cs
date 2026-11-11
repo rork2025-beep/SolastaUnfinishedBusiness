@@ -673,6 +673,15 @@ public static class RulesetImplementationManagerPatcher
                 return true;
             }
 
+            // The upstream legacy capstone clones Arcane Recovery. Pact Magic must recover
+            // all pact uses, without touching the separate Arcanum or Spell Points resources.
+            if (WarlockProgressionContext.Active &&
+                formsParams.activeEffect.SourceDefinition == Level20Context.PowerWarlockEldritchMaster)
+            {
+                WarlockProgressionContext.RecoverPactSlots(originalHero);
+                return false;
+            }
+
             var spellSlotsForm = effectForm.SpellSlotsForm;
 
             switch (spellSlotsForm.Type)

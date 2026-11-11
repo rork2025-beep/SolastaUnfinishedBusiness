@@ -18,6 +18,8 @@ using static SolastaUnfinishedBusiness.Api.DatabaseHelper.SpellDefinitions;
 using static SolastaUnfinishedBusiness.Api.DatabaseHelper.SpellListDefinitions;
 using Resources = SolastaUnfinishedBusiness.Properties.Resources;
 
+using SolastaUnfinishedBusiness.Models;
+
 namespace SolastaUnfinishedBusiness.Subclasses;
 
 [UsedImplicitly]
@@ -457,7 +459,7 @@ public sealed class PatronMoonlitScion : AbstractSubclass
             RulesetCharacter character,
             RulesetEffect rulesetEffect)
         {
-            var levels = character.GetClassLevel(CharacterClassDefinitions.Warlock);
+            var levels = WarlockProgressionContext.EffectiveLevel(character);
 
             if (levels < 6)
             {
@@ -483,7 +485,7 @@ public sealed class PatronMoonlitScion : AbstractSubclass
         {
             var actingCharacter = action.ActingCharacter;
             var rulesetCharacter = actingCharacter.RulesetCharacter;
-            var levels = rulesetCharacter.GetClassLevel(CharacterClassDefinitions.Warlock);
+            var levels = WarlockProgressionContext.EffectiveLevel(rulesetCharacter);
             var slotLevel = levels switch
             {
                 < 7 => 3,

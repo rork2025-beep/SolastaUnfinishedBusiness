@@ -1337,7 +1337,9 @@ public static class RulesetCharacterHeroPatcher
                 WizardProgressionContext.IsCapped(__instance, classDefinition) ||
                 !WizardSpellcastingContext.CanSelectClass(__instance, classDefinition) ||
                 SorcererProgressionContext.IsCapped(__instance, classDefinition) ||
-                !SorcererSpellcastingContext.CanSelectClass(__instance, classDefinition))
+                !SorcererSpellcastingContext.CanSelectClass(__instance, classDefinition) ||
+                WarlockProgressionContext.IsCapped(__instance, classDefinition) ||
+                !WarlockSpellcastingContext.CanSelectClass(__instance, classDefinition))
             {
                 return false;
             }

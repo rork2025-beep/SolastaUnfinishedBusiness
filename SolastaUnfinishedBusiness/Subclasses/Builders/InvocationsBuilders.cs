@@ -1444,7 +1444,7 @@ internal static class InvocationsBuilders
 
             void ReactionValidated()
             {
-                var classLevel = rulesetDefender.GetClassLevel(CharacterClassDefinitions.Warlock);
+                var classLevel = WarlockProgressionContext.EffectiveLevel(rulesetDefender);
 
                 rulesetDefender.ReceiveTemporaryHitPoints(
                     classLevel * 10, DurationType.UntilAnyRest, 0, TurnOccurenceType.StartOfTurn, rulesetDefender.Guid);

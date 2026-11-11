@@ -308,7 +308,7 @@ public class PatronCelestial : AbstractSubclass
                 characterService.PartyCharacters.Union(characterService.GuestCharacters);
             var actingCharacter = action.ActingCharacter;
             var rulesetCharacter = actingCharacter.RulesetCharacter;
-            var classLevel = rulesetCharacter.GetClassLevel(CharacterClassDefinitions.Warlock);
+            var classLevel = WarlockProgressionContext.EffectiveLevel(rulesetCharacter);
             var charismaModifier = AttributeDefinitions.ComputeAbilityScoreModifier(
                 rulesetCharacter.TryGetAttributeValue(AttributeDefinitions.Charisma));
 

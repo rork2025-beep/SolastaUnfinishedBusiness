@@ -44,7 +44,7 @@ public static class GuiInvocationDefinitionPatcher
                 var text = invocation.RequiredLevel.ToString();
 
                 if (hero != null && invocation.RequiredLevel >
-                    hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Warlock))
+                    SolastaUnfinishedBusiness.Models.WarlockInvocationContext.PrerequisiteLevel(hero))
                 {
                     isValid = false;
                     text = Gui.Colorize(text, "EA7171");

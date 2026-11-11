@@ -93,7 +93,9 @@ internal static class SharedSpellsContext
 
         var warlockLevel = GetWarlockCasterLevel(hero);
 
-        level = (warlockLevel + 1) / 2;
+        level = WarlockProgressionContext.Active
+            ? WarlockProgressionRules.MaximumArcanumCircle(warlockLevel)
+            : (warlockLevel + 1) / 2;
     }
 
     // need the null check for companions who don't have repertoires
@@ -112,7 +114,7 @@ internal static class SharedSpellsContext
             warlockLevel = rulesetCharacterHero.ClassesAndLevels[warlock];
         }
 
-        return warlockLevel;
+        return WarlockProgressionRules.CasterLevel(WarlockProgressionContext.Active, warlockLevel);
     }
 
     internal static int GetWarlockSpellLevel([CanBeNull] RulesetCharacterHero rulesetCharacterHero)

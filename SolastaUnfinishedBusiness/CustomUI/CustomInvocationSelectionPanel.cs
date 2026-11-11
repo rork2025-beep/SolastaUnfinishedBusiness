@@ -593,6 +593,7 @@ internal class CustomInvocationSelectionPanel : CharacterStagePanel
             );
         }
 
+        SolastaUnfinishedBusiness.Models.WarlockProgressionContext.AssignCustomPoolOrigins(_gainedCustomFeatures);
         InvocationPoolTypeCustom.RefreshAll();
     }
 
