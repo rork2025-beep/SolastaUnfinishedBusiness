@@ -53,6 +53,11 @@ public static class RulesetEffectPowerPatcher
                 SolastaUnfinishedBusiness.Models.DruidWildshapeContext.IsWildShapePower(power) && user.GetClassLevel(SolastaUnfinishedBusiness.Api.DatabaseHelper.CharacterClassDefinitions.Druid) > 0)
                 return effect.ComputeRoundsDuration(slotLevel, SolastaUnfinishedBusiness.Models.DruidProgressionContext.EffectiveLevel(user));
 
+            if (SolastaUnfinishedBusiness.Models.PaladinProgressionContext.Active &&
+                SolastaUnfinishedBusiness.Models.PaladinProgressionContext.HoldsPower(power) &&
+                user.GetClassLevel(SolastaUnfinishedBusiness.Api.DatabaseHelper.CharacterClassDefinitions.Paladin) > 0)
+                return effect.ComputeRoundsDuration(slotLevel, SolastaUnfinishedBusiness.Models.PaladinProgressionContext.EffectiveLevel(user));
+
             if (classLevel > 1 || power.EffectDescription.DurationType != DurationType.HalfClassLevelHours)
             {
                 return effect.ComputeRoundsDuration(slotLevel, classLevel);

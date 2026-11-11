@@ -96,4 +96,5 @@ WarlockInvocationTransactionTests.Run(Check, game, mod);
 BardTests.Run(Check, game, mod);
 ClericTests.Run(Check, game, mod);
 DruidTests.Run(Check, game, mod);
+PaladinTests.Run(Check, game, mod);
 Console.WriteLine($"{count} checks passed; these are game-independent planner tests, not gameplay tests.");

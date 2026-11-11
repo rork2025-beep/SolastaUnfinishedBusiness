@@ -1009,8 +1009,10 @@ internal static class GLBM
                             NotificationTag: "DivineSmite"
                         };
 
+                        if (isDivineSmite && !PaladinProgressionContext.CanUseClassMechanics(hero)) { continue; }
+
                         //Skip divine smites when 2024 smite rules are enabled - it is processed earlier with spells
-                        if (isDivineSmite && Main.Settings.EnablePaladinSmite2024) { continue; }
+                        if (isDivineSmite && PaladinProgressionContext.SmiteRule(hero)) { continue; }
 
                         if (isDivineSmite && rangedAttack)
                         {
@@ -1104,8 +1106,7 @@ internal static class GLBM
 
                             //TODO: convert this to a proper interface to change number of smite dice
                             if (validTrigger && isDivineSmite &&
-                                hero.GetSubclassLevel(DatabaseHelper.CharacterClassDefinitions.Paladin,
-                                    OathOfThunder.Name) == 20)
+                                PaladinProgressionContext.EffectiveSubclassLevel(hero, OathOfThunder.Name) == 20)
                             {
                                 reactionParams.intParameter++;
                             }

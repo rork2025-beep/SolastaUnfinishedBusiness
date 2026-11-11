@@ -277,7 +277,9 @@ public static class RulesetActorPatcher
                                                     ? ClericProgressionContext.EffectiveLevel(sourceCharacter)
                                                     : source == RuleDefinitions.DruidClass
                                                         ? DruidProgressionContext.EffectiveLevel(sourceCharacter)
-                                                        : sourceCharacter.GetClassLevel(source);
+                                                        : source == RuleDefinitions.PaladinClass
+                                                            ? PaladinProgressionContext.EffectiveLevel(sourceCharacter)
+                                                            : sourceCharacter.GetClassLevel(source);
                     break;
 
                 case (ConditionDefinition.OriginOfAmount)ExtraOriginOfAmount.SourceAbilityBonus:
@@ -1198,7 +1200,7 @@ public static class RulesetActorPatcher
                             attributeModifier.Value = attribute.Key switch
                             {
                                 AttributeDefinitions.HealingPool =>
-                                    hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Paladin),
+                                    PaladinProgressionContext.EffectiveLevel(hero),
                                 AttributeDefinitions.KiPoints =>
                                     MonkProgressionContext.EffectiveLevel(hero),
                                 AttributeDefinitions.SorceryPoints =>

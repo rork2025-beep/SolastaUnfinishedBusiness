@@ -24,4 +24,5 @@
   </ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/ClericProgressionRules.cs" Link="ClericProgressionRules.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/DruidProgressionRules.cs" Link="DruidProgressionRules.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/PaladinProgressionRules.cs" Link="PaladinProgressionRules.cs" /></ItemGroup>
 </Project>

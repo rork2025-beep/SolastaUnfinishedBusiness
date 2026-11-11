@@ -30,7 +30,9 @@ public class ModifyPowerPoolAmount : IModifyPowerPoolAmount
                                     ? Models.ClericProgressionContext.EffectiveLevel(character)
                                     : Attribute == RuleDefinitions.DruidClass
                                         ? Models.DruidProgressionContext.EffectiveLevel(character)
-                                        : character.GetClassLevel(Attribute)),
+                                        : Attribute == RuleDefinitions.PaladinClass
+                                            ? Models.PaladinProgressionContext.EffectiveLevel(character)
+                                            : character.GetClassLevel(Attribute)),
             PowerPoolBonusCalculationType.Attribute =>
                 Value * character.TryGetAttributeValue(Attribute),
             PowerPoolBonusCalculationType.AttributeModifier =>

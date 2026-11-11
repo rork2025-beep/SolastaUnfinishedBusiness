@@ -35,7 +35,7 @@ public sealed class OathOfDemonHunter : AbstractSubclass
         var subClassLevel = character.GetSubclassLevel(
             CharacterClassDefinitions.Paladin, Name);
 
-        return Mathf.Max(oldSubclassLevel, subClassLevel);
+        return PaladinProgressionRules.EffectiveLevel(PaladinProgressionContext.Active, Mathf.Max(oldSubclassLevel, subClassLevel));
     }
 
     internal static readonly IsWeaponValidHandler IsOathOfDemonHunterWeapon = (mode, item, character) =>

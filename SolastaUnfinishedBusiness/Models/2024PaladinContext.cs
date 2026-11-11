@@ -256,7 +256,7 @@ public static partial class Tabletop2024Context
         var tag = AttributeDefinitions.GetClassTag(Paladin, 2);
         if (!hero.ActiveFeatures.TryGetValue(tag, out var features)) { return; }
 
-        if (Main.Settings.EnablePaladinSmite2024)
+        if (PaladinProgressionContext.SmiteRule(hero))
         {
             features.TryAddRange(DivineSmite2024FeatureSet.FeatureSet);
         }
@@ -402,7 +402,7 @@ public static partial class Tabletop2024Context
     {
         public IEnumerator OnPowerOrSpellFinishedByMe(CharacterActionMagicEffect action, BaseDefinition baseDefinition)
         {
-            if (!Main.Settings.EnablePaladinRestoringTouch2024)
+            if (!PaladinProgressionContext.RestoringTouchRule(action.ActingCharacter.RulesetCharacter))
             {
                 yield break;
             }
@@ -457,6 +457,7 @@ public static partial class Tabletop2024Context
         {
             var character = action.ActingCharacter;
             var rulesetCharacter = character.RulesetCharacter;
+            if (!PaladinPowerSafetyContext.BeginRecharge(action, power as FeatureDefinitionPower, powerToRecharge)) yield break;
             var repertoire = rulesetCharacter.GetClassSpellRepertoire(Paladin);
             var usablePower = PowerProvider.Get(powerToRecharge, rulesetCharacter);
 
@@ -468,6 +469,8 @@ public static partial class Tabletop2024Context
 
         public bool CanUsePower(RulesetCharacter rulesetCharacter, FeatureDefinitionPower power)
         {
+            if (PaladinProgressionContext.Active && rulesetCharacter.GetClassLevel(Paladin) > 0)
+                return PaladinPowerSafetyContext.CanRecharge(rulesetCharacter, power, powerToRecharge);
             var repertoire = rulesetCharacter.GetClassSpellRepertoire(Paladin);
             var remaining = 0;
 

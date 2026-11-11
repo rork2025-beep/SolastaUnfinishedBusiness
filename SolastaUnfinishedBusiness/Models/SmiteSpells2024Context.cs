@@ -128,7 +128,7 @@ public static class SmiteSpells2024Context
         bool criticalHit,
         bool rangedAttack)
     {
-        if (attackMode == null) { yield break; }
+        if (attackMode == null || !PaladinProgressionContext.CanUseClassMechanics(attacker.RulesetCharacter)) { yield break; }
 
         var weapon = attackMode.SourceDefinition as ItemDefinition;
 

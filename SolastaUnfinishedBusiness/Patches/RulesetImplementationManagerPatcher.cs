@@ -366,7 +366,9 @@ public static class RulesetImplementationManagerPatcher
                         DruidProgressionContext.HoldsPower(featureDefinitionPower)
                 ? DatabaseHelper.CharacterClassDefinitions.Druid : character.FindClassHoldingFeature(featureDefinitionPower);
             var klassLevel = klass == DatabaseHelper.CharacterClassDefinitions.Druid
-                ? DruidProgressionContext.EffectiveLevel(character) : character.GetClassLevel(klass);
+                ? DruidProgressionContext.EffectiveLevel(character)
+                : klass == DatabaseHelper.CharacterClassDefinitions.Paladin
+                    ? PaladinProgressionContext.EffectiveLevel(character) : character.GetClassLevel(klass);
 
             rank = effectForm.LevelType switch
             {

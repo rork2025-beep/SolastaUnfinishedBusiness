@@ -50,6 +50,12 @@ internal static class ClassesDisplay
             Main.Settings.EnableSorcererCompressedProgressionPrototype = sorcererPrototype;
         }
 
+        var paladinPrototype = Main.Settings.EnablePaladinCompressedProgressionPrototype;
+        if (UI.Toggle("Paladin 20 to 12 prototype (NEW HEROES; restart; SINGLE HALF-CASTER ONLY)", ref paladinPrototype, UI.AutoWidth()))
+            Main.Settings.EnablePaladinCompressedProgressionPrototype = paladinPrototype;
+        if (paladinPrototype || PaladinProgressionContext.Active)
+            UI.Label("Existing Paladin saves are incompatible. Restart after changing progression/rules. End temporary class effects before respec.");
+
         var druidPrototype = Main.Settings.EnableDruidCompressedProgressionPrototype;
         if (UI.Toggle("Druid 20 to 12 prototype (NEW HEROES; restart; SINGLE CASTER ONLY)", ref druidPrototype, UI.AutoWidth()))
             Main.Settings.EnableDruidCompressedProgressionPrototype = druidPrototype;

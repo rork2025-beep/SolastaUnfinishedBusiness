@@ -48,8 +48,10 @@ internal static class ClericProgressionContext
 
     // The upstream global OR suppresses legacy Cleric short-rest recovery when only Paladin2024 is on.
     internal static bool PreserveChannelUsesOnShortRest(RulesetCharacter character) =>
-        ClericProgressionRules.Use2024ChannelRecovery(Active && character.GetClassLevel(Cleric) > 0,
-            Main.Settings.EnableClericChannelDivinity2024, Main.Settings.EnablePaladinChannelDivinity2024);
+        PaladinProgressionRules.Use2024ChannelRecovery(PaladinProgressionContext.Active && character.GetClassLevel(Paladin) > 0,
+            PaladinProgressionContext.ChannelRule(character),
+            ClericProgressionRules.Use2024ChannelRecovery(Active && character.GetClassLevel(Cleric) > 0,
+                Main.Settings.EnableClericChannelDivinity2024, Main.Settings.EnablePaladinChannelDivinity2024));
 
     internal static bool IsCapped(RulesetCharacterHero hero, CharacterClassDefinition klass) =>
         klass == Cleric && ClericProgressionRules.IsCapped(Active, hero.GetClassLevel(Cleric));

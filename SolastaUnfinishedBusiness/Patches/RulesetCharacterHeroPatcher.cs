@@ -1344,6 +1344,8 @@ public static class RulesetCharacterHeroPatcher
                 !BardSpellcastingContext.CanSelectClass(__instance, classDefinition) ||
                 ClericProgressionContext.IsCapped(__instance, classDefinition) ||
                 !ClericSpellcastingContext.CanSelectClass(__instance, classDefinition) ||
+                PaladinProgressionContext.IsCapped(__instance, classDefinition) ||
+                !PaladinSpellcastingContext.CanSelectClass(__instance, classDefinition) ||
                 DruidProgressionContext.IsCapped(__instance, classDefinition) ||
                 !DruidSpellcastingContext.CanSelectClass(__instance, classDefinition))
             {
@@ -1642,7 +1644,9 @@ public static class RulesetCharacterHeroPatcher
                     ? Math.Max(1, Math.Min(20, ClericProgressionContext.EffectiveLevel(__instance)))
                     : DruidProgressionContext.Active && spellRepertoire.SpellCastingClass == Druid
                         ? Math.Max(1, Math.Min(20, DruidProgressionContext.EffectiveLevel(__instance)))
-                        : __instance.ClassesAndLevels[spellRepertoire.SpellCastingClass];
+                        : PaladinProgressionContext.Active && spellRepertoire.SpellCastingClass == Paladin
+                            ? Math.Max(1, Math.Min(20, PaladinProgressionContext.EffectiveLevel(__instance)))
+                            : __instance.ClassesAndLevels[spellRepertoire.SpellCastingClass];
 
             __result = preparedSpells[levels - 1];
 

@@ -173,6 +173,13 @@ internal static class ToolsContext
                     "Message/&MessageOkTitle", string.Empty, null, null);
                 yield break;
             }
+            if (!PaladinPowerSafetyContext.CanRespec(functorParameters.RestingHero))
+            {
+                Gui.GuiService.ShowMessage(MessageModal.Severity.Informative1, "Paladin prototype",
+                    "End temporary Paladin/oath effects and Smite conditions before respec. Restart if rules changed.",
+                    "Message/&MessageOkTitle", string.Empty, null, null);
+                yield break;
+            }
             IsRespecing = true;
 
             var characterBuildingService = ServiceRepository.GetService<ICharacterBuildingService>();
@@ -573,9 +580,10 @@ internal static class ToolsContext
                 return;
             }
 
+            var retained = conditions.Where(c => PaladinPowerSafetyContext.ShouldTransferCondition(oldHero, newHero, c)).ToArray();
             newHero.AddConditionCategoryAsNeeded(category);
-            newHero.AllConditions.AddRange(conditions);
-            newHero.ConditionsByCategory[category].AddRange(conditions);
+            newHero.AllConditions.AddRange(retained);
+            newHero.ConditionsByCategory[category].AddRange(retained);
         }
 
         private static void CleanupOldHeroConditions(RulesetCharacterHero oldHero, RulesetCharacterHero newHero)

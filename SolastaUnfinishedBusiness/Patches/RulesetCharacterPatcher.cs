@@ -1822,7 +1822,7 @@ public static class RulesetCharacterPatcher
             }
 
             //PATCH: support for Paladins to regain one channel divinity usage at short rests
-            if (Main.Settings.EnablePaladinChannelDivinity2024 && __instance.GetClassLevel(Paladin) >= 3 &&
+            if (PaladinProgressionContext.ChannelRule(__instance) && __instance.GetClassLevel(Paladin) >= 3 &&
                 __instance.UsedChannelDivinity > 0)
             {
                 if (!simulate)
