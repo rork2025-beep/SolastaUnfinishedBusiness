@@ -50,6 +50,15 @@ internal static class ClassesDisplay
             Main.Settings.EnableSorcererCompressedProgressionPrototype = sorcererPrototype;
         }
 
+        var clericPrototype = Main.Settings.EnableClericCompressedProgressionPrototype;
+        if (UI.Toggle("Cleric 20 to 12 prototype (NEW HEROES; restart; SINGLE CASTER ONLY)",
+                ref clericPrototype, UI.AutoWidth()))
+        {
+            Main.Settings.EnableClericCompressedProgressionPrototype = clericPrototype;
+        }
+        if (clericPrototype || ClericProgressionContext.Active)
+            UI.Label("Existing Cleric saves are incompatible; use new test heroes and restart after progression settings changes.");
+
         var bardPrototype = Main.Settings.EnableBardCompressedProgressionPrototype;
         if (UI.Toggle("Bard 20 to 12 prototype (NEW HEROES; restart; SINGLE CASTER ONLY)",
                 ref bardPrototype, UI.AutoWidth()))

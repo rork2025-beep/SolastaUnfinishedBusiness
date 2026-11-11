@@ -1736,7 +1736,7 @@ public static class RulesetCharacterPatcher
         {
             // invert used channel divinity sign if any 2024 setting enabled and a short rest to avoid double dip
             if (restType == RestType.ShortRest &&
-                (Main.Settings.EnablePaladinChannelDivinity2024 || Main.Settings.EnableClericChannelDivinity2024))
+                ClericProgressionContext.PreserveChannelUsesOnShortRest(__instance))
             {
                 __instance.UsedChannelDivinity = -__instance.UsedChannelDivinity;
             }
@@ -1749,7 +1749,7 @@ public static class RulesetCharacterPatcher
         {
             // put back used channel divinity sign if any 2024 setting enabled and a short rest to avoid double dip
             if (restType == RestType.ShortRest &&
-                (Main.Settings.EnablePaladinChannelDivinity2024 || Main.Settings.EnableClericChannelDivinity2024))
+                ClericProgressionContext.PreserveChannelUsesOnShortRest(__instance))
             {
                 __instance.UsedChannelDivinity = -__instance.UsedChannelDivinity;
             }

@@ -52,7 +52,8 @@ internal static class WizardProgressionContext
         klass == Wizard ? EffectiveLevel(character) : klass == Sorcerer
             ? SorcererProgressionContext.EffectiveLevel(character) : klass == Warlock
                 ? WarlockProgressionContext.EffectiveLevel(character) : klass == Bard
-                    ? BardProgressionContext.EffectiveLevel(character) : RogueProgressionContext.ScalingLevel(character, klass);
+                    ? BardProgressionContext.EffectiveLevel(character) : klass == Cleric
+                        ? ClericProgressionContext.EffectiveLevel(character) : RogueProgressionContext.ScalingLevel(character, klass);
 
     internal static int EffectiveSubclassLevel(RulesetCharacter character, string subclass)
     {

@@ -629,14 +629,8 @@ public static partial class Tabletop2024Context
             RulesetCharacter character,
             RulesetEffect rulesetEffect)
         {
-            var levels = character.GetClassLevel(Cleric);
-            var diceNumber = levels switch
-            {
-                >= 18 => 4,
-                >= 13 => 3,
-                >= 7 => 2,
-                _ => 1
-            };
+            var levels = ClericProgressionContext.EffectiveLevel(character);
+            var diceNumber = ClericProgressionRules.DivineSparkDice(levels);
 
             effectDescription.EffectForms[0].HealingForm.diceNumber = diceNumber;
 
@@ -657,9 +651,22 @@ public static partial class Tabletop2024Context
             RulesetCharacter character,
             RulesetEffect rulesetEffect)
         {
-            if (!Main.Settings.EnableClericSearUndead2024)
+            var compressedCleric = ClericProgressionContext.Active && character.GetClassLevel(Cleric) > 0;
+            if (!Main.Settings.EnableClericSearUndead2024 ||
+                (compressedCleric && ClericProgressionContext.EffectiveLevel(character) < 5))
             {
-                effectDescription.EffectForms.Remove(SearUndeadDamageForm);
+                if (compressedCleric)
+                {
+                    // EffectDescription.Copy deep-copies forms; the static form is not the copied instance.
+                    var sear = effectDescription.EffectForms.FirstOrDefault();
+                    if (sear?.FormType == EffectForm.EffectFormType.Damage &&
+                        sear.DamageForm.DamageType == DamageTypeRadiant && sear.DamageForm.DieType == DieType.D8)
+                        effectDescription.EffectForms.Remove(sear);
+                }
+                else
+                {
+                    effectDescription.EffectForms.Remove(SearUndeadDamageForm);
+                }
 
                 return effectDescription;
             }

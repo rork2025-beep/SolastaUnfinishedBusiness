@@ -22,4 +22,5 @@
     <Compile Include="../../SolastaUnfinishedBusiness/Models/BardProgressionRules.cs" Link="BardProgressionRules.cs" />
     <Compile Include="../../SolastaUnfinishedBusiness/Models/BardSpellLearningState.cs" Link="BardSpellLearningState.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/ClericProgressionRules.cs" Link="ClericProgressionRules.cs" /></ItemGroup>
 </Project>

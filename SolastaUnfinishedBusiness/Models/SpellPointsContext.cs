@@ -424,6 +424,12 @@ internal static class SpellPointsContext
                 return SpellcastingProgressionPlan.CasterLevel(hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Sorcerer));
             }
 
+            if (ClericProgressionContext.Active && ClericSpellcastingContext.IsSupportedHero(hero) &&
+                hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Cleric) > 0)
+            {
+                return SpellcastingProgressionPlan.CasterLevel(hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Cleric));
+            }
+
             if (BardProgressionContext.Active && BardSpellcastingContext.IsSupportedHero(hero) &&
                 hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Bard) > 0)
             {

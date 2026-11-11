@@ -1353,7 +1353,7 @@ internal static class Level20SubclassesContext
         {
             var attacker = action.ActingCharacter;
 
-            if (attacker.RulesetCharacter.GetClassLevel(CharacterClassDefinitions.Cleric) < 17)
+            if (ClericProgressionContext.EffectiveLevel(attacker.RulesetCharacter) < 17)
             {
                 yield break;
             }
@@ -1368,7 +1368,7 @@ internal static class Level20SubclassesContext
         {
             var attacker = action.ActingCharacter;
 
-            if (attacker.RulesetCharacter.GetClassLevel(CharacterClassDefinitions.Cleric) < 17)
+            if (ClericProgressionContext.EffectiveLevel(attacker.RulesetCharacter) < 17)
             {
                 yield break;
             }
@@ -1497,7 +1497,7 @@ internal static class Level20SubclassesContext
     {
         public void OnConditionAdded(RulesetCharacter target, RulesetCondition rulesetCondition)
         {
-            var clericLevel = target.GetClassLevel(CharacterClassDefinitions.Cleric);
+            var clericLevel = ClericProgressionContext.EffectiveLevel(target);
 
             target.ReceiveTemporaryHitPoints(
                 clericLevel, DurationType.UntilAnyRest, 1, TurnOccurenceType.EndOfTurn, rulesetCondition.SourceGuid);
@@ -1591,7 +1591,7 @@ internal static class Level20SubclassesContext
             ally.UsedSpecialFeatures.TryAdd(featureKeeperOfOblivion.Name, 1);
 
             var rulesetAlly = ally.RulesetCharacter;
-            var clericLevel = rulesetAlly.GetClassLevel(CharacterClassDefinitions.Cleric);
+            var clericLevel = ClericProgressionContext.EffectiveLevel(rulesetAlly);
             var healingPool = clericLevel;
 
             // haven't died within 30 ft of Cleric

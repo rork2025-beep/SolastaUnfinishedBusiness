@@ -26,7 +26,9 @@ public class ModifyPowerPoolAmount : IModifyPowerPoolAmount
                             ? Models.WarlockProgressionContext.EffectiveLevel(character)
                             : Attribute == RuleDefinitions.BardClass
                                 ? Models.BardProgressionContext.EffectiveLevel(character)
-                                : character.GetClassLevel(Attribute)),
+                                : Attribute == RuleDefinitions.ClericClass
+                                    ? Models.ClericProgressionContext.EffectiveLevel(character)
+                                    : character.GetClassLevel(Attribute)),
             PowerPoolBonusCalculationType.Attribute =>
                 Value * character.TryGetAttributeValue(Attribute),
             PowerPoolBonusCalculationType.AttributeModifier =>
