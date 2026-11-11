@@ -275,7 +275,9 @@ public static class RulesetActorPatcher
                                                 ? BardProgressionContext.EffectiveLevel(sourceCharacter)
                                                 : source == RuleDefinitions.ClericClass
                                                     ? ClericProgressionContext.EffectiveLevel(sourceCharacter)
-                                                    : sourceCharacter.GetClassLevel(source);
+                                                    : source == RuleDefinitions.DruidClass
+                                                        ? DruidProgressionContext.EffectiveLevel(sourceCharacter)
+                                                        : sourceCharacter.GetClassLevel(source);
                     break;
 
                 case (ConditionDefinition.OriginOfAmount)ExtraOriginOfAmount.SourceAbilityBonus:
@@ -1222,8 +1224,7 @@ public static class RulesetActorPatcher
                             attribute.Key == AttributeDefinitions.HealingPool:
                         {
                             var levels =
-                                hero.GetSubclassLevel(DatabaseHelper.CharacterClassDefinitions.Druid,
-                                    CircleOfTheAncientForest.Name) +
+                                DruidProgressionContext.EffectiveSubclassLevel(hero, CircleOfTheAncientForest.Name) +
                                 hero.GetSubclassLevel(DatabaseHelper.CharacterClassDefinitions.Ranger,
                                     RangerLightBearer.Name);
 

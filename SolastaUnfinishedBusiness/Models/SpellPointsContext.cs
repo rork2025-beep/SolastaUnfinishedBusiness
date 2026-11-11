@@ -102,11 +102,12 @@ internal static class SpellPointsContext
 
     internal static bool IsSpellPointsEnabled(this RulesetCharacter character)
     {
-        return Main.Settings.UseAlternateSpellPointsSystem && character is RulesetCharacterHero;
+        return Main.Settings.UseAlternateSpellPointsSystem && (character is RulesetCharacterHero || DruidWildshapeContext.IsSupportedWildShape(character));
     }
 
     internal static int GetMaxSpellPoints(this RulesetCharacter rulesetCharacter)
     {
+        rulesetCharacter = DruidWildshapeContext.SpellPointOwner(rulesetCharacter);
         var usablePower = PowerProvider.Get(PowerSpellPoints, rulesetCharacter);
 
         return rulesetCharacter.GetMaxUsesOfPower(usablePower);
@@ -114,6 +115,7 @@ internal static class SpellPointsContext
 
     internal static int GetRemainingSpellPoints(this RulesetCharacter rulesetCharacter)
     {
+        rulesetCharacter = DruidWildshapeContext.SpellPointOwner(rulesetCharacter);
         var usablePower = PowerProvider.Get(PowerSpellPoints, rulesetCharacter);
 
         return rulesetCharacter.GetRemainingUsesOfPower(usablePower);
@@ -121,6 +123,7 @@ internal static class SpellPointsContext
 
     internal static void AddSpellPoints(this RulesetCharacter rulesetCharacter, int points)
     {
+        rulesetCharacter = DruidWildshapeContext.SpellPointOwner(rulesetCharacter);
         var usablePower = PowerProvider.Get(PowerSpellPoints, rulesetCharacter);
         usablePower.remainingUses = Math.Min(usablePower.remainingUses + points, rulesetCharacter.GetMaxSpellPoints());
     }
@@ -241,6 +244,8 @@ internal static class SpellPointsContext
         RulesetSpellRepertoire repertoire,
         int slotLevel, bool consume = true, bool isMulticaster = false)
     {
+        // Consume a transformed Druid's one authoritative hero pool, never a second form budget.
+        character = DruidWildshapeContext.SpellPointOwner(character);
         // consume points
         var usablePower = PowerProvider.Get(PowerSpellPoints, character);
 
@@ -401,6 +406,8 @@ internal static class SpellPointsContext
 
                     return SpellPointsByLevel[casterLevel];
                 }
+                case RulesetCharacterMonster shape when DruidWildshapeContext.IsSupportedWildShape(shape):
+                    return SpellPointsByLevel[DruidSpellcastingContext.SingleCasterLevel(shape.GetOriginalHero())];
                 case RulesetCharacterMonster monster when
                     monster.SpellRepertoires.Count > 0:
 
@@ -423,6 +430,10 @@ internal static class SpellPointsContext
             {
                 return SpellcastingProgressionPlan.CasterLevel(hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Sorcerer));
             }
+
+            if (DruidProgressionContext.Active && DruidSpellcastingContext.IsSupportedHero(hero) &&
+                hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Druid) > 0)
+                return SpellcastingProgressionPlan.CasterLevel(hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Druid));
 
             if (ClericProgressionContext.Active && ClericSpellcastingContext.IsSupportedHero(hero) &&
                 hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Cleric) > 0)

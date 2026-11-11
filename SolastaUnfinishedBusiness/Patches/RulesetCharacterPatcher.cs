@@ -938,7 +938,7 @@ public static class RulesetCharacterPatcher
             // wildshape
             if (__instance.OriginalFormCharacter is RulesetCharacterHero hero && hero != __instance &&
                 hero.classesAndLevels.TryGetValue(Druid, out var level) &&
-                level < 18)
+                (DruidWildshapeContext.IsSupportedWildShape(__instance) ? DruidProgressionContext.EffectiveLevel(hero) : level) < 18)
             {
                 __result = false;
             }
@@ -1861,7 +1861,7 @@ public static class RulesetCharacterPatcher
                 }
 
                 //recover one Starry Form use
-                if (!simulate && __instance.GetSubclassLevel(Druid, CircleOfTheCosmos.Name) >= 3)
+                if (!simulate && __instance.GetSubclassLevel(Druid, CircleOfTheCosmos.Name) >= (DruidProgressionContext.Active ? 2 : 3))
                 {
                     usablePower = PowerProvider.Get(CircleOfTheCosmos.PowerStarryForm, __instance);
                     maxUses = __instance.GetMaxUsesOfPower(usablePower);

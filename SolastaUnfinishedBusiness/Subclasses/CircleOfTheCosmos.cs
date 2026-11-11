@@ -11,6 +11,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using SolastaUnfinishedBusiness.Validators;
 using UnityEngine.AddressableAssets;
@@ -706,7 +707,7 @@ public sealed class CircleOfTheCosmos : AbstractSubclass
             RulesetCharacter character,
             RulesetEffect rulesetEffect)
         {
-            var levels = character.GetClassLevel(Druid);
+            var levels = DruidProgressionContext.EffectiveLevel(character);
 
             if (levels < 10)
             {

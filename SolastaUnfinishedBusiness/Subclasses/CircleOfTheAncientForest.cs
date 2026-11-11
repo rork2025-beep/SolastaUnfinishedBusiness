@@ -10,6 +10,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using UnityEngine;
 using static RuleDefinitions;
 using static FeatureDefinitionAttributeModifier;
@@ -358,7 +359,7 @@ public sealed class CircleOfTheAncientForest : AbstractSubclass
 
             attacker.UsedSpecialFeatures[LifeSapName] = used + 1;
 
-            var classLevel = rulesetAttacker.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Druid);
+            var classLevel = DruidProgressionContext.EffectiveLevel(rulesetAttacker);
             var healing = used == 0 && belowHalfHealth ? classLevel : Mathf.CeilToInt(classLevel / 2f);
             var cap = used == 0 ? HealingCap.MaximumHitPoints : HealingCap.HalfMaximumHitPoints;
             var ability = GuiPresentationBuilder.CreateTitleKey(LifeSapName, Category.Feature);

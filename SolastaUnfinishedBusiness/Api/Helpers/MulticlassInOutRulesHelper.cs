@@ -54,7 +54,9 @@ internal static class MulticlassInOutRulesHelper
                                       Models.BardProgressionContext.IsCapped(hero, c) ||
                                       !Models.BardSpellcastingContext.CanSelectClass(hero, c) ||
                                       Models.ClericProgressionContext.IsCapped(hero, c) ||
-                                      !Models.ClericSpellcastingContext.CanSelectClass(hero, c));
+                                      !Models.ClericSpellcastingContext.CanSelectClass(hero, c) ||
+                                      Models.DruidProgressionContext.IsCapped(hero, c) ||
+                                      !Models.DruidSpellcastingContext.CanSelectClass(hero, c));
 
         allowedClasses.Sort((a, b) =>
         {

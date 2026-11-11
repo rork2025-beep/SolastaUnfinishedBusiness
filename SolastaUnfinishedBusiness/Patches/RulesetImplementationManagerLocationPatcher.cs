@@ -280,6 +280,7 @@ public static class RulesetImplementationManagerLocationPatcher
         public static bool Prefix(RulesetImplementationManagerLocation __instance, EffectForm effectForm,
             RulesetImplementationDefinitions.ApplyFormsParams formsParams)
         {
+            if (!DruidWildshapeContext.CanApply(effectForm, formsParams)) return false;
             ApplyShapeChangeForm(__instance, effectForm, formsParams);
             return false;
         }
@@ -346,6 +347,7 @@ public static class RulesetImplementationManagerLocationPatcher
                 string.Empty, 0, sourceAbilityBonus, proficiencyBonus);
             formsParams.activeEffect.TrackCondition(sourceCharacter, sourceCharacter.Guid, rulesetMonster,
                 rulesetMonster.Guid, condition, AttributeDefinitions.TagConjure);
+            DruidWildshapeContext.SpellPointOwner(rulesetMonster);
             var character = service.CreateCharacter(entityImplementation.ControllerId, rulesetMonster,
                 entityImplementation.Side, entityImplementation.BehaviourPackage);
             ServiceRepository.GetService<IGameLocationPositioningService>().PlaceCharacter(character,

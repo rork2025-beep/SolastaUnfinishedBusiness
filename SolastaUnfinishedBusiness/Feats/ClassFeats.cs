@@ -509,7 +509,7 @@ internal static class ClassFeats
                 return;
             }
 
-            var classLevel = rulesetCharacterHero.GetClassLevel(Druid);
+            var classLevel = Models.DruidProgressionContext.EffectiveLevel(rulesetCharacterHero);
 
             __instance.ReceiveTemporaryHitPoints(
                 2 * classLevel, DurationType.UntilAnyRest, 0, TurnOccurenceType.StartOfTurn, TemporaryHitPointsGuid);

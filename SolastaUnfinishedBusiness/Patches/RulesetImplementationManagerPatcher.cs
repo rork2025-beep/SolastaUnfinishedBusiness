@@ -362,8 +362,11 @@ public static class RulesetImplementationManagerPatcher
             }
 
             var character = formsParams.sourceCharacter;
-            var klass = character.FindClassHoldingFeature(featureDefinitionPower);
-            var klassLevel = character.GetClassLevel(klass);
+            var klass = DruidProgressionContext.Active && character.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Druid) > 0 &&
+                        DruidProgressionContext.HoldsPower(featureDefinitionPower)
+                ? DatabaseHelper.CharacterClassDefinitions.Druid : character.FindClassHoldingFeature(featureDefinitionPower);
+            var klassLevel = klass == DatabaseHelper.CharacterClassDefinitions.Druid
+                ? DruidProgressionContext.EffectiveLevel(character) : character.GetClassLevel(klass);
 
             rank = effectForm.LevelType switch
             {
@@ -698,7 +701,9 @@ public static class RulesetImplementationManagerPatcher
                         {
                             currentValue = characterClassDefinition == DatabaseHelper.CharacterClassDefinitions.Wizard
                                 ? WizardProgressionContext.EffectiveLevel(originalHero)
-                                : originalHero.ClassesAndLevels[characterClassDefinition];
+                                : characterClassDefinition == DatabaseHelper.CharacterClassDefinitions.Druid
+                                    ? DruidProgressionContext.EffectiveLevel(originalHero)
+                                    : originalHero.ClassesAndLevels[characterClassDefinition];
                         }
                         else if (spellRepertoire.SpellCastingSubclass)
                         {
@@ -709,6 +714,8 @@ public static class RulesetImplementationManagerPatcher
                             {
                                 currentValue = characterClassDefinition == DatabaseHelper.CharacterClassDefinitions.Wizard
                                     ? WizardProgressionContext.EffectiveLevel(originalHero)
+                                    : characterClassDefinition == DatabaseHelper.CharacterClassDefinitions.Druid
+                                    ? DruidProgressionContext.EffectiveLevel(originalHero)
                                     : originalHero.ClassesAndLevels[characterClassDefinition];
                             }
                         }

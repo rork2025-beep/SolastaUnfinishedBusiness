@@ -8,6 +8,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using SolastaUnfinishedBusiness.Validators;
 using static RuleDefinitions;
@@ -402,6 +403,7 @@ public sealed class CircleOfTheNight : AbstractSubclass
     {
         public IEnumerator OnPowerOrSpellFinishedByMe(CharacterActionMagicEffect action, BaseDefinition baseDefinition)
         {
+            if (DruidWildshapeContext.FinishShape(action)) yield break;
             var rulesetCharacter = action.ActingCharacter.RulesetCharacter;
 
             if (rulesetCharacter is not RulesetCharacterMonster rulesetCharacterMonster ||

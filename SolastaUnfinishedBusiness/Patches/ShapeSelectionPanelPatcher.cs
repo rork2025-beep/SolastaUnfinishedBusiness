@@ -43,7 +43,7 @@ public static class ShapeSelectionPanelPatcher
             {
                 var component = __instance.shapeOptionTable.GetChild(index).GetComponent<ShapeOptionItem>();
                 var requiredLevel = shapeChangeForm.ShapeChangeType == ShapeChangeForm.Type.ClassLevelListSelection
-                    ? shapeOption.RequiredLevel
+                    ? Models.DruidWildshapeContext.RequiredLevel(sourceDefinition, shifter, shapeOption.RequiredLevel)
                     : 0;
 
                 component.Bind(

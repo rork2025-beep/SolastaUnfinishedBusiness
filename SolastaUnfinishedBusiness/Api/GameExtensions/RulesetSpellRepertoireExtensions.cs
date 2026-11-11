@@ -8,8 +8,9 @@ public static class RulesetSpellRepertoireExtensions
 {
     public static RulesetCharacter GetCaster(this RulesetSpellRepertoire repertoire)
     {
-        return EffectHelpers.GetCharacterByGuid(repertoire?.CharacterInventory?.BearerGuid ?? 0)
-               ?? Global.InspectedHero;
+        var character = EffectHelpers.GetCharacterByGuid(repertoire?.CharacterInventory?.BearerGuid ?? 0) ?? Global.InspectedHero;
+        return repertoire?.SpellCastingClass == Api.DatabaseHelper.CharacterClassDefinitions.Druid
+            ? Models.DruidWildshapeContext.SpellPointOwner(character) : character;
     }
 
     [CanBeNull]

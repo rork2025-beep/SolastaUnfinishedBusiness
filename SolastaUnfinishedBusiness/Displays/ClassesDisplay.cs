@@ -50,6 +50,12 @@ internal static class ClassesDisplay
             Main.Settings.EnableSorcererCompressedProgressionPrototype = sorcererPrototype;
         }
 
+        var druidPrototype = Main.Settings.EnableDruidCompressedProgressionPrototype;
+        if (UI.Toggle("Druid 20 to 12 prototype (NEW HEROES; restart; SINGLE CASTER ONLY)", ref druidPrototype, UI.AutoWidth()))
+            Main.Settings.EnableDruidCompressedProgressionPrototype = druidPrototype;
+        if (druidPrototype || DruidProgressionContext.Active)
+            UI.Label("Existing Druid saves are incompatible; use new test heroes and restart after progression settings changes.");
+
         var clericPrototype = Main.Settings.EnableClericCompressedProgressionPrototype;
         if (UI.Toggle("Cleric 20 to 12 prototype (NEW HEROES; restart; SINGLE CASTER ONLY)",
                 ref clericPrototype, UI.AutoWidth()))

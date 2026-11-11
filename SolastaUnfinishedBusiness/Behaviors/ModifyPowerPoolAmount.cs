@@ -28,7 +28,9 @@ public class ModifyPowerPoolAmount : IModifyPowerPoolAmount
                                 ? Models.BardProgressionContext.EffectiveLevel(character)
                                 : Attribute == RuleDefinitions.ClericClass
                                     ? Models.ClericProgressionContext.EffectiveLevel(character)
-                                    : character.GetClassLevel(Attribute)),
+                                    : Attribute == RuleDefinitions.DruidClass
+                                        ? Models.DruidProgressionContext.EffectiveLevel(character)
+                                        : character.GetClassLevel(Attribute)),
             PowerPoolBonusCalculationType.Attribute =>
                 Value * character.TryGetAttributeValue(Attribute),
             PowerPoolBonusCalculationType.AttributeModifier =>
@@ -69,7 +71,11 @@ public class ModifyPowerPoolAmount : IModifyPowerPoolAmount
                 return 0;
             }
 
-            return character.GetClassLevel(Attribute) switch
+            var level = Models.DruidProgressionContext.Active && Attribute == RuleDefinitions.DruidClass
+                ? Models.DruidProgressionContext.EffectiveLevel(character) : character.GetClassLevel(Attribute);
+            if (Models.DruidProgressionContext.Active && Attribute == RuleDefinitions.DruidClass)
+                return Models.DruidProgressionRules.AdditionalWildShapeUses(level);
+            return level switch
             {
                 >= 17 => 2,
                 >= 6 => 1,

@@ -952,6 +952,7 @@ internal static class Level20Context
                 yield break;
             }
 
+            if (DruidWildshapeContext.RefundLegacyShape(action)) yield break;
             var rulesetCharacter = attacker.RulesetCharacter;
             var usablePower = PowerProvider.Get(power, rulesetCharacter);
 

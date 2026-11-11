@@ -288,6 +288,7 @@ public static class CharacterBuildingManagerPatcher
             if (!WarlockInvocationContext.BeginFinalize(hero)) return false;
             if (!BardSpellcastingContext.BeginFinalize(hero)) return false;
             if (!ClericSpellcastingContext.BeginFinalize(hero)) return false;
+            if (!DruidSpellcastingContext.BeginFinalize(hero)) return false;
 
             var buildingData = hero.GetHeroBuildingData();
 
@@ -446,7 +447,9 @@ public static class CharacterBuildingManagerPatcher
                 BardProgressionContext.IsCapped(hero, classDefinition) ||
                 !BardSpellcastingContext.CanSelectClass(hero, classDefinition) ||
                 ClericProgressionContext.IsCapped(hero, classDefinition) ||
-                !ClericSpellcastingContext.CanSelectClass(hero, classDefinition))
+                !ClericSpellcastingContext.CanSelectClass(hero, classDefinition) ||
+                DruidProgressionContext.IsCapped(hero, classDefinition) ||
+                !DruidSpellcastingContext.CanSelectClass(hero, classDefinition))
             {
                 Main.Error("Compressed progression: class cap or unsupported casting combination. Select another eligible class.");
                 return false;

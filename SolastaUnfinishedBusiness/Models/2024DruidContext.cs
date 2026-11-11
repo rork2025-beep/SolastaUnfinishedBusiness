@@ -477,13 +477,14 @@ public static partial class Tabletop2024Context
 
         public IEnumerator OnPowerOrSpellFinishedByMe(CharacterActionMagicEffect action, BaseDefinition baseDefinition)
         {
+            if (DruidWildshapeContext.FinishShape(action)) yield break;
             if (!Main.Settings.EnableDruidWildshape2024)
             {
                 yield break;
             }
 
             var rulesetCharacter = action.ActingCharacter.RulesetCharacter;
-            var classLevel = rulesetCharacter.GetClassLevel(Druid);
+            var classLevel = DruidProgressionContext.EffectiveLevel(rulesetCharacter);
             var rulesetMonster = ServiceRepository.GetService<IGameLocationCharacterService>().PartyCharacters
                 .FirstOrDefault(x => x.RulesetCharacter.OriginalFormCharacter == rulesetCharacter)?.RulesetCharacter;
 
@@ -625,6 +626,8 @@ public static partial class Tabletop2024Context
             var repertoire = rulesetCharacter.GetClassSpellRepertoire(Druid);
             var usablePower = PowerProvider.Get(PowerDruidWildShape, rulesetCharacter);
 
+            if (DruidProgressionContext.Active && !CanUsePower(rulesetCharacter, power as FeatureDefinitionPower))
+                yield break;
             repertoire!.SpendSpellSlot(repertoire.GetLowestAvailableSlotLevel());
             rulesetCharacter.UpdateUsageForPowerPool(-1, usablePower);
 
@@ -634,7 +637,11 @@ public static partial class Tabletop2024Context
         public bool CanUsePower(RulesetCharacter rulesetCharacter, FeatureDefinitionPower power)
         {
             var repertoire = rulesetCharacter.GetClassSpellRepertoire(Druid);
-            var slotLevel = repertoire!.GetLowestAvailableSlotLevel();
+            var slotLevel = repertoire?.GetLowestAvailableSlotLevel() ?? 0;
+            if (DruidProgressionContext.Active && rulesetCharacter.GetClassLevel(Druid) > 0)
+                return !rulesetCharacter.IsSubstitute && !rulesetCharacter.HasConditionOfType("ConditionShapeChanged") &&
+                    DruidProgressionRules.CanRegainShape(rulesetCharacter.GetRemainingPowerUses(PowerDruidWildShape), slotLevel,
+                        rulesetCharacter.GetRemainingSpellPoints(), SpellPointsContext.SpellCostByLevel[Math.Max(0, Math.Min(9, slotLevel))], Main.Settings.UseAlternateSpellPointsSystem);
 
             return slotLevel > 0 && rulesetCharacter.GetRemainingPowerUses(PowerDruidWildShape) == 0;
         }
@@ -648,6 +655,7 @@ public static partial class Tabletop2024Context
             var rulesetCharacter = character.RulesetCharacter;
             var usablePower = PowerProvider.Get(PowerDruidWildShape, rulesetCharacter);
 
+            if (DruidProgressionContext.Active && !CanUsePower(rulesetCharacter, power as FeatureDefinitionPower)) yield break;
             rulesetCharacter.UpdateUsageForPowerPool(usage, usablePower);
 
             yield break;
@@ -655,7 +663,9 @@ public static partial class Tabletop2024Context
 
         public bool CanUsePower(RulesetCharacter rulesetCharacter, FeatureDefinitionPower power)
         {
-            return rulesetCharacter.GetRemainingPowerUses(PowerDruidWildShape) >= usage;
+            return (!DruidProgressionContext.Active || rulesetCharacter.GetClassLevel(Druid) == 0 ||
+                    (!rulesetCharacter.IsSubstitute && !rulesetCharacter.HasConditionOfType("ConditionShapeChanged"))) &&
+                   rulesetCharacter.GetRemainingPowerUses(PowerDruidWildShape) >= usage;
         }
     }
 }

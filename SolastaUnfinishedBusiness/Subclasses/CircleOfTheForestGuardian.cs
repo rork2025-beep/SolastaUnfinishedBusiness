@@ -8,6 +8,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using static RuleDefinitions;
 using static SolastaUnfinishedBusiness.Builders.Features.AutoPreparedSpellsGroupBuilder;
@@ -156,7 +157,7 @@ public sealed class CircleOfTheForestGuardian : AbstractSubclass
         FeatureDefinitionPower powerSuperiorBarkWard)
     {
         var rulesetCharacter = locationCharacter.RulesetCharacter;
-        var levels = rulesetCharacter.GetClassLevel(CharacterClassDefinitions.Druid);
+        var levels = DruidProgressionContext.EffectiveLevel(rulesetCharacter);
         var hitPoints = levels switch
         {
             >= 14 => 10,

@@ -7,6 +7,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using static RuleDefinitions;
 using static SolastaUnfinishedBusiness.Api.DatabaseHelper.CharacterClassDefinitions;
@@ -169,7 +170,7 @@ public sealed class CircleOfTheLife : AbstractSubclass
     {
         var caster = EffectHelpers.GetCharacterByGuid(guid);
 
-        return caster?.GetClassLevel(Druid) ?? 0;
+        return caster == null ? 0 : DruidProgressionContext.EffectiveLevel(caster);
     }
 
     private static bool IsAuthorizedSpell(EffectDescription effectDescription, BaseDefinition baseDefinition)
@@ -232,7 +233,7 @@ public sealed class CircleOfTheLife : AbstractSubclass
                 }
 
                 var effectLevel = rulesetCondition.EffectLevel;
-                var levels = caster.GetClassLevel(Druid);
+                var levels = DruidProgressionContext.EffectiveLevel(caster);
                 var harmoniousBloomBonus = levels >= 14 ? 1 : 0;
 
                 rulesetCharacter.ReceiveHealing(effectLevel + harmoniousBloomBonus, true, caster.Guid);
@@ -276,7 +277,7 @@ public sealed class CircleOfTheLife : AbstractSubclass
             RulesetCharacter character,
             RulesetEffect rulesetEffect)
         {
-            var levels = character.GetClassLevel(Druid);
+            var levels = DruidProgressionContext.EffectiveLevel(character);
             var effectForm = levels >= 14 ? _verdancy14 : _verdancy;
 
             effectDescription.EffectForms.TryAdd(effectForm);

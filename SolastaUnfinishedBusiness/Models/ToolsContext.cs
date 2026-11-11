@@ -166,6 +166,13 @@ internal static class ToolsContext
                 yield break;
             }
 
+            if (!DruidWildshapeContext.CanRespec(functorParameters.RestingHero))
+            {
+                Gui.GuiService.ShowMessage(MessageModal.Severity.Informative1, "Druid prototype",
+                    "Revert/end Starry Form and dismiss active summons before respec.",
+                    "Message/&MessageOkTitle", string.Empty, null, null);
+                yield break;
+            }
             IsRespecing = true;
 
             var characterBuildingService = ServiceRepository.GetService<ICharacterBuildingService>();
