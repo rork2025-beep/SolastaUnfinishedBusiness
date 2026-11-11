@@ -271,7 +271,9 @@ public static class RulesetActorPatcher
                                         ? SorcererProgressionContext.EffectiveLevel(sourceCharacter)
                                         : source == RuleDefinitions.WarlockClass
                                             ? WarlockProgressionContext.EffectiveLevel(sourceCharacter)
-                                            : sourceCharacter.GetClassLevel(source);
+                                            : source == RuleDefinitions.BardClass
+                                                ? BardProgressionContext.EffectiveLevel(sourceCharacter)
+                                                : sourceCharacter.GetClassLevel(source);
                     break;
 
                 case (ConditionDefinition.OriginOfAmount)ExtraOriginOfAmount.SourceAbilityBonus:

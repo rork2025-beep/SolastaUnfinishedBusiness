@@ -7,6 +7,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using SolastaUnfinishedBusiness.Validators;
 using static RuleDefinitions;
@@ -285,7 +286,7 @@ public sealed class CollegeOfThespian : AbstractSubclass
                 .GetContenders(attacker, hasToPerceivePerceiver: true, withinRange: 3)
                 .ToArray();
 
-            var classLevel = rulesetAttacker.GetClassLevel(CharacterClassDefinitions.Bard);
+            var classLevel = BardProgressionContext.EffectiveLevel(rulesetAttacker);
             var power = classLevel < 14 ? powerTerrificPerformance : powerImprovedTerrificPerformance;
             var usablePower = PowerProvider.Get(power, rulesetAttacker);
 

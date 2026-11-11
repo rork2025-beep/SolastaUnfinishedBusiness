@@ -7,6 +7,7 @@ using SolastaUnfinishedBusiness.Builders;
 using SolastaUnfinishedBusiness.Builders.Features;
 using SolastaUnfinishedBusiness.CustomUI;
 using SolastaUnfinishedBusiness.Interfaces;
+using SolastaUnfinishedBusiness.Models;
 using SolastaUnfinishedBusiness.Properties;
 using static RuleDefinitions;
 using static SolastaUnfinishedBusiness.Api.DatabaseHelper;
@@ -133,7 +134,7 @@ public sealed class CollegeOfValiance : AbstractSubclass
     {
         var bardCharacter = EffectHelpers.GetCharacterByGuid(sourceGuid);
 
-        if (bardCharacter == null || bardCharacter.GetSubclassLevel(CharacterClassDefinitions.Bard, Name) <= 5)
+        if (bardCharacter == null || BardProgressionContext.EffectiveSubclassLevel(bardCharacter, Name) <= 5)
         {
             return false;
         }

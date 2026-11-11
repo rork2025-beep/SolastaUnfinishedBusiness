@@ -36,6 +36,7 @@ public class Settings : UnityModManager.ModSettings
     public bool EnableWizardCompressedProgressionPrototype { get; set; }
     public bool EnableSorcererCompressedProgressionPrototype { get; set; }
     public bool EnableWarlockCompressedProgressionPrototype { get; set; }
+    public bool EnableBardCompressedProgressionPrototype { get; set; }
 
     //
     // UI Saved State

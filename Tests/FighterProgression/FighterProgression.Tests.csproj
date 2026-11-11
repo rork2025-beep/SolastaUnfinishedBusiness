@@ -18,4 +18,8 @@
   </ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/WarlockProgressionRules.cs" Link="WarlockProgressionRules.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/WarlockInvocationTransaction.cs" Link="WarlockInvocationTransaction.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../SolastaUnfinishedBusiness/Models/BardProgressionRules.cs" Link="BardProgressionRules.cs" />
+    <Compile Include="../../SolastaUnfinishedBusiness/Models/BardSpellLearningState.cs" Link="BardSpellLearningState.cs" />
+  </ItemGroup>
 </Project>
