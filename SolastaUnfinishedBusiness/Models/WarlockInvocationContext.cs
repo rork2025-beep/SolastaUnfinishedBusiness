@@ -12,16 +12,15 @@ using static SolastaUnfinishedBusiness.Api.DatabaseHelper.CharacterClassDefiniti
 namespace SolastaUnfinishedBusiness.Models;
 
 // Standard invocation pools keep one native choice/replacement event per original level.
-// Native finalization removes all old invocations before adding new ones. For now we
-// deliberately reject replacing an invocation acquired in this same actual advancement.
-internal static class WarlockInvocationContext
+// Virtual inventories and the scoped finalization journal live in the transaction partial.
+internal static partial class WarlockInvocationContext
 {
     private const string Origin = "Warlock12InvocationOriginal";
     private static KnownSpellsProgressionPlan plan;
     private static readonly ConditionalWeakTable<CharacterStageProficiencySelectionPanel,
         List<(string Tag, PointsPoolType Type)>> Steps = new();
     private static readonly ConditionalWeakTable<RulesetCharacterHero, Selection> Selections = new();
-    private sealed class Selection { internal int Original; }
+    private sealed class Selection { internal int Original; internal bool Unlearn; }
 
     internal static void Initialize(IEnumerable<FeatureUnlockByLevel> source)
     {
@@ -91,22 +90,22 @@ internal static class WarlockInvocationContext
                 // Native undo also unregisters invocation-granted spell/cantrip pools.
                 var pools = data.PointPoolStacks[PointsPoolType.Invocation].ActivePools;
                 if (!pools.ContainsKey(key)) pools[key] = new PointPool(0, null, false);
-                manager.UntrainInvocations(data, key);
+                ClearChoiceSelections(data, Chosen(data.LevelupTrainedInvocations, key));
+                InternalReset(() => manager.UntrainInvocations(data, key));
             }
             data.LevelupTrainedInvocations.Remove(key);
             data.UnlearnedInvocations.Remove(key);
         }
         Selections.Remove(data.HeroCharacter);
+        Finalizations.Remove(data.HeroCharacter);
     }
 
     internal static bool CanTrain(CharacterHeroBuildingData heroBuildingData, InvocationDefinition invocation, string tag)
     {
-        if (invocation is InvocationDefinitionCustom || !TryOriginal(heroBuildingData.HeroCharacter, tag, out var original)) return true;
-        // Native prerequisites still run in the UI; enforce the original event's rank at the command boundary too.
-        return invocation.RequiredLevel <= original &&
-               !heroBuildingData.HeroCharacter.TrainedInvocations.Contains(invocation) &&
-               !heroBuildingData.LevelupTrainedInvocations.Values.Any(x => x.Contains(invocation)) &&
-               heroBuildingData.PointPoolStacks[PointsPoolType.Invocation].ActivePools.TryGetValue(tag, out var pool) && pool.RemainingPoints > 0;
+        if (invocation is InvocationDefinitionCustom) return true;
+        if (ChoiceCollision(heroBuildingData, invocation, tag)) return false;
+        if (!TryOriginal(heroBuildingData.HeroCharacter, tag, out _)) return true;
+        return ValidateEdit(heroBuildingData, invocation, tag, false);
     }
     [HarmonyPatch(typeof(CharacterBuildingManager), nameof(CharacterBuildingManager.TrainInvocation))]
     internal static class TrainPatch
@@ -116,24 +115,24 @@ internal static class WarlockInvocationContext
     [HarmonyPatch(typeof(CharacterBuildingManager), nameof(CharacterBuildingManager.UnlearnInvocation))]
     internal static class UnlearnPatch
     {
-        internal static bool Prefix(CharacterHeroBuildingData heroBuildingData, InvocationDefinition invocation, string tag)
+        internal static bool Prefix(CharacterBuildingManager __instance, CharacterHeroBuildingData heroBuildingData, InvocationDefinition invocation, string tag)
         {
             if (invocation is InvocationDefinitionCustom || !TryOriginal(heroBuildingData.HeroCharacter, tag, out _)) return true;
-            return heroBuildingData.HeroCharacter.TrainedInvocations.Contains(invocation) &&
-                   !heroBuildingData.UnlearnedInvocations.Values.Any(x => x.Contains(invocation)) &&
-                   heroBuildingData.PointPoolStacks[PointsPoolType.InvocationUnlearn].ActivePools.TryGetValue(tag, out var pool) && pool.RemainingPoints > 0;
+            if (!ValidateEdit(heroBuildingData, invocation, tag, true)) return false;
+            BeforeChange(__instance, heroBuildingData, tag);
+            return true;
         }
         internal static void Postfix(CharacterHeroBuildingData heroBuildingData) => Configure(heroBuildingData);
     }
     [HarmonyPatch(typeof(CharacterBuildingManager), nameof(CharacterBuildingManager.UndoUnlearnInvocation))]
     internal static class UndoPatch
     {
-        internal static bool Prefix(CharacterHeroBuildingData heroBuildingData, InvocationDefinition invocation, string tag)
+        internal static bool Prefix(CharacterBuildingManager __instance, CharacterHeroBuildingData heroBuildingData, InvocationDefinition invocation, string tag)
         {
             if (invocation is InvocationDefinitionCustom || !TryOriginal(heroBuildingData.HeroCharacter, tag, out _)) return true;
-            // Undo acquisitions before undoing their funding replacement; do not allow a negative pool budget.
-            return Chosen(heroBuildingData.UnlearnedInvocations, tag).Contains(invocation) &&
-                   Chosen(heroBuildingData.LevelupTrainedInvocations, tag).Count == 0;
+            if (!Chosen(heroBuildingData.UnlearnedInvocations, tag).Contains(invocation)) return false;
+            BeforeChange(__instance, heroBuildingData, tag, true);
+            return true;
         }
         internal static void Postfix(CharacterHeroBuildingData heroBuildingData) => Configure(heroBuildingData);
     }
@@ -270,7 +269,7 @@ internal static class WarlockInvocationContext
             Selections.Remove(p.currentHero);
             if (Uses(p.currentHero) && Steps.TryGetValue(p, out var steps) && p.currentLearnStep >= 0 && p.currentLearnStep < steps.Count &&
                 TryOriginal(p.currentHero, steps[p.currentLearnStep].Tag, out var original))
-                Selections.Add(p.currentHero, new Selection { Original = original });
+                Selections.Add(p.currentHero, new Selection { Original = original, Unlearn = steps[p.currentLearnStep].Type == PointsPoolType.InvocationUnlearn });
         }
     }
     [HarmonyPatch(typeof(CharacterStageProficiencySelectionPanel), nameof(CharacterStageProficiencySelectionPanel.OnEndHide))]
@@ -287,6 +286,9 @@ internal static class WarlockInvocationContext
             var p = __instance;
             if (!__result || !Uses(p.currentHero) || !Steps.TryGetValue(p, out var steps)) return;
             var data = p.currentHero.GetHeroBuildingData();
+            try { ValidateComplete(data); }
+            catch (InvalidOperationException ex)
+            { __result = false; failureString = "Warlock invocation transaction: " + ex.Message; return; }
             if (steps.Any(x => x.Type == PointsPoolType.Invocation && TryOriginal(p.currentHero, x.Tag, out _) &&
                 data.PointPoolStacks[x.Type].ActivePools.TryGetValue(x.Tag, out var pool) && pool.RemainingPoints > 0))
             { __result = false; failureString = "Complete every original Warlock invocation event."; }

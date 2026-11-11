@@ -125,6 +125,18 @@ internal static class WarlockSpellcastingContext
         return known;
     }
 
+    internal static bool KnowsAtOriginal(CharacterHeroBuildingData data, SpellDefinition spell, int original)
+    {
+        var known = KnownBefore(data, original);
+        foreach (var e in Events(data.HeroCharacter).Where(x => x.Original == original))
+            known = KnownSpellsProgressionPlan.ApplyEvent(known, Chosen(data.UnlearnedSpells, e.Tag), Chosen(data.AcquiredSpells, e.Tag));
+        if (known.Contains(spell)) return true;
+        var repertoire = data.HeroCharacter.GetClassSpellRepertoire(Warlock);
+        if (repertoire?.KnownCantrips.Contains(spell) == true) return true;
+        return Events(data.HeroCharacter).Where(x => x.Original <= original)
+            .Any(e => Chosen(data.AcquiredCantrips, e.Tag).Contains(spell));
+    }
+
     internal static void FilterSelection(CharacterHeroBuildingData data, string tag, bool unlearn,
         ref List<SpellDefinition> knownSpells)
     {
@@ -389,6 +401,8 @@ internal static class WarlockSpellcastingContext
             {
                 __result = false; failureString = "Warlock spell replacement order is inconsistent. Cancel this level-up and retry.";
             }
+            if (__result && !WarlockInvocationContext.CanAccept(data, out var reason))
+            { __result = false; failureString = "Warlock invocation transaction: " + reason; }
         }
     }
     [HarmonyPatch(typeof(CharacterStageSpellSelectionPanel), nameof(CharacterStageSpellSelectionPanel.BuildLearnSteps))]

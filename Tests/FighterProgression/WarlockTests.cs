@@ -57,7 +57,7 @@ internal static class WarlockTests
         check(settings.Methods.Where(x=>x.IsConstructor && !x.IsStatic).All(m=>!m.Body.Instructions.Any(i=>i.Operand is FieldReference f && f.Name.Contains("EnableWarlockCompressedProgressionPrototype"))), "Warlock: CLR false default (metadata)");
         CheckPact(check,types,game); CheckRewards(check,types); CheckBoundaries(check,types);
         check(Calls(casting.NestedTypes.Single(x=>x.Name=="ClearLearningPatch").Methods.Single(x=>x.Name=="Prefix"),"Clear","WarlockInvocationContext") &&
-            Calls(invocations.Methods.Single(x=>x.Name=="Clear"),"get_UnlearnedInvocations") && Calls(invocations.Methods.Single(x=>x.Name=="Clear"),"UntrainInvocations"), "Warlock: cancellation clears pending original invocation selections and native granted pools (metadata)");
+            Calls(invocations.Methods.Single(x=>x.Name=="Clear"),"get_UnlearnedInvocations") && Calls(invocations.Methods.Single(x=>x.Name=="Clear"),"InternalReset") && Types(invocations).SelectMany(x=>x.Methods).Any(x=>Calls(x,"UntrainInvocations")), "Warlock: cancellation clears pending original invocation selections and native granted pools (metadata)");
         check(Calls(types.Single(x=>x.Name=="TrainInvocation_Patch").Methods.Single(x=>x.Name=="Prefix"),"CanTrain","WarlockInvocationContext"), "Warlock: train command validated before existing prefix creates granted pools (metadata)");
         foreach(var owner in new[] { context,casting,invocations })
         foreach(var patch in owner.NestedTypes)
@@ -191,7 +191,7 @@ internal static class WarlockTests
         check(Types(beam).SelectMany(x=>x.Methods).Any(x=>Calls(x,"EffectiveLevel","WarlockProgressionContext") && Calls(x,"ComputeAdditionalBeamCount")), "Warlock: specialized beam scaling is scoped; actual total adjusted only for this feature (metadata)");
         var invocation=types.Single(x=>x.Name=="WarlockInvocationContext");
         check(Calls(invocation.Methods.Single(x=>x.Name=="Configure"),"get_CanUnlearn") &&
-            Calls(invocation.NestedTypes.Single(x=>x.Name=="UnlearnPatch").Methods.Single(x=>x.Name=="Prefix"),"get_TrainedInvocations"), "Warlock: optional replacement pools and same-advancement replacement safety restriction present (metadata)");
+            Calls(invocation.NestedTypes.Single(x=>x.Name=="UnlearnPatch").Methods.Single(x=>x.Name=="Prefix"),"ValidateEdit"), "Warlock: optional replacement pools and event transaction command validation present (metadata)");
         check(Calls(types.Single(x=>x.Name=="CustomInvocationSelectionPanel").Methods.Single(x=>x.Name=="UpdateGrantedFeatures"),"AssignCustomPoolOrigins"), "Warlock: EldritchSurge custom pools retain original-event tags (metadata)");
         var prereq=types.Single(x=>x.Name=="IsInvocationMacthingPrerequisites_Patch").Methods.Single(x=>x.Name=="IsInvocationMatchingPrerequisites");
         check(Calls(prereq,"PrerequisiteLevel","WarlockInvocationContext") && Calls(prereq,"get_RequiredKnownSpell") && Calls(prereq,"get_RequiredPact"), "Warlock: original event's invocation rank plus known-spell/Pact requirements preserved (metadata)");

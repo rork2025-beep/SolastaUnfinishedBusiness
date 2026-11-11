@@ -142,6 +142,9 @@ internal static class WarlockProgressionContext
         CustomizedSubFeatureDefinitions.CopyCustomSubFeatures(set, result); return result;
     }
 
+    internal static int OriginalCustomPoolLevel(FeatureDefinitionCustomInvocationPool pool, int actual) =>
+        CustomOrigins.TryGetValue(pool, out var original) ? original : actual;
+
     internal static void AssignCustomPoolOrigins(List<(string, FeatureDefinitionCustomInvocationPool)> pools)
     {
         if (!Active) return;

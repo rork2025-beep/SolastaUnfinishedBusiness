@@ -50,6 +50,7 @@ public static class CharacterBuildingManagerPatcher
         {
             // Validate before the existing prefix creates any invocation-granted spell pools.
             if (!WarlockInvocationContext.CanTrain(heroBuildingData, invocation, tag)) return false;
+            if (invocation is not InvocationDefinitionCustom) WarlockInvocationContext.BeforeChange(__instance, heroBuildingData, tag);
 
             //PATCH: do not check or modify point pools when dealing with custom invocations
             if (invocation is InvocationDefinitionCustom)
@@ -181,6 +182,8 @@ public static class CharacterBuildingManagerPatcher
             InvocationDefinition invocation,
             string tag)
         {
+            if (!WarlockInvocationContext.BeforeUntrain(__instance, heroBuildingData, invocation, tag)) return false;
+
             //PATCH: do not check or modify point pools when dealing with custom invocations
             if (invocation is not InvocationDefinitionCustom)
             {
@@ -280,8 +283,10 @@ public static class CharacterBuildingManagerPatcher
         }
 
         [UsedImplicitly]
-        public static void Prefix([NotNull] CharacterBuildingManager __instance, [NotNull] RulesetCharacterHero hero)
+        public static bool Prefix([NotNull] CharacterBuildingManager __instance, [NotNull] RulesetCharacterHero hero)
         {
+            if (!WarlockInvocationContext.BeginFinalize(hero)) return false;
+
             var buildingData = hero.GetHeroBuildingData();
 
             //PATCH: grants race features
@@ -322,11 +327,14 @@ public static class CharacterBuildingManagerPatcher
             //PATCH: grants custom features
             LevelUpHelper.GrantCustomFeaturesFromFeats(hero);
             LevelUpHelper.GrantCustomFeatures(hero);
+            return true;
         }
 
         [UsedImplicitly]
-        public static void Postfix(CharacterBuildingManager __instance, [NotNull] RulesetCharacterHero hero)
+        public static void Postfix(CharacterBuildingManager __instance, [NotNull] RulesetCharacterHero hero, bool __runOriginal)
         {
+            if (!__runOriginal) return;
+
             //PATCH: grants cantrip that for whatever reason vanilla has a hard time granting ;-)
             GrantCantripFromCustomAcquiredPool(hero, "Thaumaturge");
             GrantCantripFromCustomAcquiredPool(hero, "DomainNature");

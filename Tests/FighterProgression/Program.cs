@@ -92,4 +92,5 @@ RogueTests.Run(Check, game, mod);
 WizardTests.Run(Check, game, mod);
 SorcererTests.Run(Check, game, mod);
 WarlockTests.Run(Check, game, mod);
+WarlockInvocationTransactionTests.Run(Check, game, mod);
 Console.WriteLine($"{count} checks passed; these are game-independent planner tests, not gameplay tests.");

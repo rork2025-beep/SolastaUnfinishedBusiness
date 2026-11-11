@@ -1,8 +1,12 @@
-# Warlock 20→12 — Stage 6
+# Warlock 20→12 — Stage 6.1
 
-Статус: **PARTIALLY READY**. Прототип компилируется; проверки планировщиков и метаданных проходят.
-Полноценная игровая проверка не выполнена. Ограничение последовательной замены инвокаций описано ниже;
-поэтому завершённой реализацией всех требований Stage 6 этот этап не объявляется.
+Статус: **PARTIALLY READY**. Основной дефект обычных инвокаций исправлен: безопасные цепочки
+`A→B→C→D` и `A→B→A` проходят через событийный журнал, включая применение в исходном порядке.
+Unity/игровая проверка не выполнена. Для цепочек с промежуточными выборочными наградами (Tome и аналогами),
+неизвестными validators и EldritchSurge остаются явные ограничения/защитные блокировки, описанные ниже.
+
+Stage 6.1 продолжает коммит Stage 6 `f15c4f4c7df6b3b74e728dd9530370e509492a7e`.
+Перед исправлением заново подтверждены **882 проверки** и Release Workflow без ошибок/предупреждений.
 
 Работа выполнена в существующем checkout `/workspace/SolastaUnfinishedBusiness`,
 ветка `feature/progression-20-to-12`, база `1573832b51d7464c4dfeca54f8bb994595054aaa`.
@@ -109,24 +113,101 @@ Warlock замены начинаются после первого получе
 Pact Blade/Chain/Tome как инвокации; прототип не выдаёт обе схемы одновременно. Изменения
 Otherworldly Leap и прочих prerequisite берутся из выбранного исходного варианта UB.
 
-**Неполная механика:** стандартная замена пока допускает только инвокацию, известную до начала
-текущего фактического повышения. Запрещены замена приобретённой на предыдущем исходном событии
-этого же повышения и повторное приобретение в этом же повышении ранее известной инвокации.
-Причина: нативный `FinalizeCharacter` сначала применяет все удаления, затем все приобретения,
-что не эквивалентно чередованию событий. Такое ограничение предотвращает опасную цепочку,
-но не выполняет требование полной семантики всех промежуточных замен.
+### Событийные транзакции инвокаций — Stage 6.1
 
-Повторное удаление одной старой инвокации запрещено; сначала нужно отменить новые приобретения,
-затем отменять финансировавшую их замену. При очистке origin-тегов очищаются временные выбранные
-инвокации и их пулы. Некоторые кнопки нативного UI могут оставлять уже выбранную для другого шага
-старую инвокацию видимой; повторный запрос отклоняется без нового ресурса.
-Пулы от Eldritch Adept сохраняются отдельно, однако сложные зависимости pending Pact/known spell
-между инвокациями одного повышения и редкие ранние замены с Eldritch Adept ещё не закрыты.
+Первопричина: native `FinalizeCharacter` последовательно обходит все списки `UnlearnedInvocations`,
+затем все `LevelupTrainedInvocations`. Для `A→B→C→D` это даёт попытки удалить A/B/C до появления B/C,
+а затем добавить B/C/D. В Stage 6 поэтому стоял запрет заменять только что приобретённую инвокацию.
 
-EldritchSurge использует отдельную систему custom invocation pools: повторные Learn/Unlearn
-получают исходные origin-теги, сохраняющие количество и порядок, а не сливаются по actual level.
-Полная транзакционная семантика цепочек custom-инвокаций внутри одного повышения не подтверждена.
-Это дополнительный повод не считать Stage 6 завершённым.
+Теперь `WarlockInvocationTransaction<T>` — production-код без зависимостей Unity — копирует исходный
+инвентарь и каждый origin event: original level, постоянные awards, optional replacement budget,
+упорядоченные удаления и приобретения. Он строит отдельные before/after snapshots каждого события.
+Каждая замена сначала удаляет известную на этом шаге инвокацию, затем разрешает столько приобретений,
+сколько дают постоянная награда и фактическое удаление. Skip не даёт бесплатного приобретения.
+Раннее неполное событие блокирует последующее; неизвестные удаления, повторное знание и выход за бюджет
+отклоняются. Позднее законное повторное приобретение разрешено. Это не сведение истории к итоговому set.
+
+При обычном выборе и на границе Train/Unlearn применяется тот же валидатор. UI-запросы
+`IsInvocationTrained`/`IsInvocationKnownOrTrained` получают виртуальный инвентарь текущего события
+только в class-origin Warlock шагах. Поэтому B, приобретённая на18, доступна для замены на19;
+A, удалённая раньше, снова доступна для приобретения позже. Feat и чужие custom UI идут прежним путём.
+
+Prerequisites проверяются на **original**, а не на конечном effective level:
+
+- RequiredLevel остаётся исходным числом; инвокация19 недоступна на шаге18 actual12.
+- RequiredPact учитывает виртуальные Pact Blade/Chain/Tome. Старые invocation-origin active features
+  не считаются действующим Pact, если его уже нет в виртуальном инвентаре. Legacy Pact берётся
+  из подтверждённых class features.
+- RequiredKnownSpell использует Warlock spell events до текущего original включительно, выбранные
+  cantrips и подтверждённые независимые репертуары/extra spells. Будущий spell event не помогает
+  ранней инвокации. Потерянные extra spell tags от удалённой инвокации не используются как prerequisite.
+- Инспектированные UB validators Hex (Malediction/Bestow Curse/Sign of Ill Omen/SoulBlade) и
+  Devouring Blade (Thirsting Blade) имеют точечные адаптеры по идентичности source delegate.
+  Они не читают произвольные будущие pending selections, как исходные обработчики UB.
+- Неизвестные validators не исполняются на вымышленном герое. Если для них требуется виртуальное,
+  сжатое либо незавершённое spell state, выбор консервативно отклоняется. Зависимости между UI-стадиями
+  доступны только после появления фактических pending spell choices; планировщик не угадывает будущий выбор.
+
+После изменения/отмены раннего выбора `InvalidatedBy` определяет более поздние origin events.
+Их временные learn/unlearn списки очищаются через native undo, бюджеты пересчитываются.
+Undo удаления сначала очищает приобретения, оплаченные этим удалением, и зависимые поздние события.
+Back, Reset и bulk undo используют тот же путь с защитой от рекурсии. Отмена всего повышения очищает
+Warlock origin selections и их временные spell/cantrip choices, не записывая их в героя.
+
+### Применение и откат
+
+1. В начале существующего UB finalize prefix выполняется полная проверка бюджета, prerequisites,
+   custom/feat конфликтов и снимок неизменяемого class journal. Она предшествует выдаче race/custom/feat
+   наград этим prefix. Если проверка не пройдена, original и UB postfix не выполняются.
+2. Scoped transpiler адаптирует ровно два native call site: `UnlearnInvocations` и `TrainInvocations`
+   внутри `FinalizeCharacter`. При другой форме native IL финализация прототипа блокируется.
+   Вне текущей Warlock-транзакции wrappers вызывают прежние native методы.
+3. При первом принадлежащем журналу списке применяется **весь original-ordered journal**:
+   remove18→train18→remove19→train19→remove20→train20. Последующие native обращения к тем же
+   class-origin спискам не применяют его повторно. Feat и custom списки не поглощаются адаптером.
+4. Native `TrainInvocations` только пополняет trained definitions; реальная сборка RulesetInvocation,
+   powers и ресурсов остаётся штатной финальной работой игры. Промежуточные B/C поэтому не получают
+   отдельные расходуемые ресурсы, если окончательно остаётся D. Повторные immediate level-up callbacks,
+   pool rewards и выдачи feats/fighting styles защищены отдельным guard.
+5. Перед применением снимаются копии `TrainedInvocations` и `ExtraSpellsByTag` репертуаров:
+   native Unlearn может удалять extra spells из FeatureSet pools. У direct pool 2024 Tome добавлена
+   явная очистка соответствующего Warlock extra tag. При исключении адаптера восстанавливаются снимки.
+   Журнал нельзя применить дважды; неудавшийся rollback делает его непригодным к повторному применению.
+
+**Граница гарантии:** откат охватывает поверхность мутации этого invocation adapter. Вся native
+финализация персонажа (skills, feats, conditions, inventory, другие моды) не превращена в общую
+транзакцию. При любом исключении финализации дальнейший retry блокируется; нужно отменить/загрузить
+тестовый save, а не принимать или сохранять повреждённый результат. Валидационные ошибки проверяются
+до мутаций; сценарий исключения внешнего native кода требует проверки в игре. Совместимость с другими
+модами, патчащими FinalizeCharacter, не подтверждена.
+
+### Оставшиеся ограничения
+
+- **Tome/другие choice-granting или immediate-granting инвокации:** одно итоговое приобретение и обычное
+  удаление старой инвокации сохраняют native путь выбора. Но новая инвокация, которая выдаёт отдельный
+  pool, SpellCasting, feat/fighting style либо ICustomLevelUpLogic, не может быть промежуточным звеном
+  с удалением/повторным приобретением на этом же actual level. Native transient pools не различают
+  несколько incarnations одной награды. Вместо риска повторных spells/resources стоит явный guard.
+  Удаление уже подтверждённой инвокации с immediate custom/feat/repertoire grants также блокируется:
+  native Unlearn не откатывает такие изменения всего героя. Это не относится к обычной очистке Tome extra spells.
+- **Eldritch Adept:** подтверждённая feat-инвокация входит в исходный инвентарь; новый feat-origin выбор
+  сохраняет отдельный бюджет и native финализацию. Дубликат между class и feat origins отклоняется.
+  Новый feat-origin выбор не используется как источник prerequisites сжатых class events:
+  общая хронология feat/class в этой работе не реализована. Неоднозначная cross-origin замена
+  не проводится автоматически. Одновременные дополнительные
+  spell/cantrip grants и взаимодействия с feat UI требуют игрового теста. Если class и feat invocations
+  используют один native transient pool, второй выбор отклоняется до выделения пула; ambiguous grants
+  не объединяются и не перезаписываются. При undo очищаются только соответствующие spell/cantrip channels.
+- **EldritchSurge/custom pools:** прежние independent origins и native UI сохранены. На приёмке каждый
+  фактический class/subclass custom pool проверяется тем же production engine отдельно по PoolType,
+  с исходными Learn/Unlearn бюджетами. Требования к общему уровню персонажа остаются фактическими;
+  только Warlock class/subclass requirements используют исходное событие. Повторно удалить уже
+  потерянную custom-инвокацию нельзя.
+  Но цепочка, где custom-инвокация и приобретается, и удаляется в этом actual advancement, блокируется
+  до UB finalize prefix: native custom UI и ICustomLevelUpLogic не имеют доказанного событийного отката.
+  Полная custom-chain поддержка **не объявляется**; обычные и custom pools не объединены.
+- Произвольные validators, несогласованные pending spell choices, respec и save/load не получили
+  вымышленного подтверждения. Смешанное Sorcerer/Wizard + Warlock колдовство остаётся заблокировано.
 
 ### D&D 2024 и капстоуны
 
@@ -205,31 +286,34 @@ Legacy Eldritch Master в UB клонирует Wizard Arcane Recovery. Толь
 Особенно проверить перенос EldritchSurge support condition, familiars, pact weapon,
 потреблённых ресурсов и изменение патрона. Обычный режим и прототип — разные тестовые сохранения.
 
-Возможное выделение в отдельный UMM patch: логика изолирована в четырёх Warlock-модулях,
+Возможное выделение в отдельный UMM patch: логика изолирована в Warlock-модулях,
 но использует внутренние builders/планировщики UB, SharedSpellsContext и его UI. Отдельный patch
 должен зависеть от совместимой версии UB, запускаться после его окончательного bootstrap и иметь
 доступ к internals/reflection или публичному API. Независимый от UB готовый мод не реализован.
 
 ## Проверки и сборка
 
-Baseline проверен заново: **625 checks passed**, Release Workflow — **0 errors / 0 warnings**.
-После изменений: **882 checks passed**, из них **257 новых проверок**, Release Workflow —
-**0 errors / 0 warnings**. SDK **9.0.320**. Повторная установка зависимостей не требовалась.
-Существующая настройка Sorcerer progression/Spell Points/Metamagic сохранена;
-его исходники не переписаны и все прежние проверки проходят.
+Baseline Stage 6.1: **882 checks passed**, Release Workflow — **0 errors / 0 warnings**.
+Текущий результат: **959 checks passed**, Release Workflow — **0 errors / 0 warnings**,
+SDK **9.0.320**. Переустановка зависимостей не требовалась.
+Набор вырос на **77 checks**: 62 проверки нового transaction runner и 15 дополнительных Harmony binding checks.
 
-Автоматически исполняются реальные production planners/transformer с managed doubles:
-маппинг20 событий, исходные fixtures класса/12 патронов, порядок и повторные rewards,
-ASI/feat, pact rows и known/replacement totals, Arcanum milestones, варианты2024,
-one-shot initialization и выключенный latch. Cecil дополнительно проверяет вызовы
-собранного мода, native Harmony targets/имена аргументов, scoped rank dispatch, guards
-и раздельные поля использования/восстановления ресурсов.
+Весь прежний набор сохранён: Fighter, Barbarian, Monk, Rogue, Wizard, Sorcerer и Warlock.
+Две прежние structural assertions актуализированы: старый запрет заменён проверкой transaction validator;
+очистка теперь проверяет native undo через защищённый callback, а не только прямой вызов.
+Остальные прежние проверки Pact Magic, Arcanum, spell learning, caps, 2024, patron/reward counts проходят.
 
-Проверки fixtures и synthetic variants не исполняют реальный `LateLoad` внутри Unity,
-не применяют Harmony и не доказывают игровые short/long rest, consumption, UI, respec или
-save/load. Во время реального `LateLoad` есть дополнительная проверка сохранения signatures
-преобразованных наград. В среде подготовлены игровые reference DLL, но игровой клиент здесь
-не запускался. Успешная компиляция не является успехом в игре.
+Новые проверки исполняют **реальный production WarlockInvocationTransaction**, связанный в тестовый проект:
+A→B→C→D, A→B→A, Skip, новый previous-event inventory, неизвестные удаления, дубликаты, original-level
+prerequisites, pending Pact/known spell callbacks, invalidation/Undo/redo/Cancel, несколько наград,
+2014/2024, independent feat/custom origin budgets, idempotence, validation-before-mutation,
+injected application failure и rollback/poisoned journal. Отдельно Cecil проверяет compiled integration:
+порядок pre-validation, native call sites, wrappers, scoped pending adapters и Harmony bindings.
+
+Это не выполнение Unity, Harmony transpiler, реального отдыха, UI, respec или загрузки сохранения.
+Сами native методы Train/Unlearn/Finalize проинспектированы в подготовленной Assembly-CSharp;
+игровой клиент Solasta здесь не запускался. Прохождение production-планировщика и компиляция
+не являются подтверждением игрового успеха или полного отката персонажа.
 
 ```bash
 export PATH="/workspace/.dotnet:$PATH"
@@ -281,8 +365,8 @@ Release Install на Linux не применялся.
    отдельно. Наactual10 инвокация с требованием15 недоступна на исходном шаге14 и доступна на15,
    если выполнены Pact/known spell validators. Наactual12 проверить три отдельных replacement шага
    18/19/20: выбирать разные инвокации из известных **до** повышения. Сначала отменять новые
-   приобретения, затем удаление. Цепочку замены новой инвокации в этом же повышении считать
-   ожидаемо неподдержанной, а не обходить через UI/консоль. Проверить cancel/back/replay без дублей.
+   приобретения, затем удаление. Проверить обычную цепочку новой инвокации по сценарию Stage 6.1 ниже;
+   Tome/custom-chain guard не обходить через UI/консоль. Проверить cancel/back/replay без дублей.
 9. В2014 создать отдельных Blade/Chain/Tome героев; проверить оружие/знакомца/3 Tome cantrips.
    В2024 повторить с pact invocations, без дополнительного Pact Selection. Проверить управление
    дополнительными spell/cantrip pools при выборе/отмене Tome и spell-granting invocations.
@@ -311,39 +395,42 @@ Release Install на Linux не применялся.
     отсутствие Warlock12 origin definitions и запрета класса13 от этого модуля. Проверить прежние
     Fighter/Barbarian/Monk/Rogue/Wizard/Sorcerer в их прежних режимах.
 
-Рекомендация: допустим только ограниченный диагностический прогон на новых тестовых героях
-с учётом перечисленных ограничений. Для завершения Stage 6 сначала требуется полноценная
-транзакционная модель инвокаций/pending prerequisites и подтверждение игровых сценариев.
+## Короткий игровой сценарий A→B→C→D
 
-## Изменённые файлы
+1. Создать нового тестового Warlock и последовательно довести до actual11. A=`ArmorOfShadows` известна;
+   B=`FiendishVigor`, C=`DevilsSight`, D=`EyesRuneKeeper` не изучены. Не использовать Tome/custom chain.
+   Если перевод названий другой, ориентироваться на эти definition names. Оставить отдельный тестовый save.
+2. На actual12, original18 заменить A→B **и выбрать ещё одну отдельную инвокацию E**: исходный18
+   дополнительно даёт постоянную награду. E не должна совпадать с A/B/C/D или выдавать новый choice pool.
+3. На original19 B должна быть видна для удаления: заменить B→C. На original20 заменить C→D.
+   До подтверждения итог — D и E плюс остальные прежние инвокации; A/B/C отсутствуют, класс всё ещё12.
+4. Вернуться на original18 и изменить B: шаги19/20 очищаются. Вернуть B, заново пройти B→C→D.
+   Проверить Undo/Reset каждого шага и Skip: Skip не даёт бесплатного приобретения.
+5. Отменить всё повышение и повторить с того же сохранения. Снова выполнить цепочку и подтвердить.
+   Проверить, что остались только D/E, общее число стандартных инвокаций выросло на1, ресурсы/powers
+   промежуточных B/C не остались и Spell Points/Pact Magic/Arcanum не изменились от замен.
+6. Сохранить/загрузить **в том же режиме**. На отдельном прогоне проверить A→B→A, затем варианты2014/2024,
+   подтверждённый Eldritch Adept, pending Thirsting/Devouring Blade, Hex и known spell requirements.
+7. Попытка получить prerequisite19 на18, дважды удалить старую инвокацию, взять известную инвокацию
+   или провести Tome/custom chain должна отказать без принятия повышения. После исключения финализации
+   не сохранять результат: восстановить тестовый save; полный native hero rollback не заявляется.
+
+Рекомендация: обычные resource-neutral цепочки готовы к **контролируемому** диагностическому прогону
+на новых героях. Общий статус остаётся PARTIALLY READY из-за custom/choice-chain guards и отсутствия
+Unity-проверки. Продолжение на Bard или другие классы в Stage 6.1 не выполнялось.
+
+## Изменённые файлы Stage 6.1
 
 - `Documentation/WarlockProgressionPrototype.md`
-- `SolastaUnfinishedBusiness/Api/Helpers/MulticlassInOutRulesHelper.cs`
-- `SolastaUnfinishedBusiness/Behaviors/ModifyPowerPoolAmount.cs`
-- `SolastaUnfinishedBusiness/CustomUI/CustomInvocationSelectionPanel.cs`
-- `SolastaUnfinishedBusiness/CustomUI/MulticlassGameUi.cs`
 - `SolastaUnfinishedBusiness/Displays/ClassesDisplay.cs`
-- `SolastaUnfinishedBusiness/Models/2024WarlockContext.cs`
-- `SolastaUnfinishedBusiness/Models/BootContext.cs`
-- `SolastaUnfinishedBusiness/Models/SharedSpellsContext.cs`
 - `SolastaUnfinishedBusiness/Models/WarlockInvocationContext.cs`
+- `SolastaUnfinishedBusiness/Models/WarlockInvocationTransaction.cs`
+- `SolastaUnfinishedBusiness/Models/WarlockInvocationTransactionsContext.cs`
 - `SolastaUnfinishedBusiness/Models/WarlockProgressionContext.cs`
-- `SolastaUnfinishedBusiness/Models/WarlockProgressionRules.cs`
 - `SolastaUnfinishedBusiness/Models/WarlockSpellcastingContext.cs`
-- `SolastaUnfinishedBusiness/Models/WizardProgressionContext.cs`
 - `SolastaUnfinishedBusiness/Patches/CharacterBuildingManagerPatcher.cs`
 - `SolastaUnfinishedBusiness/Patches/GuiInvocationDefinitionPatcher.cs`
-- `SolastaUnfinishedBusiness/Patches/RulesetActorPatcher.cs`
-- `SolastaUnfinishedBusiness/Patches/RulesetCharacterHeroPatcher.cs`
-- `SolastaUnfinishedBusiness/Patches/RulesetImplementationManagerPatcher.cs`
-- `SolastaUnfinishedBusiness/Settings.cs`
-- `SolastaUnfinishedBusiness/Subclasses/Builders/EldritchVersatility.cs`
-- `SolastaUnfinishedBusiness/Subclasses/Builders/InvocationsBuilders.cs`
-- `SolastaUnfinishedBusiness/Subclasses/PatronCelestial.cs`
-- `SolastaUnfinishedBusiness/Subclasses/PatronEldritchSurge.cs`
-- `SolastaUnfinishedBusiness/Subclasses/PatronMoonlitScion.cs`
-- `SolastaUnfinishedBusiness/Subclasses/PatronMountain.cs`
-- `SolastaUnfinishedBusiness/Subclasses/PatronSoulBlade.cs`
 - `Tests/FighterProgression/FighterProgression.Tests.csproj`
 - `Tests/FighterProgression/Program.cs`
+- `Tests/FighterProgression/WarlockInvocationTransactionTests.cs`
 - `Tests/FighterProgression/WarlockTests.cs`

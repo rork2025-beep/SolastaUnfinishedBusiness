@@ -58,7 +58,7 @@ internal static class ClassesDisplay
         }
         if (warlockPrototype || WarlockProgressionContext.Active)
         {
-            UI.Label("Test only: existing saves are incompatible. Invocation replacement chains within one advancement are limited.");
+            UI.Label("Test only: existing saves are incompatible. Standard invocation chains supported; Tome and custom chains are limited.");
         }
 
 

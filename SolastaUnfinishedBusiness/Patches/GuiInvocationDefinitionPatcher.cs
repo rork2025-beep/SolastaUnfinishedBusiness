@@ -67,6 +67,9 @@ public static class GuiInvocationDefinitionPatcher
                     var hasSpell = hero.SpellRepertoires.Any(spellRepertoire =>
                         spellRepertoire.HasKnowledgeOfSpell(invocation.RequiredKnownSpell));
 
+                    if (SolastaUnfinishedBusiness.Models.WarlockInvocationContext.TryPendingSpell(hero, invocation.RequiredKnownSpell, out var pendingSpell))
+                        hasSpell = pendingSpell;
+
                     if (!hasSpell)
                     {
                         isValid = false;
@@ -101,6 +104,9 @@ public static class GuiInvocationDefinitionPatcher
                         hasPact = hero.TrainedInvocations.Any(x => x.Name == invocationPactName);
                     }
 
+                    if (SolastaUnfinishedBusiness.Models.WarlockInvocationContext.TryPendingPact(hero, invocation.RequiredPact, out var pendingPact))
+                        hasPact = pendingPact;
+
                     if (!hasPact)
                     {
                         isValid = false;
@@ -120,6 +126,8 @@ public static class GuiInvocationDefinitionPatcher
 
             var (result, output) =
                 invocationDefinitionWithPrerequisites.Validate(invocationDefinitionWithPrerequisites, hero);
+            if (hero != null && SolastaUnfinishedBusiness.Models.WarlockInvocationContext.TryPendingValidator(hero, invocation, out var pendingValid))
+                result = pendingValid;
 
             isValid = isValid && result;
             prerequisiteOutput += '\n' + output;
