@@ -396,7 +396,7 @@ public sealed class RangerLightBearer : AbstractSubclass
                 yield break;
             }
 
-            var diceNumber = attacker.RulesetCharacter.GetClassLevel(CharacterClassDefinitions.Ranger) < 11 ? 1 : 2;
+            var diceNumber = RangerProgressionContext.EffectiveLevel(attacker.RulesetCharacter) < 11 ? 1 : 2;
             var effectForm = EffectFormBuilder.DamageForm(DamageTypeRadiant, diceNumber, DieType.D8);
 
             effectForm.DamageForm.IgnoreCriticalDoubleDice = true;
@@ -444,7 +444,7 @@ public sealed class RangerLightBearer : AbstractSubclass
         public IEnumerator OnPowerOrSpellFinishedByMe(CharacterActionMagicEffect action, BaseDefinition power)
         {
             var rulesetCharacter = action.ActingCharacter.RulesetCharacter;
-            var classLevel = rulesetCharacter.GetClassLevel(CharacterClassDefinitions.Ranger);
+            var classLevel = RangerProgressionContext.EffectiveLevel(rulesetCharacter);
 
             rulesetCharacter.ReceiveTemporaryHitPoints(
                 classLevel, DurationType.UntilAnyRest, 0, TurnOccurenceType.StartOfTurn, rulesetCharacter.Guid);

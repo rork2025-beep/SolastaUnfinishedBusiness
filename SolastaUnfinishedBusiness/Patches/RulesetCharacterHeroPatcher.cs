@@ -1346,6 +1346,8 @@ public static class RulesetCharacterHeroPatcher
                 !ClericSpellcastingContext.CanSelectClass(__instance, classDefinition) ||
                 PaladinProgressionContext.IsCapped(__instance, classDefinition) ||
                 !PaladinSpellcastingContext.CanSelectClass(__instance, classDefinition) ||
+                RangerProgressionContext.IsCapped(__instance, classDefinition) ||
+                !RangerSpellcastingContext.CanSelectClass(__instance, classDefinition) ||
                 DruidProgressionContext.IsCapped(__instance, classDefinition) ||
                 !DruidSpellcastingContext.CanSelectClass(__instance, classDefinition))
             {

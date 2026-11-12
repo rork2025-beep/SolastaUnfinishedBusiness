@@ -180,6 +180,13 @@ internal static class ToolsContext
                     "Message/&MessageOkTitle", string.Empty, null, null);
                 yield break;
             }
+            if (!RangerCompanionContext.CanRespec(functorParameters.RestingHero))
+            {
+                Gui.GuiService.ShowMessage(MessageModal.Severity.Informative1, "Ranger prototype",
+                    "Dismiss owned summons and end Hunter's Mark before respec. Restart if rules changed.",
+                    "Message/&MessageOkTitle", string.Empty, null, null);
+                yield break;
+            }
             IsRespecing = true;
 
             var characterBuildingService = ServiceRepository.GetService<ICharacterBuildingService>();
@@ -580,7 +587,8 @@ internal static class ToolsContext
                 return;
             }
 
-            var retained = conditions.Where(c => PaladinPowerSafetyContext.ShouldTransferCondition(oldHero, newHero, c)).ToArray();
+            var retained = conditions.Where(c => PaladinPowerSafetyContext.ShouldTransferCondition(oldHero, newHero, c) &&
+                RangerCompanionContext.ShouldTransferCondition(oldHero, newHero, c)).ToArray();
             newHero.AddConditionCategoryAsNeeded(category);
             newHero.AllConditions.AddRange(retained);
             newHero.ConditionsByCategory[category].AddRange(retained);

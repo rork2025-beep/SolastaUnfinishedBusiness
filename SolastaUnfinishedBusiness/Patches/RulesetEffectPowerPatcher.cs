@@ -58,6 +58,11 @@ public static class RulesetEffectPowerPatcher
                 user.GetClassLevel(SolastaUnfinishedBusiness.Api.DatabaseHelper.CharacterClassDefinitions.Paladin) > 0)
                 return effect.ComputeRoundsDuration(slotLevel, SolastaUnfinishedBusiness.Models.PaladinProgressionContext.EffectiveLevel(user));
 
+            if (SolastaUnfinishedBusiness.Models.RangerProgressionContext.Active &&
+                SolastaUnfinishedBusiness.Models.RangerProgressionContext.HoldsPower(power) &&
+                user.GetClassLevel(SolastaUnfinishedBusiness.Api.DatabaseHelper.CharacterClassDefinitions.Ranger) > 0)
+                return effect.ComputeRoundsDuration(slotLevel, SolastaUnfinishedBusiness.Models.RangerProgressionContext.EffectiveLevel(user));
+
             if (classLevel > 1 || power.EffectDescription.DurationType != DurationType.HalfClassLevelHours)
             {
                 return effect.ComputeRoundsDuration(slotLevel, classLevel);

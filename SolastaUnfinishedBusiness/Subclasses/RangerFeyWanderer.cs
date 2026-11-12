@@ -240,7 +240,7 @@ public sealed class RangerFeyWanderer : AbstractSubclass
                 return;
             }
 
-            var classLevel = attacker.RulesetCharacter.GetClassLevel(CharacterClassDefinitions.Ranger);
+            var classLevel = RangerProgressionContext.EffectiveLevel(attacker.RulesetCharacter);
 
             if (classLevel < 11)
             {
@@ -357,7 +357,7 @@ public sealed class RangerFeyWanderer : AbstractSubclass
         public bool IsValid(BaseDefinition definition, RulesetCharacter character, EffectDescription effectDescription)
         {
             return definition == MistyStep &&
-                   character.GetSubclassLevel(CharacterClassDefinitions.Ranger, Name) >= 15;
+                   RangerProgressionContext.EffectiveSubclassLevel(character, Name) >= 15;
         }
 
         public EffectDescription GetEffectDescription(

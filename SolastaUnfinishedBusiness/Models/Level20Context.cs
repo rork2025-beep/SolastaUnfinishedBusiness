@@ -1072,7 +1072,7 @@ internal static class Level20Context
             ref DamageForm damageForm)
         {
             if (featureDefinitionAdditionalDamage != AdditionalDamageHuntersMark ||
-                attacker.RulesetCharacter.GetClassLevel(Ranger) < 20)
+                RangerProgressionContext.EffectiveLevel(attacker.RulesetCharacter) < 20)
             {
                 return;
             }

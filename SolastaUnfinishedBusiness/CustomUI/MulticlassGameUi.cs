@@ -500,6 +500,12 @@ internal static class MulticlassGameUi
             return;
         }
         SorcererSpellcastingContext.FilterSelection(heroBuildingData, spellTag, unlearn, ref knownSpells);
+        if (RangerSpellcastingContext.TryGetLearningMaximum(localHeroCharacter, spellTag, out var rangerMaximum) && spellLevel > rangerMaximum)
+        {
+            group.gameObject.SetActive(false);
+            return;
+        }
+        RangerSpellcastingContext.FilterSelection(heroBuildingData, spellTag, unlearn, ref knownSpells);
 
         if (WarlockSpellcastingContext.TryGetLearningMaximum(localHeroCharacter, spellTag, out var warlockMaximum) &&
             spellLevel > warlockMaximum)
@@ -593,6 +599,7 @@ internal static class MulticlassGameUi
         }
 
         BardSpellcastingContext.FilterAvailableSpells(localHeroCharacter, spellTag, allSpells);
+        RangerSpellcastingContext.FilterAvailableSpells(localHeroCharacter, spellTag, allSpells);
 
         var service = ServiceRepository.GetService<IGamingPlatformService>();
 

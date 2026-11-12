@@ -72,8 +72,7 @@ internal sealed class Executioner : AbstractFightingStyle
                 return false;
             }
 
-            var survivalistLevel = attacker.RulesetCharacter
-                .GetSubclassLevel(CharacterClassDefinitions.Ranger, RangerSurvivalist.Name);
+            var survivalistLevel = SolastaUnfinishedBusiness.Models.RangerProgressionContext.EffectiveSubclassLevel(attacker.RulesetCharacter, RangerSurvivalist.Name);
 
             if (survivalistLevel >= 11)
             {

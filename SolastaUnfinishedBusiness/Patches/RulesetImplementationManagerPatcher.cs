@@ -368,7 +368,9 @@ public static class RulesetImplementationManagerPatcher
             var klassLevel = klass == DatabaseHelper.CharacterClassDefinitions.Druid
                 ? DruidProgressionContext.EffectiveLevel(character)
                 : klass == DatabaseHelper.CharacterClassDefinitions.Paladin
-                    ? PaladinProgressionContext.EffectiveLevel(character) : character.GetClassLevel(klass);
+                    ? PaladinProgressionContext.EffectiveLevel(character)
+                    : klass == DatabaseHelper.CharacterClassDefinitions.Ranger
+                        ? RangerProgressionContext.EffectiveLevel(character) : character.GetClassLevel(klass);
 
             rank = effectForm.LevelType switch
             {

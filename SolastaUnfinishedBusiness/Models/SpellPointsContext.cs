@@ -431,6 +431,10 @@ internal static class SpellPointsContext
                 return SpellcastingProgressionPlan.CasterLevel(hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Sorcerer));
             }
 
+            if (RangerProgressionContext.Active && RangerSpellcastingContext.IsSupportedHero(hero) &&
+                hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Ranger) > 0)
+                return RangerSpellcastingContext.SingleCasterLevel(hero);
+
             if (PaladinProgressionContext.Active && PaladinSpellcastingContext.IsSupportedHero(hero) &&
                 hero.GetClassLevel(DatabaseHelper.CharacterClassDefinitions.Paladin) > 0)
                 return PaladinSpellcastingContext.SingleCasterLevel(hero);

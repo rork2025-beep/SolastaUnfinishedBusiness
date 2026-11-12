@@ -50,6 +50,12 @@ internal static class ClassesDisplay
             Main.Settings.EnableSorcererCompressedProgressionPrototype = sorcererPrototype;
         }
 
+        var rangerPrototype = Main.Settings.EnableRangerCompressedProgressionPrototype;
+        if (UI.Toggle("Ranger 20 to 12 prototype (NEW HEROES; restart; SINGLE HALF-CASTER ONLY)", ref rangerPrototype, UI.AutoWidth()))
+            Main.Settings.EnableRangerCompressedProgressionPrototype = rangerPrototype;
+        if (rangerPrototype || RangerProgressionContext.Active)
+            UI.Label("Use separate new test saves. End marks and dismiss summons before respec; restart after rule changes.");
+
         var paladinPrototype = Main.Settings.EnablePaladinCompressedProgressionPrototype;
         if (UI.Toggle("Paladin 20 to 12 prototype (NEW HEROES; restart; SINGLE HALF-CASTER ONLY)", ref paladinPrototype, UI.AutoWidth()))
             Main.Settings.EnablePaladinCompressedProgressionPrototype = paladinPrototype;

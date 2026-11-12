@@ -327,15 +327,12 @@ public sealed class RangerWildMaster : AbstractSubclass
             RulesetCharacter character,
             RulesetEffect rulesetEffect)
         {
-            var level = character.GetClassLevel(CharacterClassDefinitions.Ranger);
+            var level = RangerProgressionContext.EffectiveLevel(character);
             var summonForm =
                 effectDescription.EffectForms.FirstOrDefault(x => x.FormType == EffectForm.EffectFormType.Summon);
 
-            summonForm!.SummonForm.monsterDefinitionName = level switch
-            {
-                >= 11 => beastCompanion11.Name,
-                _ => beastCompanion03.Name
-            };
+            summonForm!.SummonForm.monsterDefinitionName = RangerProgressionRules.UpgradedCompanion(level)
+                ? beastCompanion11.Name : beastCompanion03.Name;
 
             return effectDescription;
         }

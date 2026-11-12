@@ -279,7 +279,9 @@ public static class RulesetActorPatcher
                                                         ? DruidProgressionContext.EffectiveLevel(sourceCharacter)
                                                         : source == RuleDefinitions.PaladinClass
                                                             ? PaladinProgressionContext.EffectiveLevel(sourceCharacter)
-                                                            : sourceCharacter.GetClassLevel(source);
+                                                            : source == RuleDefinitions.RangerClass
+                                                                ? RangerProgressionContext.EffectiveLevel(sourceCharacter)
+                                                                : sourceCharacter.GetClassLevel(source);
                     break;
 
                 case (ConditionDefinition.OriginOfAmount)ExtraOriginOfAmount.SourceAbilityBonus:
@@ -1227,8 +1229,7 @@ public static class RulesetActorPatcher
                         {
                             var levels =
                                 DruidProgressionContext.EffectiveSubclassLevel(hero, CircleOfTheAncientForest.Name) +
-                                hero.GetSubclassLevel(DatabaseHelper.CharacterClassDefinitions.Ranger,
-                                    RangerLightBearer.Name);
+                                RangerProgressionContext.EffectiveSubclassLevel(hero, RangerLightBearer.Name);
 
                             attributeModifier.Value = levels * 5;
                             break;

@@ -290,6 +290,7 @@ public static class CharacterBuildingManagerPatcher
             if (!ClericSpellcastingContext.BeginFinalize(hero)) return false;
             if (!DruidSpellcastingContext.BeginFinalize(hero)) return false;
             if (!PaladinSpellcastingContext.BeginFinalize(hero)) return false;
+            if (!RangerSpellcastingContext.BeginFinalize(hero)) return false;
 
             var buildingData = hero.GetHeroBuildingData();
 
@@ -451,6 +452,8 @@ public static class CharacterBuildingManagerPatcher
                 !ClericSpellcastingContext.CanSelectClass(hero, classDefinition) ||
                 PaladinProgressionContext.IsCapped(hero, classDefinition) ||
                 !PaladinSpellcastingContext.CanSelectClass(hero, classDefinition) ||
+                RangerProgressionContext.IsCapped(hero, classDefinition) ||
+                !RangerSpellcastingContext.CanSelectClass(hero, classDefinition) ||
                 DruidProgressionContext.IsCapped(hero, classDefinition) ||
                 !DruidSpellcastingContext.CanSelectClass(hero, classDefinition))
             {

@@ -345,8 +345,8 @@ public static partial class Tabletop2024Context
             RulesetCharacter character,
             RulesetEffect rulesetEffect)
         {
-            var levels = character.GetClassLevel(Ranger);
-            var halfRoundUp = (levels + 1) / 2;
+            var levels = RangerProgressionContext.EffectiveLevel(character);
+            var halfRoundUp = RangerProgressionRules.TirelessBonus(levels);
 
             effectDescription.EffectForms[0].TemporaryHitPointsForm.BonusHitPoints = halfRoundUp;
 
@@ -360,21 +360,15 @@ public static partial class Tabletop2024Context
 
         public int PoolChangeAmount(RulesetCharacter character)
         {
-            var levels = character.GetClassLevel(Ranger);
-            var usages = levels switch
-            {
-                < 5 => 2,
-                < 9 => 3,
-                < 13 => 4,
-                < 17 => 5,
-                _ => 6
-            };
+            var levels = RangerProgressionContext.EffectiveLevel(character);
+            var usages = RangerProgressionRules.MarkUses(levels);
 
             return usages;
         }
 
         public IEnumerator OnPowerOrSpellFinishedByMe(CharacterActionMagicEffect action, BaseDefinition baseDefinition)
         {
+            if (!RangerMarkContext.CompleteFreeMark(action)) yield break;
             action.ActingCharacter.MyExecuteActionCastNoCost(HuntersMark, 0, action.ActionParams);
 
             yield break;
@@ -386,6 +380,8 @@ public static partial class Tabletop2024Context
     {
         public bool RequiresConcentration(RulesetCharacter rulesetCharacter, RulesetEffectSpell rulesetEffectSpell)
         {
+            if (RangerProgressionContext.Active && rulesetCharacter.GetClassLevel(Ranger) > 0)
+                return RangerMarkContext.RequiresConcentration(rulesetCharacter, rulesetEffectSpell);
             if (!Main.Settings.EnableRangerRelentlessHunter2024)
             {
                 return rulesetEffectSpell.SpellDefinition.RequiresConcentration;
@@ -396,6 +392,8 @@ public static partial class Tabletop2024Context
 
         public SpellDefinition[] SpellsThatShouldNotRollConcentrationCheckFromDamage(RulesetCharacter rulesetCharacter)
         {
+            if (RangerProgressionContext.Active && rulesetCharacter.GetClassLevel(Ranger) > 0)
+                return RangerMarkContext.ProtectConcentration(rulesetCharacter) ? [HuntersMark] : [];
             return Main.Settings.EnableRangerRelentlessHunter2024AsNoConcentration ? [] : [HuntersMark];
         }
     }

@@ -177,6 +177,9 @@ internal static class SharedSpellsContext
         var compressedSorcerer = SorcererSpellcastingContext.SingleCasterLevel(rulesetCharacterHero);
         if (compressedSorcerer > 0) return compressedSorcerer;
 
+        var compressedRanger = RangerSpellcastingContext.SingleCasterLevel(rulesetCharacterHero);
+        if (compressedRanger > 0) return compressedRanger;
+
         var compressedPaladin = PaladinSpellcastingContext.SingleCasterLevel(rulesetCharacterHero);
         if (compressedPaladin > 0) return compressedPaladin;
 
