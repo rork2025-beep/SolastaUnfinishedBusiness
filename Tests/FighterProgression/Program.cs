@@ -99,4 +99,5 @@ DruidTests.Run(Check, game, mod);
 PaladinTests.Run(Check, game, mod);
 RangerTests.Run(Check, game, mod);
 InventorTests.Run(Check, game, mod);
+CompressedMulticasterTests.Run(Check, mod);
 Console.WriteLine($"{count} checks passed; these are game-independent planner tests, not gameplay tests.");

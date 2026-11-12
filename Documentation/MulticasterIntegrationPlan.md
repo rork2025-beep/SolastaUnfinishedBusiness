@@ -437,3 +437,86 @@ Acceptance:
 Архитектурный blueprint готов к реализации pure model в13.2. **Mixed runtime сейчас не готов и не включён.** Основные gates: class/repertoire ownership, grouped rounding, cap20 во всех consumers, ровно один ресурсный debit/recovery, class-local spell events, pre-finalization для всех кастеров и доказанный save-state round-trip. Ни один существующий safety guard этим audit commit не ослабляется.
 
 В Stage13.1 изменяется только этот документ. Не создавались worktree, release merge, mod package или новые runtime patches; source/settings/save/game assemblies не менялись. Commit и push документа — только в `feature/progression-20-to-12`.
+
+## 10. Stage13.2 — реализованный pure calculator
+
+Разделы1–9 выше фиксируют аудит и blueprint Stage13.1. Этот раздел описывает последующий Stage13.2; наличие калькулятора **не означает**, что последующие resource/UI/finalization stages выполнены.
+
+Prerequisite проверен: Stage13.1 committed как `8f45931d052d816aa40c33e78c74310426f3b136`; документ прочитан до изменений. Повторный baseline: SDK9.0.320, 6209 checks, Release Workflow0 warnings/0 errors, tracked tree чистое. Противоречий, блокирующих реализацию pure calculator, нет.
+
+### 10.1 API и изоляция
+
+Реализация: `SolastaUnfinishedBusiness/Models/CompressedMulticasterProgressionPlan.cs`.
+
+- `CompressedMulticasterProgressionPlan(registryVersion, profiles)` — reusable immutable registry; `Calculate(Snapshot)` — детерминированный расчёт без native state.
+- `ClassProfile`, `SubclassProfile`, `CastingProfile` — идентификаторы definitions, поддержка feature/casting compression, original subclass/casting unlocks, **двадцать original unprojected spell-access rows**. Класс имеет приоритет перед subclass casting, как installed GetCasterTypeForClassOrSubclass. При отсутствии class casting используется выбранный subclass casting.
+- `ClassInput` содержит реальный уровень, `CompressionEnabled` конкретного класса и выбранный subclass. Переданный флаг означает выбранный latched mode класса; будущий native adapter обязан брать его из согласованного session/profile snapshot, а не из изменённой посреди сеанса Settings UI.
+- `Snapshot` копирует actual character level, классы, фактическую последовательность class history и явно классифицированные auxiliary sources. Сумма/история проверяются, не переписываются.
+- `ClassResult` разделяет `ActualClassLevel`, `ActualSubclassLevel`, `EffectiveClassLevel`, `EffectiveSubclassLevel`, `EffectiveCastingLevel`, `SpellAccessLevel`, `MaximumSpellCircle`, точный `ContributionNumerator/ContributionDenominator`. Subclass actual level — уровень владеющего класса, а не количество повышений после выбора subclass.
+- `Result` содержит RegistryVersion, исходный immutable snapshot, class results, отдельные `PactProgressions`, auxiliary access, buckets, `RawSharedCasterLevel`, `ResourceTableIndex`, `StandardSlotRowIndex` и diagnostics.
+
+`ResourceTableIndex` — один scalar0…20, пригодный для SP table index. Для slot rows1…20 используется nullable `StandardSlotRowIndex`: при S>0 это S−1, при S=0 **null**, а не−1. Бюджеты SP/slots, recovery/spend и native pools здесь не создаются. Калькулятор возвращает единственный общий standard index, не личный SP pool каждого кастера.
+
+Readiness gate `MixedGameplayReady=false` — compile-time constant. Новый UB setting не нужен для кода, у которого нет runtime callers; существующие Settings/UI/Boot/SharedSpellsContext/SpellPointsContext и все mixed-caster guards не менялись. Class-specific calculators не заменены. Cecil checks проверяют отсутствие Harmony patches, native/Settings/GetClassLevel dependencies и вызовов нового модуля из прежних production paths.
+
+Реестр в этом этапе — чистые входные profiles, **не подключённый автоматический scanner игровых definitions**. Snapshot DTO не сериализует saves и не читает живого героя. Native capture оригинальных tables в точке Boot из§6, proof классификации auxiliary sources и подключение к ресурсам остаются следующими этапами. Интерфейсы spend/recovery/advancement из§4.4 остаются спецификацией; calculator не изображает их готовой реализацией.
+
+### 10.2 Формула и собственный доступ
+
+Используется существующий `FighterProgressionPlan<int>.EffectiveLevel` после проверки допустимых actual levels. Для класса с включённым и поддержанным feature compression `eFeature=M(actual)`, иначе actual. Subclass feature compression определяется отдельно своим profile. Для casting `eCasting=M(actual)` только если включён флаг класса **и** casting profile поддерживает compression; иначе actual. У None eCasting=0.
+
+После final original casting unlock:
+
+```text
+solo:   Full=e; Half=ceil(e/2); HalfRoundUp=ceil(e/2); OneThird=ceil(e/3)
+mixed:  raw=sum(Full e)+floor(sum(Half e)/2)
+           +ceil(sum(HalfRoundUp e)/2)+floor(sum(OneThird e)/3)
+S=min(20,max(0,raw))
+```
+
+None/Pact/auxiliary sources не добавляют standard levels. Pact является отдельным `CasterKind.Pact`: сохраняет own effective level/circle и учитывается в числе casting participants для выбора mixed rounding. Поэтому Warlock1+Half3 даёт standard1, а Warlock1+HalfRoundUp3 —standard2. Нет таблицы Pact capacity или Arcanum allocation в этом этапе: их будущие planners получают own Warlock progression, а не S.
+
+Требование unlock проверяется до участия в rounding: Half на original1 с unlock2 не создаёт phantom caster; HU с unlock1 участвует сразу. Half3+Half3 даёт3, Third4+Third5 даёт3; разные Half/HU buckets не объединяются. Actual martial levels не добавляют contribution.
+
+Обычный `MaximumSpellCircle` читается только из **собственной исходной строки** profile по `SpellAccessLevel−1`. Общие высокие slots не повышают learning/preparation/access другого класса. Явные bonus/innate/item grants сохраняются отдельно в auxiliary access и не интерпретируются как ordinary class access; Arcanum также не превращает Pact circle5 в circle9. Ни prepared/known budgets, ни spellbooks, ни конкретные spell choices этот calculator не меняет.
+
+### 10.3 Проверенные примеры
+
+C — включён подтверждённый casting compression; N — обычные actual tables. Это результаты production **pure calculator tests**, не разрешённые игровые multiclass builds.
+
+| Actual build | Effective feature/casting progression | raw → S | Independent ordinary repertoire circles |
+|---|---|---|---|
+| Sorcerer12C / Wizard8C |20 /11 |31→20 |9 /6 |
+| Cleric12C / Wizard8C |20 /11 |31→20 |9 /6 |
+| Paladin12C Half / Sorcerer8C |20 /11 |21→20 |5 /6 |
+| Ranger12C Half / Inventor8C HU |20 /11 |16→16 |5 /3 |
+| Bard8C / Cleric6C / Fighter6C Champion |11 /7 /7; Fighter casting0 |18→18 |6 /4 /0 |
+| Warlock12C / Sorcerer8C |20 Pact /11 standard |11→11 |5 Pact /6 standard |
+| Fighter8N Spellblade / Wizard12C |8 third /20 full |22→20 |2 /9 |
+| Wizard12C / Cleric8N |20 /8 |28→20 |9 /4 |
+| Wizard6C / Paladin6C Half |7 /7 |10→10 |4 /2, хотя shared resource row10 поддерживает circle5 |
+| Rogue8C ShadowCaster или ArcaneScoundrel / Wizard6C |Rogue features11, casting8; Wizard7 |9→9 |2 /4 |
+| Warlock12C alone |20 Pact |0→0, slot row null |5 Pact; no standard row |
+| Wizard8N / Fighter12N Champion |8 /12; Fighter casting0 |8→8 |4 /0; martial12 не превращает Wizard8 в caster20 |
+
+Сочетание compressed Fighter с Spellblade/SpellShield выдаёт `UnsupportedCompressedSubclass`, сохраняя рамки существующего Fighter prototype. У обычного Fighter оба third-caster profiles поддерживаются калькулятором. Это арифметическая поддержка ordinary subclass, а не снятие runtime guards Wizard/других классов.
+
+Дополнительно выполняется полная матрица независимых ON/OFF class switches для шести заданных двух-/трёхклассовых builds. Например Paladin12/Sorcerer8 даёт raw14/18/17/21 при flags none/Paladin/Sorcerer/both; Bard8/Cleric6/Fighter6 —14/17/15/18 с теми же casting flags независимо от Fighter feature flag.
+
+### 10.4 Валидация и сохранение ограничений
+
+- Actual character total0…20, не более трёх положительных class entries, собственные actual levels0…20, точное соответствие class counts и истории. Повтор одного ClassId отвергается, а не удваивает вклад.
+- Compression flag при actual13+ даёт `UnsupportedCompressedLevel` **до** вызова mapping, не скрытый clamp фактического класса. Неизвестный класс, неизвестный/преждевременный subclass и неподдержанный compression получают отдельные diagnostics.
+- Отсутствующий subclass до original выбора допустим и не создаёт casting source; отсутствие обязательного выбора после его порога — `MissingSubclass`, без догадки о third-caster type. Это консервативный контракт полного snapshot для calculator, не новая GUI-политика.
+- Unknown auxiliary role/ID/circle, отсутствующий attached owner и конфликтующие сведения об одном source ID отвергаются. Одинаковые повторные auxiliary views deduplicate; несколько AutoPrepared/Secrets grants одного владельца не добавляют contribution.
+- Невалидный snapshot возвращает `IsValid=false`, diagnostics, resource index0/slot row null и пустой calculated class list. Это не успешный результат с нулевым бюджетом: будущие callers обязаны проверять IsValid.
+- Валидная сумма сверх20 возвращает `ResourceTableSaturated` как **warning**, сохраняет весь class progression trace, raw и один S=20. Собственный class spell access не обрезается и не повышается общей таблицей.
+- Profiles, tables и collections копируются/защищены read-only views. Повтор Calculate не трансформирует input и не начисляет ресурс. HP/PB/ability values и native hero references вообще не входят в API; class history остаётся неизменной.
+
+### 10.5 Проверки и последующая интеграция
+
+Тесты: `Tests/FighterProgression/CompressedMulticasterTests.cs`; production файл подключён напрямую в существующий `FighterProgression.Tests.csproj`, suite вызывается из Program.cs. Native DLL не загружается для выполнения калькулятора.
+
+Покрыты все caster kinds на actual0…20 либо compressed0…12, source solo rounding и original access, grouped rounding boundaries, Pact-only/Pact+Half, пустые/martial/racial-only snapshots, cap20 saturation, все примеры и переключения, ordinary/feature-compressed third casters, missing subclasses, invalid history/actual caps/owners, входная immutability и repeated calculation. Отдельные Cecil metadata checks сверяют compiled installed Full/SpellPoints table bounds и изоляцию production module; они не являются runtime Harmony validation.
+
+Финальный полный regression: **7076 checks passed**, включая прежние6209 и **867 новых:862 production pure checks +5 compiled-metadata checks**. Release Workflow: **0 warnings /0 errors**, SDK9.0.320, `git diff --check` проходит. Commit/push приводятся в итоговом отчёте Stage13.2. Допуск игры остаётся закрытым; следующим этапом по blueprint является13.3, но этот commit не начинает ресурсную интеграцию.
