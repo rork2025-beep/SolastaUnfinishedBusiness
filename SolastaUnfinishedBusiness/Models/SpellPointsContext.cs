@@ -58,6 +58,10 @@ internal static class SpellPointsContext
             new ModifyPowerPoolAmountPowerSpellPoints())
         .AddToDB();
 
+    internal static int LegacyCasterLevelForAudit(RulesetCharacterHero hero) => ModifyPowerPoolAmountPowerSpellPoints.AuditCasterLevel(hero);
+
+    internal static int[] CopyInstalledPointTable() => ModifyPowerPoolAmountPowerSpellPoints.CopyTable();
+
     internal static void LateLoad()
     {
         EnumerateSlotsPerLevel(CasterProgression.Full, SpellPointsFullCastingSlots, true);
@@ -95,6 +99,7 @@ internal static class SpellPointsContext
 
     internal static bool CanCastSpellOfLevel(RulesetCharacter rulesetCharacter, int level)
     {
+        if (StandardMulticasterResourcesContext.TryCanSpend(rulesetCharacter, level, out var available)) return available;
         var remaining = GetRemainingSpellPoints(rulesetCharacter);
 
         return remaining >= SpellCostByLevel[level];
@@ -102,11 +107,13 @@ internal static class SpellPointsContext
 
     internal static bool IsSpellPointsEnabled(this RulesetCharacter character)
     {
-        return Main.Settings.UseAlternateSpellPointsSystem && (character is RulesetCharacterHero || DruidWildshapeContext.IsSupportedWildShape(character));
+        return Main.Settings.UseAlternateSpellPointsSystem && (character is RulesetCharacterHero || DruidWildshapeContext.IsSupportedWildShape(character) ||
+            StandardMulticasterResourcesContext.RuntimeEnabled && DruidWildshapeContext.StandardResourceOwner(character) != null);
     }
 
     internal static int GetMaxSpellPoints(this RulesetCharacter rulesetCharacter)
     {
+        if (StandardMulticasterResourcesContext.TryPoints(rulesetCharacter, out var maximum, out _)) return maximum;
         rulesetCharacter = DruidWildshapeContext.SpellPointOwner(rulesetCharacter);
         var usablePower = PowerProvider.Get(PowerSpellPoints, rulesetCharacter);
 
@@ -115,6 +122,7 @@ internal static class SpellPointsContext
 
     internal static int GetRemainingSpellPoints(this RulesetCharacter rulesetCharacter)
     {
+        if (StandardMulticasterResourcesContext.TryPoints(rulesetCharacter, out _, out var remaining)) return remaining;
         rulesetCharacter = DruidWildshapeContext.SpellPointOwner(rulesetCharacter);
         var usablePower = PowerProvider.Get(PowerSpellPoints, rulesetCharacter);
 
@@ -123,6 +131,7 @@ internal static class SpellPointsContext
 
     internal static void AddSpellPoints(this RulesetCharacter rulesetCharacter, int points)
     {
+        if (StandardMulticasterResourcesContext.AddPoints(rulesetCharacter, points)) return;
         rulesetCharacter = DruidWildshapeContext.SpellPointOwner(rulesetCharacter);
         var usablePower = PowerProvider.Get(PowerSpellPoints, rulesetCharacter);
         usablePower.remainingUses = Math.Min(usablePower.remainingUses + points, rulesetCharacter.GetMaxSpellPoints());
@@ -244,6 +253,13 @@ internal static class SpellPointsContext
         RulesetSpellRepertoire repertoire,
         int slotLevel, bool consume = true, bool isMulticaster = false)
     {
+        if (StandardMulticasterResourcesContext.RuntimeEnabled &&
+            StandardMulticasterResourcesContext.TryCasterLevel(character, out _))
+        {
+            if (consume) StandardMulticasterResourcesContext.TrySpend(repertoire, slotLevel);
+            else StandardMulticasterResourcesContext.Refresh(character);
+            return;
+        }
         // Consume a transformed Druid's one authoritative hero pool, never a second form budget.
         character = DruidWildshapeContext.SpellPointOwner(character);
         // consume points
@@ -381,6 +397,9 @@ internal static class SpellPointsContext
 
     private sealed class ModifyPowerPoolAmountPowerSpellPoints : IModifyPowerPoolAmount
     {
+        internal static int AuditCasterLevel(RulesetCharacterHero hero) => GetCasterLevel(hero);
+        internal static int[] CopyTable() => SpellPointsByLevel.ToArray();
+
         private static readonly List<int> SpellPointsByLevel =
         [
             0, 4, 6, 14, 17,
@@ -398,6 +417,7 @@ internal static class SpellPointsContext
 
         public int PoolChangeAmount(RulesetCharacter character)
         {
+            if (StandardMulticasterResourcesContext.TryBasePointMaximum(character, out var maximum)) return maximum;
             switch (character)
             {
                 case RulesetCharacterHero hero:

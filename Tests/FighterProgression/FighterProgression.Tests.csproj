@@ -33,4 +33,5 @@
     <Compile Include="../../SolastaUnfinishedBusiness/Models/InventorInfusionPlan.cs" Link="InventorInfusionPlan.cs" />
   </ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/CompressedMulticasterProgressionPlan.cs" Link="CompressedMulticasterProgressionPlan.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/StandardCasterResourcePlan.cs" Link="StandardCasterResourcePlan.cs" /></ItemGroup>
 </Project>

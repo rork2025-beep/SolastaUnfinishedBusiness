@@ -1112,8 +1112,22 @@ public static class RulesetCharacterPatcher
     public static class RecoverMissingSlots_Patch
     {
         [UsedImplicitly]
+        [HarmonyPrefix]
+        [HarmonyPriority(Priority.First)]
+        public static bool ResourcePrefix(RulesetCharacter __instance, RulesetSpellRepertoire __0, Dictionary<int, int> recoveredSlots)
+        {
+            if (__0.SpellCastingFeature.SpellCastingOrigin is not (FeatureDefinitionCastSpell.CastingOrigin.Class or FeatureDefinitionCastSpell.CastingOrigin.Subclass) ||
+                !StandardMulticasterResourcesContext.Recover(__instance, recoveredSlots)) return true;
+            // Preserve the installed owner-level notification, without running its repertoire debit/recovery again.
+            if (recoveredSlots.Count > 0) __instance.SpellRepertoireSlotsRecovered?.Invoke(__instance, __0, recoveredSlots);
+            return false;
+        }
+
+        [UsedImplicitly]
         public static void Prefix(RulesetCharacter __instance, Dictionary<int, int> recoveredSlots)
         {
+            // Keep the original void-prefix semantics when other mods skip the native method.
+            if (StandardMulticasterResourcesContext.SuppressNativeRestoration(__instance)) return;
             if (__instance.IsSpellPointsEnabled())
             {
                 __instance.AddSpellPoints(recoveredSlots.Sum(e =>
@@ -1555,6 +1569,7 @@ public static class RulesetCharacterPatcher
         [UsedImplicitly]
         public static void Prefix(RulesetCharacter __instance)
         {
+            if (StandardMulticasterResourcesContext.PrepareRefresh(__instance)) return;
             var hero = __instance.GetOriginalHero();
 
             if (hero != null &&
@@ -1568,6 +1583,7 @@ public static class RulesetCharacterPatcher
         [UsedImplicitly]
         public static void Postfix(RulesetCharacter __instance)
         {
+            if (StandardMulticasterResourcesContext.Refresh(__instance)) return;
             if (__instance is not RulesetCharacterHero hero)
             {
                 return;
@@ -1747,6 +1763,7 @@ public static class RulesetCharacterPatcher
         [UsedImplicitly]
         public static void Postfix(RulesetCharacter __instance, RestType restType, bool simulate)
         {
+            StandardMulticasterResourcesContext.FinishRest(__instance, restType, simulate);
             // put back used channel divinity sign if any 2024 setting enabled and a short rest to avoid double dip
             if (restType == RestType.ShortRest &&
                 ClericProgressionContext.PreserveChannelUsesOnShortRest(__instance))
@@ -1913,6 +1930,7 @@ public static class RulesetCharacterPatcher
             RulesetCharacter rulesetCharacter,
             RestType restType)
         {
+            if (StandardMulticasterResourcesContext.SuppressNativeRestoration(rulesetCharacter)) return;
             if (restType == RestType.LongRest
                 || rulesetCharacter is not RulesetCharacterHero hero
                 || !SharedSpellsContext.IsMulticaster(hero))
@@ -2776,6 +2794,7 @@ public static class RulesetCharacterPatcher
         [UsedImplicitly]
         public static bool Prefix(RulesetCharacter __instance, RulesetEffectSpell activeSpell)
         {
+            using var resourceScope = StandardMulticasterResourcesContext.EnterSpell(activeSpell);
             FeatureDefinition preserveSlotThresholdFeature = null;
             var preserveSlotThreshold = int.MaxValue;
 

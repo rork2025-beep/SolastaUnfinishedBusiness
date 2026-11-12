@@ -167,6 +167,7 @@ internal static class SharedSpellsContext
 
     internal static int GetSharedCasterLevel([CanBeNull] RulesetCharacterHero rulesetCharacterHero)
     {
+        if (StandardMulticasterResourcesContext.TryCasterLevel(rulesetCharacterHero, out var level)) return level;
         if (rulesetCharacterHero?.ClassesAndLevels == null)
         {
             return 0;
@@ -222,6 +223,7 @@ internal static class SharedSpellsContext
 
     internal static int GetSharedSpellLevel(RulesetCharacterHero rulesetCharacterHero)
     {
+        if (StandardMulticasterResourcesContext.TryMaximumCircle(rulesetCharacterHero, out var circle)) return circle;
         var sharedCasterLevel = GetSharedCasterLevel(rulesetCharacterHero);
 
         if (rulesetCharacterHero.IsSpellPointsEnabled())

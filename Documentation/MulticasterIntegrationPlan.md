@@ -520,3 +520,117 @@ C — включён подтверждённый casting compression; N — о�
 Покрыты все caster kinds на actual0…20 либо compressed0…12, source solo rounding и original access, grouped rounding boundaries, Pact-only/Pact+Half, пустые/martial/racial-only snapshots, cap20 saturation, все примеры и переключения, ordinary/feature-compressed third casters, missing subclasses, invalid history/actual caps/owners, входная immutability и repeated calculation. Отдельные Cecil metadata checks сверяют compiled installed Full/SpellPoints table bounds и изоляцию production module; они не являются runtime Harmony validation.
 
 Финальный полный regression: **7076 checks passed**, включая прежние6209 и **867 новых:862 production pure checks +5 compiled-metadata checks**. Release Workflow: **0 warnings /0 errors**, SDK9.0.320, `git diff --check` проходит. Commit/push приводятся в итоговом отчёте Stage13.2. Допуск игры остаётся закрытым; следующим этапом по blueprint является13.3, но этот commit не начинает ресурсную интеграцию.
+
+## 11. Stage13.3 — standard resource engine (implemented behind the closed gate)
+
+Baseline: committed Stage13.1 `8f45931d052d816aa40c33e78c74310426f3b136`, Stage13.2 `7a493cb3b33c5ab833f76eadfbe255c4ef542bf1`; branch `feature/progression-20-to-12`. Повторный baseline: SDK9.0.320, **7076 passed**, Release Workflow **0 warnings /0 errors**. Исходное tracked-дерево чистое; существующий untracked `SolastaFiles/Mods/` — выход сборки, не часть commit.
+
+### 11.1 Реализованная модель
+
+`Models/StandardCasterResourcePlan.cs` использует **результат production calculator13.2**, а не складывает бюджеты классов. Формула ресурса: `S=clamp(raw shared contribution,0,20)`; обычные slots — оригинальная full-caster строка `S−1`, приS=0 нет строки; базовый SP maximum — установленная таблица `[S]`. Каждый класс сохраняет собственный `SpellAccessLevel`/`MaximumSpellCircle` из13.2. Общая высокая ячейка не выдаёт заклинания, known/prepared choices или spellbook другого класса.
+
+| Пример (C — casting compression ON, N — OFF) | raw→S | Базовый SP maximum | Resource circle |
+|---|---:|---:|---:|
+| Sorcerer12C / Wizard8C |31→20 |133 |9 |
+| Cleric12C / Wizard8N |28→20 |133 |9 |
+| Sorcerer8C / Paladin12C Half |21→20 |133 |9 |
+| Ranger12C Half / Inventor8C HU |16→16 |94 |8 |
+| Wizard8C / Rogue12C ShadowCaster (casting uncompressed) |15→15 |94 |8 |
+| Bard8C / Cleric6C / Fighter6C Champion |18→18 |114 |9 |
+| Ranger12C Half / Fighter8C |10→10 |64 |5 |
+| Fighter12C Champion |0→0 |0 |0 |
+
+Во второй строке Wizard8N — обычный Wizard8; его class access остаётся4, несмотря на общий circle9. У Wizard8C class access6. Half/HalfRoundUp/OneThird rounding не изменён относительно§10. Base133 **один раз**, contribution сверх20 не создаёт дополнительный pool или строку21+. Pact participant отклоняется целиком в13.3, включая Warlock-only; отдельный Pact engine остаётся задачей13.6.
+
+`Tables` копирует native rows/costs, `Allocation` — immutable capacities, `Budget` — единственный ledger owner. Его исполняемые переходы:
+
+- `Spend(operationId,circle)` — выбранная ячейка/upcast либо стоимость SP; одинаковый action token из второго repertoire не списывает повторно. Исчерпанный ресурс не уходит в минус. Cantrip0 бесплатен. Бесплатные native casts/rituals/Spell Mastery/Signature Spells сохраняют native путь до вызова spending.
+- `Refund(operationId)` — однократная отмена ранее committed расхода в текущей rest epoch; неизвестный/отменённый/старый token не создаёт ресурс. До commitment Back/Cancel не вызывают ledger. Pure rollback проверен; generic GUI/action-cancellation wiring ещё не подключён.
+- В slots mode сохраняется native количество (например, caster20 имеет2 slots circle6). В SP mode circle6–9 — один cast каждого круга до long rest, включая upcast. Флаг реального high-circle расхода отделён от affordability; получение очков открывает **неиспользованный** высокий круг, но не сбрасывает использованный.
+- `Recover`/`RecoverPoints` — capped recovery с operation receipt; cost table native `[0,2,3,5,6,7,9,10,11,13]`. Recovery не возвращает high-circle permission.
+- `Refresh` меняет capacities, сохраняя расход, отсутствующие временно circles и receipts. Не создаёт ledger или pool повторно. Live resource-mode/registry changes отклоняются.
+- Short rest не refills ordinary resources; long rest сбрасывает расход и high-circle limits; simulation ничего не меняет. Старые action/condition receipts сохраняются после rest против поздних повторных callbacks.
+
+### 11.2 Модификаторы и владение
+
+Источник модификатора имеет стабильныйID. Две одинаковые view одного source не дают два увеличения; противоречивый source отклоняется. В slots mode AdditionalSlots увеличивают capacity выбранного circle. Отдельные temporary condition instances имеют разные GUID-based capacity IDs, а не общий ID feature definition. При снятии/возвращении предмета расход не обнуляется. В SP mode permanent AdditionalSlots сохраняют доступность resource circle, но не создают постоянные бесплатные очки; fake slot views не являются вторым расходуемым бюджетом. Изменение native SP pool capacity учитывается один раз сверх `BasePointMaximum`, через `GetMaxUsesOfPower`, без рекурсивного добавления полного maximum. Отрицательные capacity modifiers пока консервативно отклоняются.
+
+Temporary AdditionalSlots из conditions в SP mode превращаются в отдельный bonus credit по `condition.Guid + feature.Name + index` и установленной стоимости. Condition удаляется прежним native API только после grant. Повторный refresh/поздний callback этого GUID не начисляет credit снова. Допустим remaining вышеbase maximum; recovery от этого не становится uncapped. Credit тратится раньшеbase и очищается long rest. `MagicAffinityChitinousBoonAdditionalSpellSlot` исключён из standard modifiers/credits; его владельцем остаётся будущий Pact adapter.
+
+`OwnerStore<TActor>` используется production native context и executable fake-actor tests. `DruidWildshapeContext.StandardResourceOwner` признаёт только исходного героя-Druid, native Wild Shape condition и форму из собственного catalog. Обычные summons/companions не получают pool своего владельца. Mixed owner resolution не использует single-caster `IsSupportedHero` для определения владельца, **не меняя** существующие class/action admission guards. При projection form ссылается на тот же существующий hero `RulesetUsablePower`, не новый pool. Несколько `PowerSpellPoints` у самого героя — диагностируемая ошибка, не автоматическая миграция.
+
+### 11.3 Production integration / dependency graph
+
+```text
+BootContext: final 2024/subclasses/Inventor SSI → SpellPointsContext.LateLoad
+  → StandardMulticasterResourcesContext.CaptureInstalledTables (read-only, idempotent)
+  → existing class compression modules
+
+future validated native class snapshot → CompressedMulticasterProgressionPlan.Result
+  → Allocation(installed Tables, mode, modifiers) → Budget[original hero]
+  → class/subclass repertoire dictionaries + existing PowerSpellPoints view
+
+RulesetCharacter.SpendSpellSlot → scoped native spell-effect GUID
+  → existing preservation/Mastery/Signature checks
+  → RulesetSpellRepertoire.SpendSpellSlot → one Budget.Spend → all standard views
+
+SharedSpellsContext.GetSharedCasterLevel/GetSharedSpellLevel → closed adapter
+SpellPointsContext max/remaining/can-cast/spend/add/builtin pool modifier → closed adapter
+RefreshSpellRepertoires prefix/postfix → temporary credits / capacity refresh / projection
+RulesetCharacter.RecoverMissingSlots → standard owner recovery + native recovered notification, skip duplicate repertoire recovery
+RulesetSpellRepertoire.RecoverMissingSlots → owner recovery for direct standard calls
+ApplyRest native RestoreAllSpellSlots replacement → suppress view-owned restoration
+ApplyRest postfix → one owner transition, projection (skip simulation)
+```
+
+В stage13.3 **`MixedGameplayReady=false`**, `RuntimeEnabled` не имеет Settings/UI switch. Перед доступом к owner native adapter проверяет gate; приOFF выполняются прежние bodies. В существующих guards/`CanSelectClass`/`IsSupportedHero`/`MulticlassInOutRulesHelper` изменений нет. Классы, HP, actual levels/history, PB, learning/preparation и class-specific resources не переписаны; global `GetClassLevel` patch не добавлен. Settings.xml не читается для перезаписи и не меняется.
+
+`BindNewHero` разрешён только level0 при открытом gate; `UpdateProgression` требует calculator result, совпадающий с actual class levels/history/subclasses. **Вызывающих BindNewHero игровых путей пока нет**: автоматический binder/validated native profile registry, finalize/cancel и persistence — предстоящие13.4/13.7/13.8. Неизвестный/старый герой при будущем включении отклоняется, не получает полный новый budget. Изменение resource settings во время bound session требует restart. Поэтому этот engine не включается простым изменением UI setting.
+
+`CompareLegacyResources` — явный read-only diagnostic API при закрытом gate: legacy shared/SP level, proposedS/maximum, число имеющихся native pools и remaining. Не вызывается автоматически, не меняет definitions/hero resources; для запуска с настоящим hero нужен Unity. В stage13.3 исполнялись production pure models и compiled bindings, **не native shadow comparison**.
+
+### 11.4 Остаточные ограничения и последующие этапы
+
+- **13.4:** достоверный immutable native class/subclass access snapshot, class-local prepared/known/learning limits и Wizard ownership; восстановление UI choices не подменять общей resource capacity.
+- **13.5:** явно классифицировать feat/racial/item/attached-grant sources и third-caster access. Текущий resource projection меняет только Class/Subclass; Race/Monster native repertoire не списывает standard budget автоматически. Нельзя открывать admission до завершения этой классификации.
+- **13.6:** Pact/Arcanum и typed conversions (Smite, sorcery/other power consumers). Прямой standard `SpendSpellSlot` без native spell-effect transaction в bound engine отклоняется диагностикой. Это намеренный fail-closed, не утверждение о готовности всех spell-powered классов.
+- **13.7:** creation/finalization binder, native rollback/cancel, persistent operation journal и повторная загрузка. Pure ledger имеет стабильные recovery/rest tokens; native top-level recovery/rest calls сейчас получают отдельный ID на invocation. Перехват owner API предотвращает multiplication по repertoire, но дедупликация повторного **top-level action invocation** требует persistent action identity следующего этапа. Journal сейчас только в памяти. Старые saves/respec не импортируются.
+- **13.8:** тесты в Unity, согласование resource refresh/recharge/order, затем admission. Нельзя просто переключить константу: ещё отсутствуют перечисленные binder/access/persistence/conversion adapters. Native negative/нестандартные capacity modifiers и stacking одинаковых affinity от независимых conditions требуют отдельного review.
+- Реальные Harmony bindings, cast action order, free/ritual paths, item/temporary effects, Wild Shape, GUI, rest simulation, respec, save/load, networking и native cancellation **не выполнялись**. Поддержка ordinary single-caster приOFF подтверждена existing pure regression и структурой закрытых adapter calls; это не сравнение игровых сессий.
+
+### 11.5 Контрольные игровые проверки перед Stage13.8
+
+Проводить в отдельной будущей test build после выполнения13.4–13.7, на новых героях и отдельных saves. Gate этой версии для этого не открывать.
+
+1. Сначала OFF: обычный и compressed single caster, slots/SP, level-up/Cancel/Back, short/long rests; сравнить ресурс до/после с прежней сборкой.
+2. Для примеров§11.1 в обоих modes проверить S, max/remaining, независимый class spell access; caster20+secondcaster имеет ровно133base SP, не266. Martial levels не увеличивают caster budget.
+3. Cast/upcast от каждого repertoire: ровно один debit owner, отображение совпадает во всех views; exhaustion запрещает cast. Cantrip/ritual/free Mastery не тратит ресурс.
+4. SP circle6–9: по одному use; recovery очков не возвращает использованный high circle; shortage→recovery открывает ещё неиспользованный. Slots mode сохраняет native counts2 на high circles где они есть.
+5. Recovery выбранных slots из двух repertoire panels и повтор action callback: одно восстановление; short rest не refills standard pool, long rest восстанавливает один раз, simulation не изменяет ledger/power/slots.
+6. Temporary slot condition→SP credit: один grant, снятие condition, refresh/reload/repeated callback без повторного credit. Capacity item снять/надеть: использованные ячейки не возвращаются; explicit point modifier добавляется один раз.
+7. Druid form→cast→revert→cast→form: один owner и один `PowerSpellPoints`, общий расход/остаток; rest в форме и refresh не создают clone budget. Несвязанный summon не использует hero pool.
+8. Повтор finalize, Back/Cancel после каждого action stage, cancelled reaction, save/load, respec и смена rules: никаких бесплатных casts или implicit conversion. До реализации persistence эти операции для mixed build не поддержаны.
+
+### 11.6 Проверки Stage13.3
+
+Финальный полный regression: **8065 checks passed** =7076 baseline + **989 новых:967 executed production-model behavioral checks +22 compiled-table/binding checks**. Два прежних isolation assertions уточнены: только engine/adapter13.3 может потреблять calculator, admission paths по-прежнему изолированы; gate остаётсяfalse. Прежние class suites, включая Warlock transactions, Bard Secrets, Cleric/Druid/Paladin/Ranger/Inventor, входят в общий прогон.
+
+SDK **9.0.320**. `dotnet build SolastaUnfinishedBusiness.sln --no-restore -c "Release Workflow" -m:2` — **0 warnings /0 errors**. `dotnet run --project Tests/FighterProgression/FighterProgression.Tests.csproj` — **8065 passed**. `git diff --check` проходит. DLL скомпилирована; это не запуск игры. Повторная установка зависимостей не потребовалась.
+
+Изменённые/добавленные файлы (пути от checkout):
+
+- `SolastaUnfinishedBusiness/Models/StandardCasterResourcePlan.cs` — production pure allocation/ledger/owner store.
+- `SolastaUnfinishedBusiness/Models/StandardMulticasterResourcesContext.cs` — закрытый native adapter, original table capture и explicit shadow API.
+- `SolastaUnfinishedBusiness/Models/BootContext.cs` — capture ordering.
+- `SolastaUnfinishedBusiness/Models/DruidWildshapeContext.cs` — отдельный resource-owner resolver.
+- `SolastaUnfinishedBusiness/Models/SharedSpellsContext.cs` — gated shared queries.
+- `SolastaUnfinishedBusiness/Models/SpellPointsContext.cs` — gated point queries/spending/recovery/base modifier, defensive table copy и audit level query.
+- `SolastaUnfinishedBusiness/Patches/RulesetCharacterPatcher.cs` — spell action scope, refresh/rest/recovery integration; прежний void recovery prefix сохранён для Harmony cooperation приOFF.
+- `SolastaUnfinishedBusiness/Patches/RulesetSpellRepertoirePatcher.cs` — owner spending/recovery.
+- `Tests/FighterProgression/StandardCasterResourceTests.cs` — новое behavioral/metadata покрытие.
+- `Tests/FighterProgression/CompressedMulticasterTests.cs` — уточнение isolation assertions.
+- `Tests/FighterProgression/FighterProgression.Tests.csproj` — link production pure engine.
+- `Tests/FighterProgression/Program.cs` — вызов новой suite.
+- `Documentation/MulticasterIntegrationPlan.md` — этот отчёт/ограничения/checklist.
+
+Generated DLLs/game assemblies/settings/saves/temporary logs не включаются в commit. Commit SHA и результат push приводятся в итоговом сообщении (commit не может содержать собственный SHA). Stage13.3 resource engine и закрытые native hooks реализованы; **mixed-caster gameplay пока не готов и не включён**. Игра, Harmony execution, реальный rest/save/load/respec не проверялись. На этом этапе работа остановлена.

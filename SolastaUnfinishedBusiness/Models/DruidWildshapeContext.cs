@@ -37,6 +37,13 @@ internal static class DruidWildshapeContext
         monster.HasConditionOfType(DatabaseHelper.ConditionDefinitions.ConditionWildShapeSubstituteForm.Name) &&
         Catalog.Values.Any(x => x.Any(s => s.Monster == monster.MonsterDefinition));
 
+    // Resource ownership only; does not authorize spell access, actions or mixed-class admission.
+    internal static RulesetCharacterHero StandardResourceOwner(RulesetCharacter character) =>
+        character is RulesetCharacterMonster monster && monster.OriginalFormCharacter is RulesetCharacterHero hero &&
+        hero.GetClassLevel(Druid) > 0 &&
+        monster.HasConditionOfType(DatabaseHelper.ConditionDefinitions.ConditionWildShapeSubstituteForm.Name) &&
+        Catalog.Values.Any(x => x.Any(s => s.Monster == monster.MonsterDefinition)) ? hero : null;
+
     // Spell Points has one authoritative pool across form/reversion. Rebind on refresh after deserialization too.
     internal static RulesetCharacter SpellPointOwner(RulesetCharacter character)
     {

@@ -73,6 +73,7 @@ public static class RulesetSpellRepertoirePatcher
         [UsedImplicitly]
         public static bool Prefix(RulesetSpellRepertoire __instance, int slotLevel)
         {
+            if (StandardMulticasterResourcesContext.TrySpend(__instance, slotLevel)) return false;
             SpendSpellSlot(__instance, slotLevel);
 
             return false;
@@ -296,6 +297,8 @@ public static class RulesetSpellRepertoirePatcher
         [UsedImplicitly]
         public static bool Prefix(RulesetSpellRepertoire __instance, Dictionary<int, int> recoveredSlots)
         {
+            if (__instance.SpellCastingFeature.SpellCastingOrigin is FeatureDefinitionCastSpell.CastingOrigin.Class or FeatureDefinitionCastSpell.CastingOrigin.Subclass &&
+                StandardMulticasterResourcesContext.Recover(__instance.GetCaster(), recoveredSlots)) return false;
             if (__instance.SpellCastingFeature.SpellCastingOrigin is FeatureDefinitionCastSpell.CastingOrigin.Race
                 or FeatureDefinitionCastSpell.CastingOrigin.Monster)
             {
