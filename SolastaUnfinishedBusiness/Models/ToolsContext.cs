@@ -187,6 +187,13 @@ internal static class ToolsContext
                     "Message/&MessageOkTitle", string.Empty, null, null);
                 yield break;
             }
+            if (!InventorItemSafetyContext.CanRespec(functorParameters.RestingHero))
+            {
+                Gui.GuiService.ShowMessage(MessageModal.Severity.Informative1, "Inventor prototype",
+                    "Cancel infusions/stored items, dismiss constructs, unattune items and end temporary effects before respec.",
+                    "Message/&MessageOkTitle", string.Empty, null, null);
+                yield break;
+            }
             IsRespecing = true;
 
             var characterBuildingService = ServiceRepository.GetService<ICharacterBuildingService>();
@@ -588,7 +595,8 @@ internal static class ToolsContext
             }
 
             var retained = conditions.Where(c => PaladinPowerSafetyContext.ShouldTransferCondition(oldHero, newHero, c) &&
-                RangerCompanionContext.ShouldTransferCondition(oldHero, newHero, c)).ToArray();
+                RangerCompanionContext.ShouldTransferCondition(oldHero, newHero, c) &&
+                InventorItemSafetyContext.ShouldTransferCondition(oldHero, newHero, c)).ToArray();
             newHero.AddConditionCategoryAsNeeded(category);
             newHero.AllConditions.AddRange(retained);
             newHero.ConditionsByCategory[category].AddRange(retained);

@@ -281,7 +281,9 @@ public static class RulesetActorPatcher
                                                             ? PaladinProgressionContext.EffectiveLevel(sourceCharacter)
                                                             : source == RuleDefinitions.RangerClass
                                                                 ? RangerProgressionContext.EffectiveLevel(sourceCharacter)
-                                                                : sourceCharacter.GetClassLevel(source);
+                                                                : source == SolastaUnfinishedBusiness.Classes.InventorClass.ClassName
+                                                                    ? InventorProgressionContext.EffectiveLevel(sourceCharacter)
+                                                                    : sourceCharacter.GetClassLevel(source);
                     break;
 
                 case (ConditionDefinition.OriginOfAmount)ExtraOriginOfAmount.SourceAbilityBonus:

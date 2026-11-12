@@ -46,6 +46,8 @@ public class ModifyEffectDescriptionOnLevels(
     {
         return !klass
             ? character.TryGetAttributeValue(AttributeDefinitions.CharacterLevel)
-            : character.GetClassLevel(klass);
+            : klass == Classes.InventorClass.Class
+                ? Models.InventorProgressionContext.EffectiveLevel(character)
+                : character.GetClassLevel(klass);
     }
 }

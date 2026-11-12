@@ -370,7 +370,13 @@ public static class RulesetImplementationManagerPatcher
                 : klass == DatabaseHelper.CharacterClassDefinitions.Paladin
                     ? PaladinProgressionContext.EffectiveLevel(character)
                     : klass == DatabaseHelper.CharacterClassDefinitions.Ranger
-                        ? RangerProgressionContext.EffectiveLevel(character) : character.GetClassLevel(klass);
+                        ? RangerProgressionContext.EffectiveLevel(character) : klass == SolastaUnfinishedBusiness.Classes.InventorClass.Class
+                            ? InventorProgressionContext.EffectiveLevel(character) : character.GetClassLevel(klass);
+
+            if (InventorProgressionContext.Active && InventorProgressionContext.HoldsPower(featureDefinitionPower) &&
+                featureDefinitionPower.Name == "PowerInnovationWeaponArcaneJolt" &&
+                effectForm.LevelType == LevelSourceType.CharacterLevel)
+                return DiceByRank.GetDiceOfRank(InventorProgressionContext.EffectiveLevel(character), table, allowEmptyEntries);
 
             rank = effectForm.LevelType switch
             {

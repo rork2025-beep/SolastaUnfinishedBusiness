@@ -144,6 +144,7 @@ internal static class BootContext
             DruidProgressionContext.LateLoad();
             PaladinProgressionContext.LateLoad();
             RangerProgressionContext.LateLoad();
+            InventorProgressionContext.LateLoad();
 
             // Save by location initialization depends on services to be ready
             SaveByLocationContext.LateLoad();

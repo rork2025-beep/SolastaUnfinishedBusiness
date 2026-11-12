@@ -43,7 +43,7 @@ public sealed class InnovationArtillerist : AbstractSubclass
     private const string ArcaneFirearm = "ArcaneFirearm";
 
     private static readonly LimitEffectInstances CannonLimiter =
-        new(CreatureTag, character => character.GetClassLevel(InventorClass.Class) < 15 ? 1 : 2);
+        new(CreatureTag, character => InventorProgressionRules.CannonLimit(InventorProgressionContext.EffectiveLevel(character)));
 
     // Cannon Features
 

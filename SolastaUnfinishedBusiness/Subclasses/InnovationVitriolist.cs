@@ -377,7 +377,7 @@ public sealed class InnovationVitriolist : AbstractSubclass
             RulesetCharacter character,
             EffectDescription effectDescription)
         {
-            return character.GetClassLevel(InventorClass.Class) >= 5;
+            return InventorProgressionContext.EffectiveLevel(character) >= 5;
         }
 
         public EffectDescription GetEffectDescription(
@@ -386,7 +386,7 @@ public sealed class InnovationVitriolist : AbstractSubclass
             RulesetCharacter character,
             RulesetEffect rulesetEffect)
         {
-            var levels = character.GetClassLevel(InventorClass.Class);
+            var levels = InventorProgressionContext.EffectiveLevel(character);
 
             // Arsenal - add shocked at 9
             if (levels >= 9 && mixturePowers.Contains(definition))

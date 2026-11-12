@@ -50,6 +50,15 @@ internal static class ClassesDisplay
             Main.Settings.EnableSorcererCompressedProgressionPrototype = sorcererPrototype;
         }
 
+        var inventorPrototype = Main.Settings.EnableInventorCompressedProgressionPrototype;
+        if (UI.Toggle("Inventor 20 to 12 prototype (NEW HEROES; restart; SINGLE HALF-CASTER ONLY)", ref inventorPrototype, UI.AutoWidth()))
+            Main.Settings.EnableInventorCompressedProgressionPrototype = inventorPrototype;
+        if (inventorPrototype || InventorProgressionContext.Active)
+            UI.Label("Use separate new test saves. Cancel infusions/stored items and dismiss constructs before retraining/respec. Full restart required after rule changes.");
+
+        if (inventorPrototype && !InventorProgressionContext.Active)
+            UI.Label("Inventor compression is inactive in this session. Restart and check the UB log and prerequisites.");
+
         var rangerPrototype = Main.Settings.EnableRangerCompressedProgressionPrototype;
         if (UI.Toggle("Ranger 20 to 12 prototype (NEW HEROES; restart; SINGLE HALF-CASTER ONLY)", ref rangerPrototype, UI.AutoWidth()))
             Main.Settings.EnableRangerCompressedProgressionPrototype = rangerPrototype;

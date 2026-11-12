@@ -41,6 +41,7 @@ public class Settings : UnityModManager.ModSettings
     public bool EnableDruidCompressedProgressionPrototype { get; set; }
     public bool EnablePaladinCompressedProgressionPrototype { get; set; }
     public bool EnableRangerCompressedProgressionPrototype { get; set; }
+    public bool EnableInventorCompressedProgressionPrototype { get; set; }
 
     //
     // UI Saved State

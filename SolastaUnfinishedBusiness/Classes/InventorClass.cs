@@ -946,6 +946,7 @@ internal static class InventorClass
             RulesetEffect activeEffect)
         {
             var rulesetCharacter = defender.RulesetCharacter;
+            if (!InventorProgressionContext.CanUseClassMechanics(rulesetCharacter)) yield break;
             var usablePower = PowerProvider.Get(powerSoulOfArtifice, rulesetCharacter);
 
             if (rulesetCharacter.GetRemainingUsesOfPower(usablePower) == 0)
@@ -963,7 +964,7 @@ internal static class InventorClass
 
             void ReactionValidated()
             {
-                var hitPoints = rulesetCharacter.GetClassLevel(Class);
+                var hitPoints = InventorProgressionContext.EffectiveLevel(rulesetCharacter);
 
                 defender.MyExecuteActionStabilizeAndStandUp(hitPoints);
             }
@@ -1020,6 +1021,7 @@ internal class TryAlterOutcomeSavingThrowFlashOfGenius(FeatureDefinitionPower po
         GameLocationCharacter defender,
         GameLocationCharacter helper)
     {
+        if (!InventorProgressionContext.CanUseClassMechanics(helper.RulesetCharacter)) yield break;
         var rulesetDefender = defender.RulesetActor;
 
         if (rulesetDefender is not { IsDeadOrDyingOrUnconscious: false } ||
@@ -1097,6 +1099,7 @@ internal class TryAlterOutcomeSavingThrowFlashOfGenius(FeatureDefinitionPower po
         SavingThrowData savingThrowData,
         bool hasHitVisual)
     {
+        if (!InventorProgressionContext.CanUseClassMechanics(helper.RulesetCharacter)) yield break;
         var rulesetDefender = defender.RulesetActor;
 
         if (rulesetDefender is not { IsDeadOrDyingOrUnconscious: false } ||

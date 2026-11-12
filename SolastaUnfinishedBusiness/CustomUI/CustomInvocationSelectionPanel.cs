@@ -6,6 +6,7 @@ using JetBrains.Annotations;
 using SolastaUnfinishedBusiness.Api.GameExtensions;
 using SolastaUnfinishedBusiness.Behaviors.Specific;
 using SolastaUnfinishedBusiness.Builders;
+using SolastaUnfinishedBusiness.Models;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.UI;
@@ -61,10 +62,10 @@ internal class CustomInvocationSelectionPanel : CharacterStagePanel
             return;
         }
 
-        _wasClicked = true;
-
         var feature = spellBox.GetFeature();
         var pool = _allPools[_currentLearnStep];
+        if (!InventorInfusionContext.CanSelect(currentHero, pool, feature, _learnedInvocations)) return;
+        _wasClicked = true;
         var learned = GetOrMakeLearnedList(pool.Id);
 
         if (learned.Contains(feature))
@@ -224,6 +225,7 @@ internal class CustomInvocationSelectionPanel : CharacterStagePanel
 
         var pool = _allPools[stepNumber];
 
+        InventorInfusionContext.ResetFrom(currentHero, _allPools, _learnedInvocations, stepNumber);
         pool.Used = 0;
         pool.Skipped = false;
         GetOrMakeLearnedList(pool.Id).Clear();
@@ -363,7 +365,7 @@ internal class CustomInvocationSelectionPanel : CharacterStagePanel
             {
                 var feature = learned[i];
 
-                if (!PowerBundle.ValidatePrerequisites(currentHero, feature, feature.Validators, out _))
+                if (!InventorInfusionContext.ValidateAt(currentHero, feature, id.Tag))
                 {
                     dirty = true;
                     learned.RemoveAt(i);
@@ -492,6 +494,7 @@ internal class CustomInvocationSelectionPanel : CharacterStagePanel
 
         _allPools.Sort(_poolCompare);
 
+        InventorInfusionContext.SyncPools(currentHero, _allPools, _learnedInvocations);
         initialized = true;
     }
 
@@ -848,6 +851,7 @@ internal class CustomInvocationSelectionPanel : CharacterStagePanel
 
     public override void Refresh()
     {
+        using var inventorScope = InventorInfusionContext.EnterSelection(currentHero, _allPools, _learnedInvocations, _currentLearnStep);
         var currentPoolIndex = 0;
 
         for (var i = 0; i < _learnStepsTable.childCount; i++)
@@ -1209,7 +1213,7 @@ internal static class SpellsByLevelGroupExtensions
 
             var box = transform.GetComponent<SpellBox>();
             var boxFeature = box.GetFeature();
-            var alreadyHas = hero.TrainedInvocations.Contains(boxFeature);
+            var alreadyHas = InventorInfusionContext.Known(hero, boxFeature);
             var selected = learned.Contains(boxFeature);
             var isUnlearned = unlearnedFeatures != null && unlearnedFeatures.Contains(boxFeature);
             var isValid = PowerBundle.ValidatePrerequisites(
@@ -1247,7 +1251,7 @@ internal static class SpellsByLevelGroupExtensions
             var box = transform.GetComponent<SpellBox>();
             var boxFeature = box.GetFeature();
             var isUnlearned = unlearnedSpells != null && unlearnedSpells.Contains(boxFeature);
-            var alreadyHas = hero.TrainedInvocations.Contains(boxFeature);
+            var alreadyHas = InventorInfusionContext.Known(hero, boxFeature);
             var canUnlearn = !isUnlearned && alreadyHas;
 
             PowerBundle.ValidatePrerequisites(hero, boxFeature, boxFeature.Validators, out var requirements);

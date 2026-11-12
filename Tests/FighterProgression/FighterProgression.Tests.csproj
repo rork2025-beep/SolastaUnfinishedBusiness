@@ -28,4 +28,8 @@
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/RangerProgressionRules.cs" Link="RangerProgressionRules.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/RangerSpellLearningState.cs" Link="RangerSpellLearningState.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/RangerInvocationPlan.cs" Link="RangerInvocationPlan.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../SolastaUnfinishedBusiness/Models/InventorProgressionRules.cs" Link="InventorProgressionRules.cs" />
+    <Compile Include="../../SolastaUnfinishedBusiness/Models/InventorInfusionPlan.cs" Link="InventorInfusionPlan.cs" />
+  </ItemGroup>
 </Project>

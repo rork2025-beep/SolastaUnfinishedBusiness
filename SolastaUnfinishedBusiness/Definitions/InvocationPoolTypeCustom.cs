@@ -40,6 +40,8 @@ internal class InvocationPoolTypeCustom
 
     internal static int GetClassOrSubclassLevel(RulesetCharacterHero hero, string classOrSubclassName)
     {
+        if (SolastaUnfinishedBusiness.Models.InventorInfusionContext.SelectionLevel(hero, classOrSubclassName) is { } eventLevel) return eventLevel;
+
         if (TryGetDefinition<CharacterClassDefinition>(classOrSubclassName, out var classDefinition) &&
             classDefinition)
         {

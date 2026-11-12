@@ -32,6 +32,7 @@ public static class CharacterBuildingManagerPatcher
         {
             //PATCH: registers the hero getting created
             LevelUpHelper.RegisterHero(__instance.CurrentLocalHeroCharacter, false);
+            InventorProgressionContext.RegisterNewHero(__instance.CurrentLocalHeroCharacter);
         }
     }
 
@@ -291,6 +292,7 @@ public static class CharacterBuildingManagerPatcher
             if (!DruidSpellcastingContext.BeginFinalize(hero)) return false;
             if (!PaladinSpellcastingContext.BeginFinalize(hero)) return false;
             if (!RangerSpellcastingContext.BeginFinalize(hero)) return false;
+            if (!InventorSpellcastingContext.BeginFinalize(hero) || !InventorInfusionContext.BeginFinalize(hero)) return false;
 
             var buildingData = hero.GetHeroBuildingData();
 
@@ -452,6 +454,8 @@ public static class CharacterBuildingManagerPatcher
                 !ClericSpellcastingContext.CanSelectClass(hero, classDefinition) ||
                 PaladinProgressionContext.IsCapped(hero, classDefinition) ||
                 !PaladinSpellcastingContext.CanSelectClass(hero, classDefinition) ||
+                InventorProgressionContext.IsCapped(hero, classDefinition) ||
+                !InventorSpellcastingContext.CanSelectClass(hero, classDefinition) ||
                 RangerProgressionContext.IsCapped(hero, classDefinition) ||
                 !RangerSpellcastingContext.CanSelectClass(hero, classDefinition) ||
                 DruidProgressionContext.IsCapped(hero, classDefinition) ||

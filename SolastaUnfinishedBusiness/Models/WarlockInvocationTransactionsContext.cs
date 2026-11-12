@@ -19,6 +19,7 @@ internal static partial class WarlockInvocationContext
 {
     private static int internalReset;
     private static bool adapterAvailable;
+    internal static bool FinalizationAdapterAvailable => adapterAvailable;
     private static readonly ConditionalWeakTable<RulesetCharacterHero, Finalization> Finalizations = new();
     private static readonly HashSet<RulesetCharacterHero> FailedFinalizations = new();
 
@@ -408,6 +409,7 @@ internal static partial class WarlockInvocationContext
 
     private static void ApplyOrPass(RulesetCharacterHero hero, List<InvocationDefinition> invocations, bool unlearn)
     {
+        if (InventorInfusionContext.TryApply(hero, invocations)) return;
         if (!Finalizations.TryGetValue(hero, out var state) || !state.OwnedLists.Contains(invocations))
         {
             if (unlearn) hero.UnlearnInvocations(invocations); else hero.TrainInvocations(invocations);
@@ -455,6 +457,7 @@ internal static partial class WarlockInvocationContext
         }
         internal static Exception Finalizer(RulesetCharacterHero hero, Exception __exception)
         {
+            if (__exception != null) InventorInfusionContext.Failed(hero);
             if (__exception != null && Finalizations.TryGetValue(hero, out var state))
             {
                 state.Rollback(hero);

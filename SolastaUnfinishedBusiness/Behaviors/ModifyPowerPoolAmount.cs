@@ -34,7 +34,9 @@ public class ModifyPowerPoolAmount : IModifyPowerPoolAmount
                                             ? Models.PaladinProgressionContext.EffectiveLevel(character)
                                             : Attribute == RuleDefinitions.RangerClass
                                                 ? Models.RangerProgressionContext.EffectiveLevel(character)
-                                                : character.GetClassLevel(Attribute)),
+                                                : Attribute == Classes.InventorClass.ClassName
+                                                    ? Models.InventorProgressionContext.EffectiveLevel(character)
+                                                    : character.GetClassLevel(Attribute)),
             PowerPoolBonusCalculationType.Attribute =>
                 Value * character.TryGetAttributeValue(Attribute),
             PowerPoolBonusCalculationType.AttributeModifier =>
