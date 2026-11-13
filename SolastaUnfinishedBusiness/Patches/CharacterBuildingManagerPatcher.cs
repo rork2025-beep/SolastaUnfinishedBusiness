@@ -286,6 +286,7 @@ public static class CharacterBuildingManagerPatcher
         [UsedImplicitly]
         public static bool Prefix([NotNull] CharacterBuildingManager __instance, [NotNull] RulesetCharacterHero hero)
         {
+            if (!MultipleSpellRepertoiresContext.ValidateBeforeFinalize(hero)) return false;
             if (!WarlockInvocationContext.BeginFinalize(hero)) return false;
             if (!BardSpellcastingContext.BeginFinalize(hero)) return false;
             if (!ClericSpellcastingContext.BeginFinalize(hero)) return false;

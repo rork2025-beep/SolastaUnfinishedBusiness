@@ -71,7 +71,7 @@ internal static class CompressedMulticasterTests
         Code.Ldc_I4_5 => 5, Code.Ldc_I4_6 => 6, Code.Ldc_I4_7 => 7, Code.Ldc_I4_8 => 8,
         Code.Ldc_I4_S => Convert.ToInt32(i.Operand), Code.Ldc_I4 => (int)i.Operand, _ => int.MinValue
     };
-    private static int[] AddedIntegers(TypeDefinition type, string field)
+    internal static int[] AddedIntegers(TypeDefinition type, string field)
     {
         var body = type.Methods.Single(x => x.IsConstructor && x.IsStatic).Body.Instructions;
         var end = body.ToList().FindIndex(i => i.OpCode.Code == Code.Stsfld && ((FieldReference)i.Operand).Name == field);
@@ -291,10 +291,11 @@ internal static class CompressedMulticasterTests
         bool IsOwn(TypeReference t) => t.FullName.StartsWith(root.FullName, StringComparison.Ordinal);
         var externalCalls = types.Where(t => !IsOwn(t)).SelectMany(t => t.Methods).Where(m => m.HasBody)
             .Where(m => !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.StandardCasterResourcePlan", StringComparison.Ordinal) &&
-                        !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.StandardMulticasterResourcesContext", StringComparison.Ordinal))
+                        !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.StandardMulticasterResourcesContext", StringComparison.Ordinal) &&
+                        !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.MultipleSpellRepertoiresContext", StringComparison.Ordinal))
             .SelectMany(m => m.Body.Instructions).Where(i => i.Operand is MethodReference r && IsOwn(r.DeclaringType)).ToArray();
-        check(externalCalls.Length == 0, "Multicaster compiled metadata isolation: only Stage13.3 resource engine/adapter may consume the calculator; existing admission paths remain isolated");
-        check(own.All(t => t.CustomAttributes.All(a => !a.AttributeType.Namespace.StartsWith("HarmonyLib", StringComparison.Ordinal))) && root.Fields.Single(f => f.Name == "MixedGameplayReady").Constant is false, "Multicaster compiled metadata isolation: no Harmony patch and readiness gate permanently closed through Stage13.3");
+        check(externalCalls.Length == 0, "Multicaster compiled metadata isolation: only Stage13.3 resource engine and Stage13.4 repertoire adapter may consume the calculator; existing admission paths remain isolated");
+        check(own.All(t => t.CustomAttributes.All(a => !a.AttributeType.Namespace.StartsWith("HarmonyLib", StringComparison.Ordinal))) && root.Fields.Single(f => f.Name == "MixedGameplayReady").Constant is false, "Multicaster compiled metadata isolation: no Harmony patch and readiness gate permanently closed through Stage13.4");
         var dependencies = own.SelectMany(t => t.Methods).Where(m => m.HasBody).SelectMany(m => m.Body.Instructions).Select(i => i.Operand).OfType<MethodReference>().Select(m => m.DeclaringType).ToArray();
         check(dependencies.All(t => IsOwn(t) || t.Namespace.StartsWith("System", StringComparison.Ordinal) || t.Name.StartsWith("FighterProgressionPlan", StringComparison.Ordinal)), "Multicaster compiled metadata isolation: only immutable model/system/shared pure mapping dependencies, no Settings/hero/GetClassLevel/Unity/resource paths");
     }

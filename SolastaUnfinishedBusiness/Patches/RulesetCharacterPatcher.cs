@@ -1972,6 +1972,7 @@ public static class RulesetCharacterPatcher
             [NotNull] RulesetCharacter __instance, [NotNull] RulesetSpellRepertoire spellRepertoire)
         {
             //BEGIN PATCH
+            if (MultipleSpellRepertoiresContext.AutoPrepared(__instance, spellRepertoire)) return false;
             var spellcastingClass = spellRepertoire.SpellCastingClass;
 
             if (!spellcastingClass && spellRepertoire.SpellCastingSubclass)

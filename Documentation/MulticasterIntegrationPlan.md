@@ -634,3 +634,131 @@ SDK **9.0.320**. `dotnet build SolastaUnfinishedBusiness.sln --no-restore -c "Re
 - `Documentation/MulticasterIntegrationPlan.md` — этот отчёт/ограничения/checklist.
 
 Generated DLLs/game assemblies/settings/saves/temporary logs не включаются в commit. Commit SHA и результат push приводятся в итоговом сообщении (commit не может содержать собственный SHA). Stage13.3 resource engine и закрытые native hooks реализованы; **mixed-caster gameplay пока не готов и не включён**. Игра, Harmony execution, реальный rest/save/load/respec не проверялись. На этом этапе работа остановлена.
+
+## 12. Stage13.4 — независимые standard spell repertoires
+
+### 12.1 Baseline и рамки
+
+Проверены committed stages13.1 `8f45931d05`,13.2 `7a493cb3b3`,13.3 `1b95f5bf08ea923b8de6aecf5b92f61c818b9188`. На `feature/progression-20-to-12` tracked-дерево до работы чистое; прежний untracked `SolastaFiles/Mods/` — выход сборки. Повторный baseline: **8065 checks passed**, SDK9.0.320, Release Workflow **0 errors /0 warnings**. Не нужны reinstall, worktree, release merge или публикация пакета.
+
+Stage13.4 добавляет ownership/access/preparation model и gated native adapters для **восьми standard casting classes**: Wizard, Sorcerer, Bard, Cleric, Druid, Paladin, Ranger, Inventor. `MixedGameplayReady=false` сохраняется; отдельный UI switch не добавлен, `CanSelectClass`, `IsSupportedHero` и multiclass eligibility не ослаблены. Warlock/Pact/Arcanum/invocation implementation не изменён. ПриOFF прежние пути продолжают работать; boot только читает исходные definitions. Неподдержанный source не обрывает обычную загрузку: capture сообщает диагностическую ошибку, mixed admission остаётся закрытым.
+
+### 12.2 Исходные definitions, владельцы и доступ
+
+`Models/MultipleSpellRepertoiresContext.cs::CaptureInstalledDefinitions/CaptureCore` вызываются **после SpellPoints/rule switches и до Fighter/остальных class compression modules**. Снимаются:
+
+- Actual owning class и casting-feature ID; native spellcasting ability, spell-list ID и сами spell IDs/circles.
+- Исходные20 rows class access, cumulative known/cantrips, scribing events и optional replacement events. Cantrip retention сохраняет прежнее UB исправление понижающейся таблицы Sorcerer, не удаляя выученные cantrips.
+- Реальная `SpellKnowledge`/readiness: Ranger остаётся **Selection/AllKnown**, включая2024 cumulative known tables; Wizard — Spellbook; Cleric/Druid/Paladin/Inventor — WholeList/Prepared. Новая система не создаёт Wizard book для Inventor и не превращает Ranger в prepared caster.
+- Copies native2024 preparation tables только для тех классов, которые действительно перечислены установленным UB: Cleric/Druid, Paladin, Wizard. Inventor остаётся INT+half-level, отдельный выдуманный2024 режим не вводится.
+- Original class/subclass auto-prepared groups, extended lists, owner-scoped spell/cantrip choice pools, Magical Secrets и scribing/known affinity budgets. Grant data замораживаются **до** изменения source definitions; later queries не читают пересжатые rows повторно.
+
+Источники имеют ID по class/subclass unlock и пути feature graph, а не только имя pool: repeated rewards остаются разными событиями. FeatureSet **Exclusion** сохраняет prerequisites выбранной ветки; `HasAnyFeature` проверяет actual native ownership перед включением таких grants. Нельзя считать все alternative options одновременно полученными. Реальное распознавание активных options после native clone/level-up требует Unity проверки; нет fallback, который специально выдаёт обе ветки.
+
+`Models/MultipleSpellRepertoiresPlan.cs` — pure production model: immutable `Profile`, `Repertoire`, `HeroState`, `Grant`, `Origin`. У каждого class owner собственные ability/list/effective progression/access, ordinary known/scribed spells, cantrips, prepared state, bonus-source dictionary и history. Один spell definition может легально принадлежать двум разным классам. Его удаление/замена в одном owner не удаляет другой. Само наличие spell в чужом списке не создаёт соответствующий repertoire.
+
+Shared resource maximum и class access имеют разные queries:
+
+```text
+actual classes/history → calculator13.2 → shared S≤20 → resource ledger13.3
+                              └─ each owner → own original access/preparation/learning rows
+```
+
+`SharedSpellsContext.MaxSpellLevelOfSpellCastingLevel` под gate получает **собственный** maximum из нового adapter. Общий getter/slot/SP engine остаётся resource ceiling для cast/upcast. Native `GetClassLevel`, actual `GetSpellcastingLevel` и already-projected definitions глобально не заменяются: это исключает двойную проекцию уровней и групп.
+
+| Build, оба casting compression ON | Own original progression | Own spell circles | Shared S / maximum resource circle | Base SP |
+|---|---|---|---|---:|
+| Sorcerer12 / Wizard8 |20 /11 |9 /6 |20 /9 |133 |
+| Bard12 / Cleric8 |20 /11 |9 /6 |20 /9 |133 |
+| Druid12 / Cleric8 |20 /11 |9 /6 |20 /9 |133 |
+| Paladin12 / Sorcerer8 |20 /11 |5 /6 |20 /9 |133 |
+| Ranger12 / Inventor8 |20 /11 |5 /3 |16 /8 |94 |
+
+Wizard8 **без compression** имеет own original8/circle4, даже при общем resource circle9. При Wizard6C/Paladin6C event-specific Wizard originals6/7 дают circles3/4, Paladin own circle2; общий circle5 не позволяет учить пятый круг Wizard на event6.
+
+### 12.3 Learning/replacement transactions и origins
+
+`MultipleSpellRepertoiresPlan.Transaction` продвигает ровно один class на один actual level. Original events получаются из прежней mapping: например6→original6/7,12→18/19/20. `KnownSpellsProgressionPlan` повторно используется для learned/replacement transitions и проверки уникальности. Wizard использует **per-event Scribed**, WholeList не получает fictitious learned-spell budgets. У native Spell point pools `MaxSpellLevel=0` означает динамический class ceiling; Cantrip pool остаётся circle0. Пустой `ExtraSpellsTag` у Wizard school choice означает scribing в книгу, с pages cost; непустой tag остаётся extra-spell origin. Это различие проверено по installed IL `GrantCantripsAndSpellsByTag`→`RulesetSpellRepertoire.GrantSpell`.
+
+Каждое событие проверяет owner list (включая явно действующий expanded list), собственный original maximum, число mandatory acquisitions, optional removals и cantrip awards. Более поздний original event может заменить spell, приобретённый более ранним event того же advancement. Нельзя заменить чужой spell, удалить bonus spell как ordinary replacement или получить бесплатную замену. Bonus pools имеют отдельные source IDs и бюджеты; Bard Secrets/foreign-list choices записываются владельцу **Bard**, не Cleric/Druid/Wizard. Expanded Secrets list начинает работать на собственном original milestone, не по shared slots.
+
+`Select` replay-ит choices в хронологическом порядке. Изменение раннего события отбрасывает поздние dependent selections; невалидное изменение не публикует частичный state. `Back`, `Reset`, `Cancel`, `Skip` и повторный `Commit` проверяются production tests. Skip допустим для пустого/optional-replacement события, но не обходит mandatory awards. Commit идемпотентен; Cancel возвращает прежний immutable `HeroState`, включая unchanged references остальных классов. История хранит class, casting feature, original level, transaction/source и removal event.
+
+Native registered tags содержат transaction identity и original event. `GetSpellFeature` связывает их с точным casting feature; `AcquireSpell` ограничивает original circle/list. `Submit` передаёт отдельное событие pure transaction. Reset удаляет только зарегистрированные acquisition/unlearn/point-pool entries своего transaction, не spellbook или чужие class tags. Самые ранние legacy class tags не разбираются эвристически и не объявляются автоматически новым journal.
+
+Class-local known/acquired filtering подключён к `LevelUpHelper.EnumerateKnownAndAcquiredSpells`. Для нового bound режима он не использует общий union чужих repertoires. `EnableRelearnSpells`/`DisplayAllKnownSpellsDuringLevelUp` не изменяются; pure ownership policy не принимает GUI flags как разрешение учить/удалять чужие spells. **Реальное GUI-поведение всех ON/OFF сочетаний этих настроек не выполнялось** и остаётся ручной проверкой.
+
+### 12.4 Preparation, bonus spells и class mechanics
+
+Legacy preparation: own ability modifier + own effective class level, либо +floor(own level/2); installed2024 table индексируется собственным original level. Native postfix с Priority.Last выставляет окончательное owner-specific значение после прежних class/2024 patches. INT/WIS/CHA и PB читаются из реального героя; shared caster level не заменяет их. Class/subclass affinity применяется только своему owner. Unknown feat/item prepared affinity требует explicit auxiliary adapter, вместо молчаливого применения ко всем классам.
+
+Auto-prepared spells вычисляются из original class/subclass groups и effective level своего repertoire. Executable spell list deduplicated, исходные grant events не объединены. ExtraSpellsByTag остаётся owner-scoped. Автоматические domain/circle/oath/Innovation spells не расходуют ordinary prepared quota и не создают caster contribution.
+
+| Class | Реализованный repertoire adapter | Что продолжает использовать прежние native/UB paths |
+|---|---|---|
+| Wizard |INT/list, Spellbook access, exact scribing events, prepared limits, page-fitting validation |Inventory books/pages/OwnerName, copying costs/actions, school powers и Arcane Recovery; shared recovery ledger13.3 |
+| Sorcerer |CHA/list, known totals, original replacement sequence, retained cantrips и origins |Metamagic, actual Sorcery Points и conversion subsystem; новые conversions не включены |
+| Bard |CHA/list, known/replacements, independent Secret grants,2024 expanded-list milestone |Native Secrets extra-spell consumers, class/subclass powers; дальнейшая auxiliary/Secrets классификация13.5 |
+| Cleric/Druid |WIS/list, WholeList prepared limits, domain/circle original groups |Channel Divinity/Wild Shape/class powers; Druid form использует исходного owner |
+| Paladin |CHA/list, prepared half-caster, oath auto spells |Smite/class resources и неподдержанная до13.6 mixed conversion wiring |
+| Ranger |WIS/list, Selection/AllKnown, final2014/2024 known/replacement rows |Mark, terrain/enemy/companion transactions, class powers |
+| Inventor |INT/list, prepared HalfRoundUp/cantrips, Innovation auto spells |Infusions, stored items/constructs, class/subclass powers и rituals |
+
+Эта таблица не является заявлением об исполненном combat/runtime тестировании class mechanics. Их исходники и прежние guards сохранены; общие ресурсы повторно не выделяются.
+
+### 12.5 Wizard books и finalization safety
+
+`Transaction.FitsSpellbooks` повторно использует `SpellcastingProgressionPlan.CanFitSpellbooks`: все original scribing events проверяются совместно, с native owner/page ordering, несколькими книгами и page constraint. Проверка ничего не пишет в inventory. Starting-equipment exception допускается только при настоящем создании первого уровня; Wizard1 как новая multiclass не получает этот exception автоматически.
+
+`ValidateBeforeFinalize` расположен до прежних native grants/Warlock/Bard/etc finalization. Для staged Wizard повторно собираются реальные books и проверяется fitting. Не создаются пустые книги, scrolls, новые repertoires или replacement inventories. **Pending new transactions затем блокируются**: native atomic grant/rollback/persistence journal предусмотрен для13.7, он здесь не подменён unsafe partial finalizer. `GrantCantripsAndSpellsByTag` с зарегистрированным prototype tag также не может обойти этот guard. Это намеренное ограничение текущей native integration, а не утверждение о завершённом игровом level-up.
+
+`PublishValidatedCommit` — API для будущего journal: только после native grants сверяет known/scribed/cantrips/bonus с staged owner, затем публикует managed origins. Сам он не создаёт items, не grant-ит spells и не списывает ресурсы. Последующий resource `Synchronize` сохраняет эту history. Создание героя/finalization binder и persistent history в saves по-прежнему не подключены; у native create flow нет вызова resource BindNewHero. Простой flip readiness constant не делает эту версию готовой к игре.
+
+### 12.6 Остаточные ограничения
+
+- **Native game execution отсутствует.** Проверены production models на managed данных, JSON metadata fixtures и compiled Harmony bindings. Capture реального game DB, действующий UI, копирование книг, rest/recovery actions, metamagic, combat, respec, saves/load не запускались.
+- Листы/abilities/readiness/cantrip/scribing fixtures читаются из repository Diagnostics; final known/prepared2014/2024 fixtures воспроизводят действующие UB switches. Fake spell IDs в production transaction tests проверяют ownership/list/circle и не являются полным Unity database export. Existing class suites продолжают проверять свои source fixtures/metadata.
+- Generic feat/race/fighting-style/item grants не превращаются в class levels; native Race/Monster repertoires остаются вне стандартного projection. Новые ambiguous casting/subclass/item affinities требуют typed adapters13.5, а не broad matching. Произвольные нестандартные sources/third casters не включены.
+- Обычные native rituals, Wizard copying/ownership, school features и class-specific resources сохранены существующими paths. Их mixed runtime совместимость, активные branch prerequisites и native cloned features должны быть проверены в Unity до допуска.
+- Pending transactions проходят pure validation, но полноценный native commit/cancel/recovery после partial mutation и persistence откладываются до13.7. Нет automatic migration старых saves/respec или fallback на полный новый resource pool.
+- Warlock Pact/Arcanum и shared conversions не реализовывались. Нельзя открыть mixed admission до завершения13.5–13.8.
+
+### 12.7 Ручные проверки для будущей интегрированной test build
+
+Использовать новые герои/отдельные saves после завершения недостающих journal/admission stages. В этой версии gate оставить закрытым.
+
+1. ПриOFF сравнить обычный и single compressed Wizard/Sorcerer/Bard/Cleric/Druid/Paladin/Ranger/Inventor с прежней сборкой, оба slots/SP modes, все прежние class guards.
+2. Пять builds§12.2: отдельно inspect ability/DC/attack bonus, own lists/cantrips/known/prepared/auto spells и shared resource maximum. Cast из каждого repertoire должен списать один общий ресурс, не изменить spells другого owner.
+3. Wizard8 рядом с full20: upcast разрешён eligible spell по shared slots; learning/copying ninth-circle Wizard запрещены. Повторить при Wizard compression OFF и на events6/7 с разными circle ceilings.
+4. Sorcerer/Bard/Ranger actual6 и12: mandatory awards и optional replacements по исходному порядку; заменить spell, полученный earlier event того же advancement. После каждого step проверить Back/Cancel/Reset/Skip и повторное повышение, origins и сохранность второго класса.
+5. Все ON/OFF сочетания `EnableRelearnSpells` и `DisplayAllKnownSpellsDuringLevelUp`: legal overlap двух classes, отсутствие global spell deletion, корректная фильтрация display и обязательных choices.
+6. Wizard несколько книг с own/blank/other OwnerName, почти заполненные книги, copying action и page constraint. Повторить actual6 events6/7, shortage перед finalize, начальное создание и Wizard1 как multiclass. Ни новые книги, ни новые pages при cancel не должны появляться.
+7. Cleric/Druid domain/circle, Paladin oath, Inventor Innovation и repeated auto grants; own prepared quota по legacy/2024, независимо от второго класса. Выбранные Divine Order/school/иной Exclusion branch не должны выдавать обе альтернативы.
+8. Bard legacy/ordinary Secrets и2024 expanded lists: выбранный Cleric/Druid/Wizard spell остаётся Bard spell с Bard ability и origin; соответствующий class repertoire не создаётся.
+9. Racial/Magic Initiate/Spell Sniper/fighting-style spells: native ability/origin/recharge отдельно, contribution0; не стирать их при class Reset. Unknown affinity должна дать явный диагностический отказ, а не общий дополнительный бюджет.
+10. Native rests/recovery, Druid form→hero, save/load/respec и смена settings во время pending choices: после13.7 проверить общий resource owner, persistence всех origins и восстановление после отмены. До этого совместимость не заявляется.
+
+### 12.8 Проверки и изменённые файлы
+
+Финальный полный regression: **9114 checks passed** =8065 baseline + **1049 новых**. Из новых: **1020 production-model behavioral checks**, **16 JSON blueprint metadata checks**, **13 compiled binding checks**. Обе resource modes и пять заданных combinations проверены managed production calculator/ledger/repertoire composition. Прежние Warlock transactions, Bard Secrets и все class suites входят в полный прогон. Эти числа — отдельные assertions, не число Unity scenarios.
+
+`dotnet --list-sdks`: **9.0.320**. `dotnet build SolastaUnfinishedBusiness.sln --no-restore -c "Release Workflow" -m:2`: **0 errors /0 warnings**. `dotnet run --project Tests/FighterProgression/FighterProgression.Tests.csproj`: **9114 passed**. `git diff --check`: проходит. Native source/metadata review и сборка не означают runtime Harmony/GUI/gameplay validation.
+
+Изменённые/добавленные файлы:
+
+- `SolastaUnfinishedBusiness/Models/MultipleSpellRepertoiresPlan.cs` — pure owner/access/preparation/transaction/history model.
+- `SolastaUnfinishedBusiness/Models/MultipleSpellRepertoiresContext.cs` — frozen native profiles/grants, typed origins, queries, acquisition/reset/finalization guards.
+- `SolastaUnfinishedBusiness/Models/BootContext.cs` — original capture ordering.
+- `SolastaUnfinishedBusiness/Models/StandardMulticasterResourcesContext.cs` — общий binder/synchronize без нового resource pool.
+- `SolastaUnfinishedBusiness/Models/SharedSpellsContext.cs` — отдельный class-access query.
+- `SolastaUnfinishedBusiness/Api/Helpers/LevelUpHelper.cs` — class-local known/acquired filter под gate.
+- `SolastaUnfinishedBusiness/Patches/RulesetCharacterPatcher.cs` — own auto-prepared adapter.
+- `SolastaUnfinishedBusiness/Patches/RulesetCharacterHeroPatcher.cs` — defensive copy установленной2024 preparation table.
+- `SolastaUnfinishedBusiness/Patches/CharacterBuildingManagerPatcher.cs` — pre-mutation validation.
+- `Tests/FighterProgression/MultipleSpellRepertoiresTests.cs` — новое покрытие.
+- `Tests/FighterProgression/CompressedMulticasterTests.cs` — разрешён только новый isolated adapter как calculator consumer; переиспользуемый compiled-table helper.
+- `Tests/FighterProgression/FighterProgression.Tests.csproj` — link actual production model.
+- `Tests/FighterProgression/Program.cs` — suite entry point.
+- `Documentation/MulticasterIntegrationPlan.md` — этот отчёт.
+
+`release`, Settings.xml, saves и proprietary assemblies не менялись. Generated `SolastaFiles/Mods/` остаётся вне commit. SHA/push публикуются в итоговом сообщении. **Stage13.4 repertoire backend и gated integration добавлены; mixed gameplay по-прежнему выключен. Native finalization/persistence остаются ограниченными до13.7; готовность игровых сценариев не заявляется.** Работа остановлена после repertoire integration,13.5 не начат.

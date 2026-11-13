@@ -132,6 +132,7 @@ internal static class BootContext
             // Spell Points should load closer to the bottom after all other blueprints initiated
             SpellPointsContext.LateLoad();
             StandardMulticasterResourcesContext.CaptureInstalledTables();
+            MultipleSpellRepertoiresContext.CaptureInstalledDefinitions();
 
             FighterProgressionContext.LateLoad();
             BarbarianProgressionContext.LateLoad();

@@ -61,15 +61,21 @@ internal static class StandardMulticasterResourcesContext
         if (!RuntimeEnabled || hero == null || hero.ClassesAndLevels.Values.Sum() != 0 ||
             initial == null || initial.Input.ActualCharacterLevel != 0)
             throw new InvalidOperationException("Standard resources: closed gate or non-new hero; automatic conversion is unsupported.");
+        MultipleSpellRepertoiresContext.EnsureCanBind(hero);
         var allocation = Allocate(initial);
         var budget = new ResourcePlan.Budget(tables, allocation);
         Owners.Bind(hero, budget); Bindings.Add(hero, new Binding(initial, budget));
+        MultipleSpellRepertoiresContext.BindNewHero(hero);
     }
     internal static void UpdateProgression(RulesetCharacterHero hero, CompressedMulticasterProgressionPlan.Result progression)
     {
         if (!RuntimeEnabled || !Bindings.TryGetValue(hero, out var binding)) throw new InvalidOperationException("Unbound resource owner.");
         ValidateHero(hero, progression);
-        binding.Budget.Refresh(Allocate(progression)); binding.Progression = progression;
+        var allocation = Allocate(progression);
+        if (allocation.Mode != binding.Budget.Current.Mode || allocation.RegistryVersion != binding.Budget.Current.RegistryVersion)
+            throw new InvalidOperationException("Resource mode/registry changed during repertoire synchronization.");
+        MultipleSpellRepertoiresContext.Synchronize(hero, progression);
+        binding.Budget.Refresh(allocation); binding.Progression = progression;
         Refresh(hero);
     }
     private static ResourcePlan.Allocation Allocate(CompressedMulticasterProgressionPlan.Result result,

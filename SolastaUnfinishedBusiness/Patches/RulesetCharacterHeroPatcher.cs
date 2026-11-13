@@ -1627,6 +1627,9 @@ public static class RulesetCharacterHeroPatcher
             { Wizard, WizardOneDndPreparedSpellsTable }
         };
 
+        internal static int[] CopyInstalledPreparedTable(CharacterClassDefinition owner) =>
+            PreparedSpells.TryGetValue(owner, out var rows) ? rows.ToArray() : null;
+
         [UsedImplicitly]
         public static bool Prefix(
             RulesetCharacterHero __instance, ref int __result, RulesetSpellRepertoire spellRepertoire)

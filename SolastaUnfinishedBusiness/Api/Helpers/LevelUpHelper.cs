@@ -843,6 +843,7 @@ internal static class LevelUpHelper
         [NotNull] CharacterHeroBuildingData heroBuildingData,
         List<SpellDefinition> __result)
     {
+        if (MultipleSpellRepertoiresContext.EnumerateKnown(heroBuildingData, __result)) return;
         var hero = heroBuildingData.HeroCharacter;
         var isMulticlass = IsMulticlass(hero);
 

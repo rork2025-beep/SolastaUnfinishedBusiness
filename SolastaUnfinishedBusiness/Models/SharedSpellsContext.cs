@@ -277,6 +277,7 @@ internal static class SharedSpellsContext
 
     internal static int MaxSpellLevelOfSpellCastingLevel(RulesetSpellRepertoire rulesetSpellRepertoire)
     {
+        if (MultipleSpellRepertoiresContext.TryAccess(rulesetSpellRepertoire, out var maximum)) return maximum;
         UseMaxSpellLevelOfSpellCastingLevelDefaultBehavior = true;
 
         var result = rulesetSpellRepertoire.MaxSpellLevelOfSpellCastingLevel;
