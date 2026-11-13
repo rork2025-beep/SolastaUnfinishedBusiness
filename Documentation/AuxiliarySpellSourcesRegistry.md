@@ -1,4 +1,4 @@
-# Stage13.5D — подтверждённые auxiliary spell sources
+# Stage13.5D /13.5E-1 — подтверждённые auxiliary spell sources
 
 Это **статический registry audit** исходников и available blueprint snapshots. Native `AuxiliarySpellSourcesContext.CaptureInstalledDefinitions` повторно читает реальные DB registrations после switches; его `Coverage`/log — источник итоговой runtime-матрицы. Игра здесь не запускалась. Указанные строки не означают активацию источника у героя. Stable IDs в runtime включают origin, root и точный feature; варианты не объединяются по spell list.
 
@@ -166,15 +166,15 @@ Available snapshot roots: **{'Race': 16, 'Feat': 40, 'Style': 2}**. Их native 
 
 ## Стандартные invocation spell sources
 
-Зарегистрированы как Invocation roots с explicit Warlock casting feature. Это не добавляет Warlock level. RequiredLevel/RequiredPact/RequiredKnownSpell сохраняются из definition, прежние Warlock6/6.1 training validators не меняются. **consumesSpellSlot=true пока UnsupportedSource** для mixed admission: native resource/repertoire selection не подменяется guessed owner. FeatEldritchAdept без подтверждённого отдельного owner adapter также UnsupportedSource.
+Зарегистрированы как Invocation roots с explicit Warlock casting feature. Это не добавляет Warlock level. RequiredLevel/RequiredPact/RequiredKnownSpell сохраняются из definition, прежние Warlock6/6.1 training validators не меняются. В13.5E-1 шесть `ConsumesSpellSlot=true` получили typed `PaidInvocation` backend; native activation имеет `PendingAtomicJournal` (матрица ниже). `FeatEldritchAdept` имеет отдельный `InvocationSelection` backend с feat-origin claims, native publication также закрыта. Это не разрешение mixed admission.
 
 | Invocation | Spell | Required level / pact / known spell | Domain |
 |---|---|---|---|
 | `ArmorOfShadows` | `MageArmorInvocationArmorShadows` | 1 / — / — | native invocation / AtWill |
 | `AscendantStep` | `LevitateBoots` | 9 / — / — | native invocation / AtWill |
-| `BewitchingWhispers` | `DreadfulOmen` | 7 / — / — | **Unsupported paid native invocation** |
+| `BewitchingWhispers` | `DreadfulOmen` | 7 / — / — | PaidInvocation / **BLOCKED_PENDING_NATIVE_JOURNAL** |
 | `ChainsCarceri` | `HoldMonsterInvocationChainsCarceri` | 15 / FeatureSetPactChain / — | native invocation / AtWill |
-| `DreadfulWord` | `Confusion` | 7 / — / — | **Unsupported paid native invocation** |
+| `DreadfulWord` | `Confusion` | 7 / — / — | PaidInvocation / **BLOCKED_PENDING_NATIVE_JOURNAL** |
 | `EldritchSight` | `DetectMagic` | 1 / — / — | native invocation / AtWill |
 | `FiendishVigor` | `FalseLife` | 1 / — / — | native invocation / AtWill |
 | `InvocationBreakerAndBanisher` | `DispelEvilAndGood` | 9 / — / — | native invocation / LongRest |
@@ -190,11 +190,11 @@ Available snapshot roots: **{'Race': 16, 'Feat': 40, 'Style': 2}**. Их native 
 | `InvocationTrickstersEscape` | `TrickstersEscape` | 7 / — / — | native invocation / LongRest |
 | `InvocationUndyingServitude` | `CreateDeadRisenSkeleton_Enforcer` | 5 / — / — | native invocation / LongRest |
 | `InvocationVerdantArmor` | `VerdantArmor` | 5 / — / — | native invocation / AtWill |
-| `MinionsChaos` | `ConjureElemental` | 9 / — / — | **Unsupported paid native invocation** |
-| `MireMind` | `Slow` | 5 / — / — | **Unsupported paid native invocation** |
+| `MinionsChaos` | `ConjureElemental` | 9 / — / — | PaidInvocation / **BLOCKED_PENDING_NATIVE_JOURNAL** |
+| `MireMind` | `Slow` | 5 / — / — | PaidInvocation / **BLOCKED_PENDING_NATIVE_JOURNAL** |
 | `OtherworldlyLeap` | `JumpOtherworldlyLeap` | 9 / — / — | native invocation / AtWill |
-| `SignIllOmen` | `BestowCurse` | 5 / — / — | **Unsupported paid native invocation** |
-| `ThiefFiveFates` | `Bane` | 1 / — / — | **Unsupported paid native invocation** |
+| `SignIllOmen` | `BestowCurse` | 5 / — / — | PaidInvocation / **BLOCKED_PENDING_NATIVE_JOURNAL** |
+| `ThiefFiveFates` | `Bane` | 1 / — / — | PaidInvocation / **BLOCKED_PENDING_NATIVE_JOURNAL** |
 
 Snapshot inventory: **25** standard spell-grant invocations, из них **6** paid paths закрыты. Этот список — definitions, а не утверждение о selected/enabled invocations текущего героя. Native capture сканирует actual database.
 
@@ -206,9 +206,67 @@ Snapshot inventory: **25** standard spell-grant invocations, из них **6** p
 |2024 `InvocationPactTome` → `PointPoolPactTome` | Explicit Warlock owner; required1;3 cantrips; не складывается автоматически с legacy | Registered invocation attachment |
 | `BookAncientSecrets` → `PointPoolInvocationBookAncientSecrets` | Explicit Warlock owner;2 circle1 rituals, `PactTomeRitual`; required pact как в definition | Registered ritual-only; paid use blocked unless spell independently has ordinary origin |
 | `MartialArcaneArcher` → `CastSpellMartialArcaneArcherArcaneMagic` | Actual Fighter3 prerequisite; own Race-origin INT repertoire; inherited High Elf cantrip mechanism | Registered Subclass auxiliary; не OneThird |
-| `FeatEldritchAdept` → `PointPoolFeatEldritchAdept` | Native Invocation pool1, native level2 validator; не угадываем repertoire/class owner | UnsupportedSource, early rejection |
+| `FeatEldritchAdept` → `PointPoolFeatEldritchAdept` | Native Invocation pool1, native level2 validator; не угадываем repertoire/class owner | InvocationSelection / **BLOCKED_PENDING_NATIVE_JOURNAL**, early rejection |
 | Class-origin feat casting с null class | В available snapshots подтверждённых direct definitions нет; generic grant API такой случай допускает | Unknown/unsupported blocks before mutation |
 | Background casting | Native DB scan features; snapshot не используется для выдумывания отсутствующего источника | Confirmed supported shapes only; unknown fails closed |
 | Conditional/multiple caster / CantripOrSpell auxiliary choice | Требуется отдельный native variant journal | UnsupportedSource |
 
 Native acquisition/finalization journal остаётся заблокированным до13.7. Здесь не заявлены game-runtime, save/respec или inventory tests. Полная acceptance matrix и результаты находятся в [MulticasterIntegrationPlan.md](MulticasterIntegrationPlan.md).
+
+
+## Stage13.5E-1 — paid invocation / Eldritch Adept adapters
+
+Production: `Models/EldritchInvocationSourcesPlan.cs`, `Models/EldritchInvocationSourcesContext.cs`.
+Registry читает DB после2024/Spell Points switches, через существующий auxiliary capture. Никакие definitions не меняются. Изменение ожидаемого spell/slot/recharge shape закрывает registry; неизвестная paid invocation остаётся `UNSUPPORTED`. Проверены available JSON и compiled native ABI; игра не запускалась.
+
+| Invocation | Granted spell / минимальный circle | Native RequiredLevel | RequiredPact / RequiredKnownSpell / GrantedFeature | Backend | Native activation |
+|---|---|---|---|---|---|
+| `BewitchingWhispers` | `DreadfulOmen` /4 |7 |null /null /null |SUPPORTED_BACKEND |BLOCKED_PENDING_NATIVE_JOURNAL |
+| `DreadfulWord` | `Confusion` /4 |7 |null /null /null |SUPPORTED_BACKEND |BLOCKED_PENDING_NATIVE_JOURNAL |
+| `MinionsChaos` | `ConjureElemental` /5 |9 |null /null /null |SUPPORTED_BACKEND |BLOCKED_PENDING_NATIVE_JOURNAL |
+| `MireMind` | `Slow` /3 |5 |null /null /null |SUPPORTED_BACKEND |BLOCKED_PENDING_NATIVE_JOURNAL |
+| `SignIllOmen` | `BestowCurse` /3 |5 |null /null /null |SUPPORTED_BACKEND |BLOCKED_PENDING_NATIVE_JOURNAL |
+| `ThiefFiveFates` | `Bane` /1 |1 |null /null /null |SUPPORTED_BACKEND |BLOCKED_PENDING_NATIVE_JOURNAL |
+
+Все шесть: `ConsumesSpellSlot=true`, `LongRestRecharge=true`. Это invocation grants, не ordinary known Warlock spells. Native invocation-access feature — `CastSpellWarlock`, CHA; backend проверяет feature/ability отдельно от claims. Каст допустим только с подтверждённым invocation origin и native prerequisites. Native `RequiredLevel<=1` не проверяется против Warlock level в существующем GUI; feat имеет отдельный minimum character level2. Более высокие prerequisites используют original/pending Warlock progression, не total character level. RequiredPact/RequiredKnownSpell и успешная проверка дополнительных native validators входят в обязательный owner proof; proof не создаётся из selected class или общего spell list.
+
+`PaidLedger` получает **тот же** `PactMagicResourcePlan.CastingLedger`, а не создаёт pools. `Prepare` не списывает ресурс; `Commit` повторно проверяет доступность и дебетует ровно один выбранный standard/Pact ресурс. Selected circle не меньше granted spell circle, Pact требует своего фактического circle. Standard расходует установленный slot или SP cost (1..5:2/3/5/6/7), без Arcanum и без конвертации Pact→SP. Automatic route использует существующую политику координатора (Warlock/prefer-Pact/Shift); вызывающий journal обязан передать проверенный circle, backend не повторяет небезопасный lowest-slot fallback.
+
+Owner/action/origin/invocation/spell/circle/resource/preferences проверяются до списания. Повтор того же action возвращает receipt; конфликт отклоняется. Один native invocation `used` на definition, независимо от нескольких подтверждённых origins. Short rest восстанавливает Pact, не standard и не invocation use; long rest восстанавливает соответствующие budgets и invocation use; simulation/repeated rest не рефилят повторно. `RefreshOwner` сохраняет расход и receipts, инвалидирует pending actions; удалённый feat не оставляет действующего claim. Этот managed ledger должен принадлежать одному hero journal на всю сессию; новый ledger на refresh недопустим. Import `alreadyUsed` сохраняет имеющийся native use debt; автоматического импорта saves нет.
+
+### Почему native активация закрыта
+
+Compiled spend path:
+
+`InvocationSelectionPanel` → `RulesetImplementationManager[Location].InstantiateEffectInvocation` → `RulesetEffectSpell.RulesetInvocation` → `RulesetCharacter.CastSpell` → `UseInvocation` → `RulesetInvocation.Consume(repertoire)` → `repertoire.SpendSpellSlot(GetLowestAvailableSlotLevel())`.
+
+Шесть definitions не выдают power; native invocation action создаёт spell effect. Location override вызывает base instantiate **до** регистрации effect. UB postfix подставляет `invocationRepertoire`, если repertoire отсутствует. Native `GetSpellRepertoireForInvocations` выбирает реальный feature с `HasAccessToInvocations`, а не текущий класс. Existing `GetLowestAvailableSlotLevel_Patch`/Pact `Lowest` выбирают доступный circle без знания base circle данного invocation spell; при пустом Pact возможен слишком низкий standard circle. Existing SpendSpellSlot patch направляет ресурсы через shared/Pact engine, но обычный authorized-known-spell route не является proof для invocation.
+
+Главное: `Consume` получает только repertoire, сначала ставит `used=true`, затем выбирает/списывает слот; action identity и атомарного возврата native side effects у него нет. `CastSpell` до вызова `UseInvocation` публикует события и выполняет другие действия. Поэтому четыре Priority.First guards (`InstantiateEffectInvocation`, `CastSpell`, `UseInvocation`, `Consume`) отклоняют unsafe paid operation **до соответствующей mutation**, с `PendingAtomicJournal`. Guard на base instantiate покрывает Location override. Это дополнительные guards, не замена Pact engine. Без13.7 нельзя безопасно вызвать backend и объявить native atomic success. Refund после committed spend **запрещён**; разрешена только отмена неизрасходованного prepared action. Проверенной native cancellation boundary не найдено.
+
+### Eldritch Adept: ownership и выбор
+
+Source: `OtherFeats.BuildEldritchAdept` → `FeatEldritchAdept` → `PointPoolFeatEldritchAdept`, Invocation amount1, `ValidatorsFeat.IsLevel2`. Ни casting feature, ни repertoire, ни Pact slots он не создаёт. Native UI `CustomInvocationSubPanel.OnlyStandardInvocationProficiencies` разрешает стандартные invocations по наличию feat, а `CharacterBuildingManager.TrainInvocation` хранит их в native trained inventory. Это не доказательство Warlock-origin.
+
+| Selection case | Backend | Native selection/grant |
+|---|---|---|
+| Non-Warlock или Warlock: `DevilsSight` → `FeatureSetInvocationDevilsSight` |SUPPORTED_BACKEND |BLOCKED_PENDING_NATIVE_JOURNAL |
+| Non-Warlock или Warlock: `BeguilingInfluence` → `ProficiencyBeguilingInfluence` |SUPPORTED_BACKEND |BLOCKED_PENDING_NATIVE_JOURNAL |
+| Non-Warlock или Warlock: `EyesRuneKeeper` → `ProficiencyAllLanguages` |SUPPORTED_BACKEND |BLOCKED_PENDING_NATIVE_JOURNAL |
+| Warlock owner: одна из шести paid invocations, все prerequisites и реальный invocation-access repertoire |SUPPORTED_BACKEND |BLOCKED_PENDING_NATIVE_JOURNAL |
+| Non-Warlock: paid spell без invocation-access repertoire, включая `ThiefFiveFates` |UNSUPPORTED (`MissingRepertoire`; при недостающем required level — `MissingPrerequisite`) |UNSUPPORTED |
+| Неизвестные / ещё не адаптированные power, spell, pact, custom-selection invocation options |UNSUPPORTED |UNSUPPORTED |
+| Уже имеющийся native effective invocation выбирается повторно как новый feat award |UNSUPPORTED (`DuplicateOrigin`) |UNSUPPORTED |
+| Два подтверждённых легитимных class/feat claims одной definition |SUPPORTED_BACKEND: оба origin сохраняются, один effective grant/use |BLOCKED_PENDING_NATIVE_JOURNAL; native reconstruction не выполняется |
+| Удаление/замена feat без доказательства cleanup features/conditions/resources |UNSUPPORTED (`CleanupRequired`) |BLOCKED_PENDING_NATIVE_JOURNAL |
+| Source-local Back/Reset/Cancel, повтор Commit; удаление после cleanup proof |SUPPORTED_BACKEND |BLOCKED_PENDING_NATIVE_JOURNAL |
+
+`AdeptSelection` использует production `WarlockInvocationTransaction<string>` для feat-local one-award replay. Origin — отдельный acquisition ID, не текущий class tag; existing class claims не редактируются. Skip не создаёт незаполненный feat. Подтверждённое удаление снимает только feat claim, сохраняя class claim того же invocation. Повторное получение feat не очищает invocation use/resource debt. Реальные native feature removal, inventory/condition cleanup и respec rollback в этом этапе не реализованы.
+
+Native `TrainFeat` складывает pool в текущий class tag + empty ExtraSpellsTag; при одновременном class reward источники могут слиться. Поэтому early root preflight закрывает Adept до pool/native feat grants, а `BeforeTraining` проверяет pending Adept до invocation pool helpers. Без source-aware journal нельзя угадывать происхождение одного выбора. Existing class Stage6/6.1 transactions не переписаны.
+
+### Проверки и ограничения
+
+Результаты финального прогона приведены в Stage13.5E-1 разделе `MulticasterIntegrationPlan.md`. Production backend тестируется с реальными compiled slot/SP tables и JSON prerequisites всех шести invocations, в обоих resource modes, Warlock-only /Warlock+Sorcerer /Warlock+Paladin и обоих acquisition origins. Отдельные compiled audits проверяют ABI и actual spend path; они **не выполняют** Harmony/native GUI/бой/отдых/save-load.
+
+`MixedGameplayReady=false`; новых settings нет. При gate OFF ранний выход сохраняет обычные native invocation/feat paths, включая free/at-will invocations. Settings.xml, saves и game DLLs не меняются. M05-05 остаётся **PARTIAL**: backend gaps для данных paths сокращены, native journal и остальные auxiliary variants требуют отдельных этапов. Stage13.5E-2 не начат.

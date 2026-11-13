@@ -1251,3 +1251,95 @@ Gate OFF возвращает управление прежним paths до reg
 - `Documentation/MulticasterIntegrationPlan.md` — эта acceptance matrix и ограничения.
 
 PactMagicResourcePlan/PactMagicMulticasterContext, Warlock transactions и proprietary game DLLs не изменялись. Generated mods/settings/saves/temp artifacts не входят в commit. SHA/push фиксируются в итоговом сообщении. **Остановка после Stage13.5D; full Stage13.5 completion не заявляется.**
+
+## 17. Stage13.5E-1 — Paid Eldritch Invocations и Eldritch Adept
+
+Этот раздел уточняет два открытых paths M05-05 из исторической acceptance matrix13.5D (§16). **Backend реализован; native paid action и native feat publication заблокированы до атомарного журнала13.7.** Это не включение mixed gameplay и не полное закрытие M05-05. Полная per-invocation и Adept-case матрица со статусами `SUPPORTED_BACKEND / BLOCKED_PENDING_NATIVE_JOURNAL / UNSUPPORTED` находится в [AuxiliarySpellSourcesRegistry.md, Stage13.5E-1](AuxiliarySpellSourcesRegistry.md#stage135e-1--paid-invocation--eldritch-adept-adapters).
+
+### 17.1 Baseline и native evidence
+
+На `feature/progression-20-to-12`, baseline commit `d37f966ad6e62797b2c1dd0eb5c034d13f26c221`: SDK **9.0.320**, полный повтор baseline **11970 passed**, Release Workflow **0 errors /0 warnings**. Tracked tree перед изменениями чистый; `SolastaFiles/Mods/` уже был untracked output. Worktree/release/settings/saves не изменялись.
+
+Audited exact source/method paths:
+
+- Official JSON `InvocationDefinition/{BewitchingWhispers,DreadfulWord,MinionsChaos,MireMind,SignIllOmen,ThiefFiveFates}` и соответствующие `SpellDefinition`: spells `DreadfulOmen4`, `Confusion4`, `ConjureElemental5`, `Slow3`, `BestowCurse3`, `Bane1`; required levels7/7/9/5/5/1; все slot-consuming и long-rest-recharging, без GrantedFeature/RequiredPact/RequiredKnownSpell. Табличные ограничения не добавлялись.
+- Native `RulesetImplementationManager.InstantiateEffectInvocation`, Location override, `RulesetCharacter.GetSpellRepertoireForInvocations`, `CastSpell`, `UseInvocation`, `RulesetInvocation.Consume`, `IsAvailable`/slot availability. Location вызывает base **до** HandleEffectRegistration. Это spell-effect invocation action, не power у данных шести definitions. `RulesetEffectSpell.RulesetInvocation` — proof, что эффект получен из invocation; обычное repertoire spell knowledge для него не подходит.
+- `Patches/RulesetImplementationManager[Location]Patcher.InstantiateEffectInvocation_Patch` подставляет настоящий `invocationRepertoire`, не придумывает class owner.
+- `RulesetSpellRepertoirePatcher.GetLowestAvailableSlotLevel_Patch`, `SpendSpellSlot_Patch`, `PactMagicMulticasterContext.Lowest`/`Spend`: существующая standard/Pact dispatch и выбор lowest circle не принимают invocation acquisition origin. Пока текущий Pact доступен, lowest обычно его circle; при fallback standard минимальный доступный circle может оказаться ниже granted spell. Existing ordinary known-spell authorization не разрешает автоматически paid invocation.
+- `RulesetInvocation.Consume(repertoire)` не принимает action ID; выставляет native `used` **до** SpendSpellSlot. `CastSpell` публикует события до `UseInvocation`. Одна interception только на expenditure оставляла бы частичную native mutation; подтверждённого cancellation/refund boundary нет.
+- `OtherFeats.BuildEldritchAdept`, `PointPoolFeatEldritchAdept`: Invocation pool1, validator `IsLevel2`; no casting definition. `CustomInvocationSubPanel.OnlyStandardInvocationProficiencies`, `CharacterBuildingManagerPatcher.TrainFeat_Patch`, native `TrainInvocation`, GUI prerequisite patch и Stage6/6.1 contexts: native selected-class execution tag не является source ownership. Empty ExtraSpellsTag может объединить class и feat rewards.
+
+### 17.2 Pure adapters и authority
+
+`EldritchInvocationSourcesPlan` не зависит от Unity/native objects. Installed `Definition` сохраняет slot/recharge/spell/feature и все native prerequisites; typed `Kind.PaidSpell/Passive/Unsupported`. `Owner` — immutable proof hero ID, actual character level, original/pending Warlock prerequisite level, native invocation-access feature/ability/DC, checked native validators, known spells/pacts и claims. Proof должен поступать от будущего подтверждённого owner journal; arbitrary spell knowledge/selected hero class не используется для вычисления origins. Backend не обходит custom validators: без verified proof операция отклоняется.
+
+`Claim` содержит отдельный original acquisition ID + `Origin.Warlock` или `Origin.EldritchAdept`. Отсутствующий Warlock/feat owner, prerequisite, cast feature, ability, invocation spell, base circle или expenditure identity даёт structured rejection до ресурса. Native GUI правило `RequiredLevel>1` сохранено: только такие prerequisites сравниваются с Warlock progression; feat требует actual character level2. Наличие Adept не создаёт class level, repertoire или Pact/shared contribution.
+
+`PaidLedger(registry,owner,existingCastingLedger,alreadyUsed)` использует **тот же authoritative standard/Pact coordinator**. Ни нового PowerSpellPoints, ни копии Budget, ни общей замены GetClassLevel нет. API:
+
+- `Prepare(Activation)` — проверка owner/prerequisites и существующей resource availability без mutation.
+- `Commit(Activation)` — повторная проверка, coordinator.Resolve/Spend, одно domain-specific списание, один invocation use. Standard selected circle>=base, Pact circle строго current Pact circle; Arcanum запрещён. Automatic preference/Shift остаются политикой существующего coordinator. Выбранный native circle обязан быть проверен вызывающим журналом; backend не подбирает заведомо низкий lowest circle.
+- Receipt включает action, hero, acquisition origin, invocation, spell, circle, explicit/automatic domain и preferences. Повтор идемпотентен; конфликт action ID не списывает другой ресурс.
+- `CancelPrepared` отменяет только неистраченный action. Committed cancellation/refund возвращает `PendingAtomicJournal`; нет искусственного rollback native effects.
+- `Rest` вызывает existing budgets: short Pact-only recovery, long standard/Pact + invocation use, simulate no-op, repeated rest ID не рефилит повторно. Старые actions не оживают после rest.
+- `RefreshOwner` инвалидирует pending activations, сохраняет used/receipts/resource debt. После удаления feat новый action со старым origin отвергается; повторный выбор/refresh не восстанавливает charge. Нельзя пересоздавать ledger на refresh или импортировать существующий save без отдельного journal. Lifecycle/native-state binding — задача13.7, не реализация этого этапа.
+
+`AdeptSelection` — отдельный one-award journal через production `WarlockInvocationTransaction<string>`. Select/Back/Reset/Cancel/idempotent Commit сохраняют другие origins; Skip не выдаёт незаполненный feat. Поддержаны явно проверенные passive definitions: `DevilsSight`, `BeguilingInfluence`, `EyesRuneKeeper`; paid варианты требуют реальный invocation-access repertoire и prerequisites. Непроверенные power/choice/pact/free spell options явно `UNSUPPORTED`, не маскируются под Bard/Wizard/Warlock repertoire. Confirmed legitimate class+feat claims одной definition сохраняются как два происхождения с одним effective native grant/use; новый duplicate native выбор не разрешается. `RemoveAdept` требует cleanup proof, снимает только feat claim. Native feature/condition removal, respec cleanup и persist/import не реализованы.
+
+### 17.3 Gated native adapters
+
+`EldritchInvocationSourcesContext.CaptureInstalledDefinitions` вызывается существующим auxiliary capture после2024/Spell Points/Pact table initialization. Только читает actual DB; one-time registry. Шесть paid shapes и точный Adept pool проверяются перед публикацией model registry. Неизвестная paid definition — `UnsupportedOption`, изменившаяся ожидаемая definition закрывает capture.
+
+Auxiliary source domains дополнены `PaidInvocation` и `InvocationSelection`; общий Source.Route/ValidateOwner/Selection для них возвращает **PendingAtomicJournal**, не free cast и не пустой successful journal. К этому backend не подсоединён незавершённый native spend. UI CanCastInvocation через существующий auxiliary guard не допускает unsafe paid cast; Priority.First guards до base instantiate, CastSpell, UseInvocation и Consume — backstops для прямых native calls. Unsupported paid action также не может потратить ресурс/получить бесплатный эффект.
+
+Early `ValidateRootChoice` закрывает Adept до native TrainFeat/pool grants; pending preflight сохраняет точный `PendingAtomicJournal`. `BeforeTraining` проверяет pending Adept до прежних Warlock/pool helpers. Source-aware native feat/class split не угадывается. Existing Stage6/6.1 transaction/finalization и Pact engine не переписаны.
+
+Все guards выходят при `RuntimeEnabled=false`; **MixedGameplayReady=false** сохранён. Free/at-will invocations и обычный gate-OFF gameplay получают прежние paths. Нет новой public setting/admission, автоматических save migrations или следующего этапа.
+
+### 17.4 Acceptance и оставшиеся ограничения
+
+| Path | Backend | Native/game status |
+|---|---|---|
+| Все шесть registered paid invocations, slot/SP, standard/Pact dispatch |SUPPORTED_BACKEND |BLOCKED_PENDING_NATIVE_JOURNAL |
+| Adept passive3 и paid с проверенным native owner/repertoire |SUPPORTED_BACKEND |BLOCKED_PENDING_NATIVE_JOURNAL |
+| Adept paid без repertoire / unmet native prerequisites / неизвестные options |UNSUPPORTED с source-specific diagnostic |UNSUPPORTED |
+| Source-local selection, независимые origins, cleanup-aware removal, use debt |SUPPORTED_BACKEND |BLOCKED_PENDING_NATIVE_JOURNAL для публикации/удаления native features |
+| Cancel до debit |SUPPORTED_BACKEND |Native boundary не подключён |
+| Refund native committed action / atomic native finalization |Не реализован |BLOCKED_PENDING_NATIVE_JOURNAL |
+| M05-01..04 и M05-06 |Прежний PASS backend, полные regressions |Gameplay не включён |
+| M05-05 |**PARTIAL**: новые typed backends закрывают две прежние неопределённые категории |Journal, native persistence и остальные auxiliary variants ещё не готовы |
+
+До13.7 нельзя объявлять эти invocations/Adept native gameplay-ready или снимать guards. Native resource binding, action GUID lifetime, event rollback, condition/item cleanup, GUI tag splitting, feat removal/respec/save-load требуют реального Unity testing. Stage13.5E-2 не начат.
+
+### 17.5 Validation и изменения
+
+Финальный полный прогон: **13154 checks passed** =11970 baseline + **1184 новых** (**1147 executed production behavior checks**, **37 blueprint/compiled-binding audits**). SDK **9.0.320**. Release Workflow: **0 errors /0 warnings**. `git diff --check` проходит. Зависимости не переустанавливались.
+
+Поведенческие проверки исполняют production source planner, Stage6.1 replay и существующий resource coordinator с actual compiled UB tables, в slot/SP modes: все6 definitions, class/feat origins, Warlock-only/Sorcerer/Paladin, расходы и exhaustion, circle/cost, repeated/conflicting action, prerequisites/owner/invalid spell, identity-free native action rejection, rest/cancel, сохранение use debt после removal/reselection, unsupported options и pending native domains. Compiled audits отдельно проверяют JSON, actual native spend IL и typed Harmony ABI. Это **не выполнение native actions/Harmony/GUI/отдыха/боя/respec/save-load**. Full earlier class/Bard Secrets/third-caster/auxiliary/Pact suite сохранён.
+
+Изменённые файлы:
+
+- `SolastaUnfinishedBusiness/Models/EldritchInvocationSourcesPlan.cs` — новый typed paid/feat backend.
+- `SolastaUnfinishedBusiness/Models/EldritchInvocationSourcesContext.cs` — actual definition capture и native guards.
+- `SolastaUnfinishedBusiness/Models/AuxiliarySpellSourcesPlan.cs` — два explicit domains, pending native journal protection.
+- `SolastaUnfinishedBusiness/Models/AuxiliarySpellSourcesContext.cs` — typed registrations и early Adept diagnostic.
+- `SolastaUnfinishedBusiness/Patches/CharacterBuildingManagerPatcher.cs` — pending feat-origin guard до invocation helpers.
+- `Tests/FighterProgression/EldritchInvocationSourcesTests.cs` — production planner/resource tests, отдельно native ABI/fixture audit.
+- `Tests/FighterProgression/AuxiliarySpellSourcesTests.cs` — paid domain regression теперь требует точный PendingAtomicJournal.
+- `Tests/FighterProgression/FighterProgression.Tests.csproj`, `Program.cs` — production model link/runner.
+- `Documentation/AuxiliarySpellSourcesRegistry.md`, `Documentation/MulticasterIntegrationPlan.md` — матрицы, authority/lifecycle и ограничения.
+
+### 17.6 Обязательные будущие game tests
+
+После native journal integration, только новые heroes/отдельные saves:
+
+1. Для каждого из6 invocations: Warlock-only, Warlock/Sorcerer, Warlock/Paladin; SP ON/OFF, resource chooser/Shift, base circle, upcast, CHA/DC, реальный invocation ownership без known-spell grant.
+2. Pact exhausted/standard remains, standard exhausted/Pact remains, both exhausted; ни double debit, ни free use. Проверить отказ до effect registration, если нет action identity или выбран слишком низкий circle.
+3. Cancel до activation, отмена modal, native cast interruption и последствия SpellCast event; без подтверждённого rollback не возвращать committed cost. Повторить один effect/action GUID и конфликтующее действие.
+4. Short/long/simulated/repeated rest; native `used`, Pact sentinel -1 и standard slot/SP projection должны иметь одного владельца. Druid forms не создают новый pool.
+5. Adept у non-Warlock: один из3 passive вариантов, native level2; paid/unsupported prerequisites не создают Warlock repertoire/slots. У Warlock проверить class и feat original reward отдельно; одноимённый effective grant не удваивается.
+6. Adept и Warlock class reward в одном actual advancement; source-aware tag split, Back/Reset/Cancel/Skip/repeated finalize. Подтверждённый class origin не исчезает после снятия feat; использование не сбрасывается при повторном выборе.
+7. Feat removal/replacement/respec, active conditions/powers/инвентарь, save-load и repeated refresh: cleanup до feature removal, сохранить расход, никаких stale grants. Не импортировать старые characters автоматически.
+8. Gate OFF: сравнить прежние free/at-will/paid invocations и Adept обычной игры. Смешанные compressed builds остаются запрещены до финального admission.
+
+Ни один из этих native game tests в Cloud не запускался. **Остановка после13.5E-1.**

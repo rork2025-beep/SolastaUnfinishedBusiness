@@ -50,6 +50,7 @@ public static class CharacterBuildingManagerPatcher
             string tag)
         {
             // Validate before the existing prefix creates any invocation-granted spell pools.
+            EldritchInvocationSourcesContext.BeforeTraining(heroBuildingData);
             if (!WarlockInvocationContext.CanTrain(heroBuildingData, invocation, tag)) return false;
             if (invocation is not InvocationDefinitionCustom) WarlockInvocationContext.BeforeChange(__instance, heroBuildingData, tag);
 

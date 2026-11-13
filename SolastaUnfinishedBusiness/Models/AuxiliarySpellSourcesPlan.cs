@@ -12,7 +12,7 @@ namespace SolastaUnfinishedBusiness.Models;
 internal sealed class AuxiliarySpellSourcesPlan
 {
     internal enum Origin { Race, Feat, Style, Invocation, Subclass, Background }
-    internal enum Domain { NativeSlots, NativeInvocation, NativeRitual, AttachedClass, Unsupported }
+    internal enum Domain { NativeSlots, NativeInvocation, NativeRitual, AttachedClass, PaidInvocation, InvocationSelection, Unsupported }
     internal enum Code { UnknownSource, UnsupportedSource, WrongOwner, DuplicateSource, InvalidChoice, PrematureSource, PendingAtomicJournal, AmbiguousTag }
     internal sealed class Rejection(Code code, string source) : InvalidOperationException(code + ": " + source)
     { internal Code Diagnostic { get; } = code; internal string SourceId { get; } = source; }
@@ -79,6 +79,7 @@ internal sealed class AuxiliarySpellSourcesPlan
             : Spells.Select(s=>s.Circle).DefaultIfEmpty(0).Max(), OwnerClass);
         internal void ValidateOwner(string root,string feature,string ability,string nativeClass,int level)
         {
+            if(Resource is Domain.PaidInvocation or Domain.InvocationSelection)throw new Rejection(Code.PendingAtomicJournal,Id);
             if(Resource==Domain.Unsupported)throw new Rejection(Code.UnsupportedSource,Id);
             if(root!=Root || feature!=Feature || ability!=Ability || nativeClass!=null && nativeClass!=OwnerClass)
                 throw new Rejection(Code.WrongOwner,Id);
@@ -88,6 +89,7 @@ internal sealed class AuxiliarySpellSourcesPlan
         // spell may use a real class repertoire only when the native attachment explicitly matches.
         internal Domain Route(string spell,bool paid,bool nativeAttachmentMatches=false)
         {
+            if(Resource is Domain.PaidInvocation or Domain.InvocationSelection)throw new Rejection(Code.PendingAtomicJournal,Id);
             if(Resource==Domain.Unsupported)throw new Rejection(Code.UnsupportedSource,Id);
             if(!Spells.Any(s=>s.Id==spell) && !Pools.Any(p=>p.Allowed.Any(s=>s.Id==spell)))throw new Rejection(Code.InvalidChoice,Id);
             if(paid && (Resource!=Domain.AttachedClass || !nativeAttachmentMatches))throw new Rejection(Code.WrongOwner,Id);
@@ -128,7 +130,11 @@ internal sealed class AuxiliarySpellSourcesPlan
         {
             this.registry=registry; required=requiredSources.ToArray();
             if(required.Distinct().Count()!=required.Length)throw new Rejection(Code.DuplicateSource,"pending");
-            foreach(var id in required)if(registry.Require(id).Resource==Domain.Unsupported)throw new Rejection(Code.UnsupportedSource,id);
+            foreach(var id in required)
+            {
+                if(registry.Require(id).Resource is Domain.PaidInvocation or Domain.InvocationSelection)throw new Rejection(Code.PendingAtomicJournal,id);
+                if(registry.Require(id).Resource==Domain.Unsupported)throw new Rejection(Code.UnsupportedSource,id);
+            }
             initial=(confirmed??Enumerable.Empty<KeyValuePair<string,IReadOnlyList<string>>>()).ToDictionary(p=>p.Key,p=>(IReadOnlyList<string>)Array.AsReadOnly(p.Value.ToArray()),StringComparer.Ordinal);
             chosen=new Dictionary<string,IReadOnlyList<string>>(initial,StringComparer.Ordinal);
         }

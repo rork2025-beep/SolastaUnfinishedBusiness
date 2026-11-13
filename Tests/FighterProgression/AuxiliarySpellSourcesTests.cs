@@ -218,9 +218,9 @@ internal static class AuxiliarySpellSourcesTests
             if(inv.GetProperty("grantedSpell").ValueKind==JsonValueKind.Null)continue;
             var id=inv.GetProperty("name").GetString();var spellId=Id(inv.GetProperty("grantedSpell").GetString());var definition=Read(spellId,"SpellDefinition");
             var paid=inv.GetProperty("consumesSpellSlot").GetBoolean();var longRest=inv.GetProperty("longRestRecharge").GetBoolean();
-            var native=new P.Source("Invocation:"+id,P.Origin.Invocation,id,id,"Invocation","Charisma","Warlock",paid?P.Domain.Unsupported:P.Domain.NativeInvocation,
+            var native=new P.Source("Invocation:"+id,P.Origin.Invocation,id,id,"Invocation","Charisma","Warlock",paid?P.Domain.PaidInvocation:P.Domain.NativeInvocation,
                 Math.Max(1,inv.GetProperty("requiredLevel").GetInt32()),longRest?"LongRest":"AtWill","FixedList",new[]{new R.Spell(spellId,definition.GetProperty("spellLevel").GetInt32())},atWillInvocation:!longRest);
-            check(paid?Reject(()=>native.Route(spellId,false),P.Code.UnsupportedSource):native.Route(spellId,false)==P.Domain.NativeInvocation && native.CanUseNativeInvocation(false) && native.CanUseNativeInvocation(true)==!longRest,
+            check(paid?Reject(()=>native.Route(spellId,false),P.Code.PendingAtomicJournal):native.Route(spellId,false)==P.Domain.NativeInvocation && native.CanUseNativeInvocation(false) && native.CanUseNativeInvocation(true)==!longRest,
                 "observed invocation "+id+": exact spell, native at-will/limited flags, unsafe paid route explicitly rejected");
         }
         check(!C.MixedGameplayReady,"M05 audit leaves mixed activation OFF and native journal unfinished");

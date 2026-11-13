@@ -41,13 +41,14 @@ internal static class AuxiliarySpellSourcesContext
         if(registry!=null)return;
         try
         {
+            EldritchInvocationSourcesContext.CaptureInstalledDefinitions();
             var output=new List<Entry>();
             void Invocation(BaseDefinition root,P.Origin kind,InvocationDefinition inv,FeatureDefinitionCastSpell cast,string owner)
             {
                 if(!inv.GrantedSpell)return;
                 var recharge=inv.HasSubFeatureOfType<RechargeInvocationOnShortRest>()?"ShortRest":inv.LongRestRecharge?"LongRest":"AtWill";
                 var spec=new P.Source(kind+":"+root.Name+":invocation:"+inv.Name,kind,root.Name,inv.Name,"Invocation",cast.spellcastingAbility,owner,
-                    inv.ConsumesSpellSlot?P.Domain.Unsupported:P.Domain.NativeInvocation,owner==null?0:Math.Max(1,inv.RequiredLevel),recharge,"FixedList",
+                    inv.ConsumesSpellSlot?(EldritchInvocationSourcesContext.IsRegisteredPaid(inv)?P.Domain.PaidInvocation:P.Domain.Unsupported):P.Domain.NativeInvocation,owner==null?0:Math.Max(1,inv.RequiredLevel),recharge,"FixedList",
                     new[]{new R.Spell(inv.GrantedSpell.Name,inv.GrantedSpell.SpellLevel)},atWillInvocation:recharge=="AtWill",prerequisites:new[]{inv.RequiredPact?.Name,inv.RequiredKnownSpell?.Name}.Where(n=>n!=null),castingFeature:cast.Name);
                 output.Add(new Entry(spec,root,cast,null,Array.Empty<FeatureDefinitionPointPool>(),inv));
             }
@@ -79,8 +80,10 @@ internal static class AuxiliarySpellSourcesContext
                 }
                 foreach(var invocationPool in features.OfType<FeatureDefinitionPointPool>().Where(p=>p.PoolType==HeroDefinitions.PointsPoolType.Invocation))
                 {
-                    var spec=new P.Source(kind+":"+root.Name+":"+invocationPool.Name,kind,root.Name,invocationPool.Name,"UnresolvedInvocation","UnresolvedNativeAbility",null,
-                        P.Domain.Unsupported,1,"Unresolved","InvocationChoice",Array.Empty<R.Spell>());
+                    var adept=root.Name=="FeatEldritchAdept" && invocationPool.Name=="PointPoolFeatEldritchAdept";
+                    var spec=new P.Source(kind+":"+root.Name+":"+invocationPool.Name,kind,root.Name,invocationPool.Name,
+                        adept?"InvocationChoice":"UnresolvedInvocation",adept?"InvocationSpecific":"UnresolvedNativeAbility",null,
+                        adept?P.Domain.InvocationSelection:P.Domain.Unsupported,adept?2:1,"NativeInvocation","InvocationChoice",Array.Empty<R.Spell>());
                     output.Add(new Entry(spec,root,null,invocationPool,new[]{invocationPool}));
                 }
                 foreach(var auto in features.OfType<FeatureDefinitionAutoPreparedSpells>())
@@ -241,7 +244,10 @@ internal static class AuxiliarySpellSourcesContext
             foreach(var inv in current.OfType<FeatureDefinitionGrantInvocations>().SelectMany(f=>f.Invocations).Where(i=>i.GrantedSpell))
                 if(!found.Any(e=>e.Invocation==inv))throw new P.Rejection(P.Code.UnknownSource,root.Name+"/"+inv.Name);
             foreach(var e in found)
+            {
+                if(e.Source.Resource==P.Domain.InvocationSelection)EldritchInvocationSourcesContext.RequireAdeptJournal();
                 if(e.Source.Resource==P.Domain.Unsupported)throw new P.Rejection(P.Code.UnsupportedSource,e.Source.Id);
+            }
             if(root is FeatDefinitionWithPrerequisites feat && !feat.Validate(feat,hero).result)throw new P.Rejection(P.Code.PrematureSource,root.Name);
             return true;
         }
@@ -255,6 +261,7 @@ internal static class AuxiliarySpellSourcesContext
         var pending=new List<Entry>();
         foreach(var feat in data.LevelupTrainedFeats.Values.SelectMany(f=>f).Distinct())
         {
+            if(feat.Name=="FeatEldritchAdept")EldritchInvocationSourcesContext.RequireAdeptJournal();
             if(!ValidateRootChoice(hero,feat,feat.Features))throw new P.Rejection(P.Code.UnsupportedSource,feat.Name);
             pending.AddRange(RootEntries(feat));
         }
