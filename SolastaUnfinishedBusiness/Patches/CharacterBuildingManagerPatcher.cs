@@ -286,6 +286,7 @@ public static class CharacterBuildingManagerPatcher
         [UsedImplicitly]
         public static bool Prefix([NotNull] CharacterBuildingManager __instance, [NotNull] RulesetCharacterHero hero)
         {
+            if (!AuxiliarySpellSourcesContext.ValidateBeforeFinalize(hero)) return false;
             if (!MultipleSpellRepertoiresContext.ValidateBeforeFinalize(hero)) return false;
             if (!WarlockInvocationContext.BeginFinalize(hero)) return false;
             if (!BardSpellcastingContext.BeginFinalize(hero)) return false;
@@ -1055,11 +1056,12 @@ public static class CharacterBuildingManagerPatcher
     public static class TrainFightingStyle_Patch
     {
         [UsedImplicitly]
-        public static void Prefix(
+        public static bool Prefix(
             CharacterBuildingManager __instance,
             RulesetCharacterHero hero,
             FightingStyleDefinition fightingStyle)
         {
+            if (!AuxiliarySpellSourcesContext.ValidateRootChoice(hero, fightingStyle, fightingStyle.Features)) return false;
             var heroBuildingData = hero.GetHeroBuildingData();
 
             foreach (var featureDefinitionPointPool in fightingStyle.Features.OfType<FeatureDefinitionPointPool>())
@@ -1087,6 +1089,7 @@ public static class CharacterBuildingManagerPatcher
             }
 
             LevelUpHelper.RebuildCharacterStageProficiencyPanel(heroBuildingData.LevelingUp);
+            return true;
         }
     }
 
@@ -1097,11 +1100,12 @@ public static class CharacterBuildingManagerPatcher
     public static class TrainFeat_Patch
     {
         [UsedImplicitly]
-        public static void Prefix(
+        public static bool Prefix(
             CharacterBuildingManager __instance,
             CharacterHeroBuildingData heroBuildingData,
             FeatDefinition feat)
         {
+            if (!AuxiliarySpellSourcesContext.ValidateRootChoice(heroBuildingData.HeroCharacter, feat, feat.Features)) return false;
             foreach (var featureDefinitionPointPool in feat.Features.OfType<FeatureDefinitionPointPool>())
             {
                 if (!heroBuildingData.PointPoolStacks.TryGetValue(featureDefinitionPointPool.PoolType,
@@ -1130,6 +1134,7 @@ public static class CharacterBuildingManagerPatcher
             }
 
             LevelUpHelper.RebuildCharacterStageProficiencyPanel(heroBuildingData.LevelingUp);
+            return true;
         }
     }
 

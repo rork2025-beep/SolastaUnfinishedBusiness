@@ -530,6 +530,7 @@ internal static class LevelUpHelper
         CharacterBuildingManager characterBuildingManager,
         [NotNull] RulesetCharacterHero hero)
     {
+        AuxiliarySpellSourcesContext.RequireGrantPreflight(hero);
         var heroBuildingData = hero.GetHeroBuildingData();
 
         foreach (var featureDefinitionCastSpell in heroBuildingData.LevelupTrainedFeats
@@ -885,6 +886,7 @@ internal static class LevelUpHelper
 
     public static void GrantCustomFeaturesFromFeats(RulesetCharacterHero hero)
     {
+        AuxiliarySpellSourcesContext.RequireGrantPreflight(hero);
         var data = hero.GetOrCreateHeroBuildingData();
 
         foreach (var pair in data.levelupTrainedFeats)

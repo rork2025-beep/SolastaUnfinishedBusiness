@@ -293,6 +293,7 @@ internal static class CompressedMulticasterTests
             .Where(m => !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.StandardCasterResourcePlan", StringComparison.Ordinal) &&
                         !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.StandardMulticasterResourcesContext", StringComparison.Ordinal) &&
                         !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.MultipleSpellRepertoiresContext", StringComparison.Ordinal) &&
+                        !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.AuxiliarySpellSources", StringComparison.Ordinal) &&
                         !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.ThirdCasterProgressionPlan", StringComparison.Ordinal) &&
                         !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.PactMagicResourcePlan", StringComparison.Ordinal) &&
                         !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.PactMagicMulticasterContext", StringComparison.Ordinal))

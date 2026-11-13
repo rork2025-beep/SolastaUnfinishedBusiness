@@ -38,4 +38,5 @@
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/PactMagicResourcePlan.cs" Link="PactMagicResourcePlan.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/BardMagicalSecretsPlan.cs" Link="BardMagicalSecretsPlan.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/ThirdCasterProgressionPlan.cs" Link="ThirdCasterProgressionPlan.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/AuxiliarySpellSourcesPlan.cs" Link="AuxiliarySpellSourcesPlan.cs" /></ItemGroup>
 </Project>

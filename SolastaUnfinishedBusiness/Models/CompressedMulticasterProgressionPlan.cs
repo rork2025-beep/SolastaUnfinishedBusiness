@@ -13,7 +13,7 @@ internal sealed class CompressedMulticasterProgressionPlan
     internal const int MaximumResourceIndex = 20;
     internal enum CasterKind { None, Full, Half, HalfRoundUp, OneThird, Pact }
     internal enum RoundingMode { InstalledSolo, UbGroupedMulticlass }
-    internal enum AuxiliaryRole { Unsupported, Race, Feat, Item, AttachedGrant }
+    internal enum AuxiliaryRole { Unsupported, Race, Feat, Item, AttachedGrant, FightingStyle, Invocation, Background, SubclassGrant }
     internal enum DiagnosticCode
     {
         InvalidCharacterLevel, InvalidClassLevel, TooManyClasses, DuplicateClass, HistoryMismatch,

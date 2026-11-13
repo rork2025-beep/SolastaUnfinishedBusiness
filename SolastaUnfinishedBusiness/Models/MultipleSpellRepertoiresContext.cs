@@ -170,6 +170,11 @@ internal static partial class MultipleSpellRepertoiresContext
         }
         return grants.ToArray();
     }
+    internal static bool IsRegisteredCastingFeature(FeatureDefinitionCastSpell casting) => definitions!=null &&
+        definitions.Values.Concat(ThirdDefinitions.Values).Any(d=>d.Casting==casting);
+    internal static bool IsRegisteredCastingSource(FeatureDefinitionCastSpell casting,CharacterClassDefinition owner,CharacterSubclassDefinition subclass) =>
+        casting.SpellCastingOrigin==CastingOrigin.Class && owner && definitions!=null && definitions.TryGetValue(owner.Name,out var d) && d.Casting==casting ||
+        casting.SpellCastingOrigin==CastingOrigin.Subclass && subclass && ThirdDefinitions.TryGetValue(subclass.Name,out var s) && s.Casting==casting && (!owner || s.Owner==owner);
     internal static void EnsureCanBind(RulesetCharacterHero hero)
     {
         if (!RuntimeEnabled || definitions == null || hero == null || hero.ClassesAndLevels.Values.Sum() != 0 || Sessions.TryGetValue(hero, out _))
@@ -220,6 +225,7 @@ internal static partial class MultipleSpellRepertoiresContext
     {
         view = null;
         if (!RuntimeEnabled || repertoire.SpellCastingFeature.SpellCastingOrigin is not (CastingOrigin.Class or CastingOrigin.Subclass)) return false;
+        if (AuxiliarySpellSourcesContext.IsIndependent(repertoire)) return false;
         var hero = character as RulesetCharacterHero ?? DruidWildshapeContext.StandardResourceOwner(character);
         if (hero == null || !Sessions.TryGetValue(hero, out var session) ||
             (view = CurrentView(session, RepertoireClassId(repertoire))) == null || view.Definition.FeatureId != repertoire.SpellCastingFeature.Name)
@@ -261,7 +267,8 @@ internal static partial class MultipleSpellRepertoiresContext
     {
         if (!TryView(actor, repertoire, out var view)) return false;
         repertoire.AutoPreparedSpells.Clear();
-        repertoire.AutoPreparedSpells.AddRange(view.AutoPrepared.Select(DatabaseHelper.GetDefinition<SpellDefinition>));
+        repertoire.AutoPreparedSpells.AddRange(view.AutoPrepared.Select(DatabaseHelper.GetDefinition<SpellDefinition>)
+            .Concat(AuxiliarySpellSourcesContext.AttachedAutoSpells(actor, repertoire)).Distinct());
         return true;
     }
     internal static bool EnumerateKnown(CharacterHeroBuildingData data, List<SpellDefinition> result)
@@ -369,6 +376,7 @@ internal static partial class MultipleSpellRepertoiresContext
     {
         internal static bool Prefix(CharacterHeroBuildingData heroBuildingData, string tag, FeatureDefinitionCastSpell spellcastingFeature)
         {
+            if (!AuxiliarySpellSourcesContext.AllowNativeGrant(heroBuildingData, spellcastingFeature)) return false;
             if (!TryFeature(heroBuildingData, tag, out var owner)) return true;
             Main.Error(owner != spellcastingFeature ? "Wrong repertoire feature for spell grant." : "Pending repertoire grant requires Stage13.7 atomic finalization.");
             return false;

@@ -1133,3 +1133,121 @@ Executed проверки включают ordinary careers всех4 и оба 
 - `Documentation/MulticasterIntegrationPlan.md` — эта секция с матрицей и ограничениями.
 
 Source-пути `Models/*` выше находятся в `SolastaUnfinishedBusiness/Models/`. Generated DLLs, proprietary game assemblies, personal settings/saves и временные logs в commit не входят. SHA/push публикуются в итоговом отчёте. **M05-04 backend реализован; runtime mixed gameplay выключен. Работа остановлена после Stage13.5C.**
+
+## 16. Stage13.5D — Auxiliary spell sources и финальный аудит M05-01…M05-06
+
+### 16.1 Baseline и результат этапа
+
+Проверены committed13.5B `5a643efb31e46e53020203677c98a1e527c4c32d` и13.5C `eadc461216ab87d76487b6cd1fd5d263cf0de68d`. Ветка `feature/progression-20-to-12`, tracked-дерево до работы чистое; `SolastaFiles/Mods/` — прежний untracked build output. Повторный baseline: **11760 passed**, SDK **9.0.320**, Release Workflow **0 errors /0 warnings**. Baseline failures нет, dependencies не переустанавливались.
+
+Добавлены typed auxiliary registry, независимая модель choices, resource-domain validation, native preflight/guards и окончательный acceptance audit. **Stage13.5 в целом НЕ объявляется полностью завершённым: M05-05 остаётся PARTIAL.** Paid native invocations и некоторые неоднозначные acquisition variants закрыты явно. `MixedGameplayReady=false`; UI admission guards, actual caps/history/HP/PB и settings не меняются. Existing Pact resource engine не переписывался. Работа заканчивается здесь, без13.6 или реализации journal13.7.
+
+### 16.2 Подтверждённый registry
+
+Полные exact root/feature IDs, spell lists, abilities, point-pool budgets, native recharge и все observed invocation definitions: **[AuxiliarySpellSourcesRegistry.md](AuxiliarySpellSourcesRegistry.md)**. Это источник reviewable статической матрицы, а не отчёт о запуске game DB. Production `AuxiliarySpellSourcesContext.CaptureInstalledDefinitions` сканирует actual registered DB после Subclasses/2024/SpellPoints switches и Pact capture, перед class compression. `Coverage` и boot log показывают реально снятые строки.
+
+| Подтверждённое семейство | Source / casting ownership | Доступ, выборы и resource domain | Статус gated adapter |
+|---|---|---|---|
+|16 racial-root casting definitions |Race root + точный CastSpell; реальные INT/WIS/CHA; shared feature ID ElfHigh/Darkelf у разных racial roots не означает shared ownership |Native list/knowledge/cantrip arrays/20 slot rows, собственные free slots/recharge; Selection cantrip budget сохраняется |Registered independent native repertoire |
+|6 Magic Initiate: Bard, Cleric, Druid, Sorcerer, Warlock, Wizard |Feat root; **Race origin**, native class null; ClassHolder — hint, не class contribution |2 cantrips +1 first-circle spell из реальных point pools; собственный native first-circle slot/LongRest |Registered; не дополнительный spellcasting class |
+|5 Spell Sniper: Druid, Sorcerer, Warlock, Wizard, Inventor |Feat root, own Race-origin casting feature / original ability |1 cantrip из actual filtered attack/damage spell list; native free cantrip,0 slots |Registered, когда этот вариант реально создан builder |
+|24 Touched variants:8 families ×CHA/INT/WIS |Own feat carrier + exact custom invocation + separate auto-prepared feature |Non-reaction spells: own native invocation/LongRest. Paid class route — только explicit native AnyClassOrSubclass attachment, с ability реального class repertoire |Registered, budgets не объединяются |
+|3 Fey Teleportation variants |Own INT/CHA/WIS carrier; native ShortRest marker; separate AnyClassOrSubclass auto-feature |1 own invocation use, native Consume/Recharge; class-paid Misty Step отдельно |Registered; used flag проверяется |
+|FeatDarkElfMagic / FeatWoodElfMagic |Own Race-origin CHA/WIS carriers, native race/level validators |Fixed list либо1 selected Druid cantrip + native fixed spells; собственные slots/recharge |Registered, native validators не отменяются |
+|Blessed Warrior |Style root, `CastSpellBlessedWarrior`, **Charisma**, Cleric list |2 cantrips, native Race origin,0 slots |Registered; не WIS по tabletop предположению |
+|Druidic Warrior |Style root, `CastSpellDruidicWarrior`, Wisdom, Druid list |2 cantrips, native Race origin,0 slots |Registered |
+|Legacy FeatureSetPactTome /2024 InvocationPactTome |Explicit Warlock / CastSpellWarlock /CHA; existing own feature/invocation origin |3 independent cantrip choices, без нового repertoire/class |Registered attached pool, прежний Warlock6/6.1 journal сохранён |
+|BookAncientSecrets |Explicit Warlock; required pact/level как в installed definition |2 first-circle ritual choices, tag `PactTomeRitual`; ritual-only domain |Registered; ritual-only grant не оплачивается как ordinary spell без независимого ordinary origin |
+|Standard invocation spell grants |Explicit actual registered invocation root, Warlock casting feature; RequiredLevel/RequiredPact/RequiredKnownSpell сохранены |Snapshot содержит25 spell-grant definitions:19 native free/at-will и **6 consumesSpellSlot=true** |Free зарегистрированы;6 paid sources — UnsupportedSource |
+|MartialArcaneArcher / CastSpellMartialArcaneArcherArcaneMagic |Actual Fighter prerequisite3, own Race-origin INT cantrip carrier |Inherited High Elf cantrip mechanism, contribution0 |Registered auxiliary, не OneThird |
+|FeatEldritchAdept / PointPoolFeatEldritchAdept |Native Invocation pool1, existing level2 validator; конкретный casting owner не определяется одним feat |Без отдельного owner/selection adapter выбирать repertoire молча нельзя |Explicit UnsupportedSource до выдачи grants |
+|Class-origin feat casting при null native class |В available source/blueprint inventory подтверждённых direct definitions не найдено; generic grant helper допускает такой объект |Нет guessed owner по spell/list/selected class |Unknown/unsupported source блокируется до mutation |
+|Background casting / другие зарегистрированные roots |Capture читает настоящие root/features; поддерживаются только подтверждённые typed shapes |Unknown/changed root, conditional/multiple casters и mixed CantripOrSpell требуют отдельных variant adapters |Fail closed, без выдуманных tabletop источников |
+
+В snapshot inventory:16 race roots,40 feat roots,2 styles,27 feat auto-prepared attachments и72 custom Touched/Fey invocation definitions; отдельная таблица перечисляет25 standard spell invocations,6 из них paid. Эти числа не означают selected/enabled sources текущего героя. Source list формируется из definition graphs, не из имен героя или совпадающих spell lists. Именованный Ritual Caster feat не был обнаружен в проверенном source inventory; реальный ritual source здесь BookAncientSecrets.
+
+Magic Initiate требует отдельной оговорки: `SetKnownSpells(2, Flat)` через installed builder даёт native raw KnownSpells0 на1–4 и2 с5. Эта таблица **не заменяет** point-pool grant1. Adapter сохраняет raw metadata и actual acquisition budgets раздельно, не исправляет класс/feat по tabletop и не выдаёт две дополнительные spell selections.
+
+### 16.3 Pure model и resource ownership
+
+`AuxiliarySpellSourcesPlan.Source` хранит stable origin/root/feature ID, casting feature (когда он существует), native origin, ability, explicit class attachment или null, level prerequisite, known/cantrip arrays, authorized spell/pool lists, native slot rows, recharge, invocation at-will и pact/known-spell prerequisite metadata. Политики `NativeSlots`, `NativeInvocation`, `NativeRitual`, `AttachedClass`, `Unsupported` различны. Snapshot rows сохраняются readonly; новых native repertoires, PowerSpellPoints или parallel charge objects adapter не создаёт.
+
+`CalculatorInput(level)` использует прежний Stage13.2 AuxiliaryInput; добавлены роли FightingStyle/Invocation/Background/SubclassGrant, без изменения rounding или contribution formulas. Все auxiliary дают0 standard levels/participants. Собственный resource/access maximum вычисляется по native rows нужного уровня, а не shared index20. Race-only/feat-only/style-only не превращаются в классы. Explicit class attachment требует реального owning class в snapshot, а ClassHolder/list hint не заменяет owner.
+
+`ValidateInputs` проверяет точное соответствие incoming calculator snapshot фактическим active sources: unknown/missing IDs, duplicate sources, подменённые role/owner/circle дают structured `Rejection(Code,SourceId)`. Standard owner вызывает это **до первого BindNewHero** и до progression/resource refresh. Independent repertoires дополнительно подтверждаются actual owned root + exact casting feature/ability/native race identity и принадлежностью repertoire владельцу. Existing saves автоматически не импортируются.
+
+Для auxiliary Race-origin casts `ValidateNativeSpend` проверяет собственную native row; обычный native `ConsumeSlot` остаётся authoritative и не касается shared points. Class-origin source без owner не попадает в standard projection случайно. Native invocation free uses остаются native `used`/Consume/Recharge; limited source нельзя повторять при used=true, at-will не получает искусственный лимит1. Source ownership invocation casting feature проверяется явно. Paid `consumesSpellSlot` invocation не получает fallback на другой repertoire или бесплатные SP — такой source отказывает в mixed admission/action.
+
+Shared engine подавляет глобальный RestoreAllSpellSlots. Поэтому `FinishNativeRest` отдельно вызывает **RulesetSpellRepertoire.RestoreAllSpellSlots только для подтверждённого auxiliary repertoire**, если его собственный recharge соответствует rest, и не выполняется для simulation. Standard и Pact budgets не рефилятся этим вызовом. Invocation charges восстанавливаются прежними native rest/marker paths; новый auxiliary ledger не создаётся. У Druid используется прежний original-hero owner; реальная работа form-copy/native inventory требует Unity проверки.
+
+AnyClassOrSubclass attachments Touched/Fey добавляются к native AutoPreparedSpells только через реальный native matcher/explicit class. Paid cast получает ability/DC и standard/Pact cost **того repertoire, из которого реально кастуется**, free invocation — ability своего carrier. Borrowed spells не создают Wizard/Cleric/Bard repertoire. Один spell с разными legit origins сохраняет оба происхождения, executable auto-list deduplicated. Ritual-only tags не становятся ordinary spell knowledge: validation перед shared/Pact spell spending отклоняет ritual-only source, если нет independent ordinary/auto/other-tag origin. Native ritual action остаётся native, без превращения в free SP.
+
+### 16.4 Pending choices и mutation boundaries
+
+Production `Selection` — source-local immutable preview/commit journal. У каждого root/pool независимый бюджет; duplicate/foreign/unknown spell или source отвергается до публикации. Back/Reset/Cancel не очищают confirmed keys другого source; managed repeated Commit идемпотентен. Это **не** native finalization или save journal.
+
+Native integration points:
+
+1. `CharacterBuildingManagerPatcher.TrainFeat_Patch` и `TrainFightingStyle_Patch` сначала вызывают `ValidateRootChoice`, затем прежние pool/native training операции. Unknown/changed casting/auto/invocation graph, unsupported source и existing custom feat validator failure возвращают false до этих mutations.
+2. FinalizeCharacter Prefix первым вызывает auxiliary preflight, до race/background/style grants, GrantCustomFeaturesFromFeats и остальных native mutations. Pending feats читаются из `LevelupTrainedFeats`, invocations — из pending invocation data, styles — из trained/pending style state. Source metadata не присваивается currently selected class.
+3. Native execution tag используется лишь для lookup acquisition selections. Когда несколько origin rewards объединены native UI в один indistinguishable tag, возникает `AmbiguousTag`/`InvalidChoice`, а не guessed split или duplicate award.
+4. Прямые `LevelUpHelper.GrantCustomFeaturesFromFeats` и `GrantSpellsOrCantripsFromFeatCastSpell` имеют собственный preflight. Guards на **RulesetCharacter.GrantSpellRepertoire/GrantSpell/GrantCantrip** проверены по actual declaring type и typed arguments; NPC bypass сохранён. Registered standard class/subclass sources допускаются только с собственными definitions/owner metadata; unknown null-class source не попадает на fallback.
+5. `MultipleSpellRepertoiresContext.GrantBoundaryPatch` вызывает auxiliary guard до spell grants. При pending auxiliary sources/неподдержанном native selection binder возвращается **PendingAtomicJournal**, не выполняется частичный grant.
+6. Pending native finalization по-прежнему блокируется до13.7. Native acquire/reset/save persistence, atomic character/resource/invocation rollback и полная orchestration GUI в этом этапе **не реализованы**. Существующие Warlock invocation transactions не переписывались.
+
+Gate OFF возвращает управление прежним paths до registry/preflight checks, не блокирует обычные feats/racial magic и не меняет Settings.xml. Boot capture только читает definitions и пишет coverage/diagnostic в log. Capture failure оставляет mixed admission закрытым. Проверки компиляции/IL не являются подтверждением поведения Harmony/GUI в игре.
+
+### 16.5 Финальная acceptance matrix исходного Stage13.5
+
+Классификация относится к production backend и gated bindings, **не к разрешению gameplay**. Solasta/Unity ни для одной строки в этом этапе не запускалась.
+
+| Criterion | Статус | Evidence: production paths и выполненные tests | Ограничение |
+|---|---|---|---|
+|M05-01 Legacy Secrets и original events |**PASS** |BardMagicalSecretsPlan, Bard step replay/PreserveOrigins; полный13.5B career/occurrence suite10 колледжей, original10/14/18 и Lore6 |Native atomic grant/GUI ожидает13.7 |
+|M05-02 Bard2024 expanded lists |**PASS** |Installed source capture; own original10 gate; class-local Allows;13.5B legacy/2024/known-table modes и independent CHA ownership |Не объявлено game-runtime подтверждение flags |
+|M05-03 Secrets transactions/ownership |**PASS** |Owner-scoped journal, revisions, ordinary-before-Secrets order, duplicates/stale/back/reset/cancel/repeat checks; native aggregate reconciliation |Native finalization сознательно blocked |
+|M05-04 Third-caster subclasses |**PASS** |ThirdCasterProgressionPlan + four registered sources;13.5C grouped/solo rounding, source spell access, school policies, compressed Fighter rejection, Rogue actual casting |Casting compression для third casters не реализуется |
+|M05-05 Registered auxiliary sources |**PARTIAL** |Новый Source/Selection/Route model; confirmed registry; source-local native free budgets, attached auto-spells, scoped native rest; role/input/ownership/resource tests |6 paid invocations, EldritchAdept owner, conditional/multiple casters и CantripOrSpell variants явно unsupported; native auxiliary journal/binder ещё не готов |
+|M05-06 Unknown sources и pending feat validation |**PASS** |Structured Rejection; source/snapshot validation; early TrainFeat/Style checks; direct helper и RulesetCharacter mutation guards; compile-order/signature tests |GUI diagnostics/navigation/native rollback/save behavior не проверялись в игре; незавершённый native commit заблокирован |
+
+**Общий Stage13.5: PARTIALLY COMPLETE.** Нельзя снимать readiness gate или заявлять full completion, пока M05-05 остаётся PARTIAL. Следующие этапы не начаты; требуется отдельная работа над названными owner/variant paths и planned native journal, а не обход guards.
+
+### 16.6 Manual acceptance после будущего coordinator/admission
+
+До появления необходимых journal/activation этапов mixed gameplay **не включать**. После них — только новые test heroes, отдельные saves, полный restart при изменении rules:
+
+1. High Elf/Shadow Gnome/Tiefling и UB races: фактические race/subrace identities, own ability/list/character-level unlock, free slots и long-rest recovery;0 standard levels без класса. Ни short rest, ни simulated rest не должны обновлять long-rest uses.
+2. Magic Initiate каждый из6 вариантов:2 cantrips,1 spell, один native first-circle budget; сравнить raw known table с actual grants. Израсходовать free use при наличии/отсутствии SP, проверить unchanged SP. Spell Sniper — только actual filtered attack cantrips и original ability.
+3. Blessed Warrior CHA и Druidic Warrior WIS: два выбора,0 slot budget. Тот же cantrip в class/race/feat origins не должен исчезать из других источников при Back/Cancel/Reset.
+4. Touched/Fey: free invocation и explicit attached class-paid casting, разные attributes при необходимости, native used flag, short/long rest, no free SP. Reaction spells не получают free invocation, если factory его не строит. Независимый class spell того же имени остаётся законным.
+5. Legacy/2024 Tome и Book:3 cantrips/2 first-circle rituals, original prerequisites и transaction origins; ritual-only нельзя оплатить/использовать как ordinary spell без независимого known origin. Повторить Arcanum/invocation regressions.
+6.6 paid invocations, EldritchAdept без owner adapter и unknown dynamic feats: явный source-specific diagnostic **до** pool/grant/repertoire mutation. Исправление не должно заключаться в выборе чужого class repertoire или в бесплатной конвертации.
+7. Pending feat/style/exclusion choice, два feats с одинаковым native spell tag в одном advancement, Skip/Back/Reset/Cancel/repeated finalize: никакого частичного award. Unsplit native tag должен отказать с diagnostic до готовности variant journal.
+8. Class+race, two casters+feat, ShadowCaster+racial magic, ArcaneArcher+caster: реальные class count/history/HP/PB неизменны, no extra shared contribution; разные resource domains и actual source DC.
+9. Native cast cancellation, rest, Druid forms/reversion, repeated respec, save/load и изменённые settings: resource debt/origins не теряются и не дублируются. Это обязательные Unity tests, не покрытые компиляцией.
+
+### 16.7 Validation и файлы
+
+Финальные фактические результаты: **11970 checks passed** =11760 baseline + **210 новых** (**197 executed production-model checks**, **13 fixture/compiled-binding audits**). SDK **9.0.320**. `dotnet build SolastaUnfinishedBusiness.sln --no-restore -c "Release Workflow" -m:2`: **0 errors /0 warnings**. `dotnet run --project Tests/FighterProgression/FighterProgression.Tests.csproj`: **11970 passed**. `git diff --check` проходит. Зависимости не переустанавливались.
+
+Полный прогон включает все13.5B/13.5C/Pact и предыдущие class/resource/repertoire regressions. Выполнены production Source/Selection/Route/ValidateInputs и calculator/budget composition: race/feat/style only, class+race, two casters+feat, third-caster+racial, independent abilities, origin overlap, free versus class-paid domains, native recharge policy, at-will/used flags, rituals, unknown/missing/duplicate ownership и pending journal rejection. Available snapshot fixtures перечисляют источники; Native capture/early ordering/typed Harmony signatures отдельно проверены Cecil. Это не выполнение game DB, Harmony, combat, rests, GUI или save/load.
+
+Изменённые/добавленные файлы:
+
+- `SolastaUnfinishedBusiness/Models/AuxiliarySpellSourcesPlan.cs` — typed registry, source rows/domains, calculator inputs, selections, diagnostics.
+- `SolastaUnfinishedBusiness/Models/AuxiliarySpellSourcesContext.cs` — actual registrations, root ownership, snapshot/preflight/paid-use/rest/native mutation guards.
+- `SolastaUnfinishedBusiness/Models/CompressedMulticasterProgressionPlan.cs` — explicit auxiliary roles, без изменения caster arithmetic/readiness.
+- `SolastaUnfinishedBusiness/Models/BootContext.cs` — read-only capture после всех необходимых switches.
+- `SolastaUnfinishedBusiness/Models/StandardMulticasterResourcesContext.cs` — early auxiliary snapshot validation, domain exclusion, scoped free-slot rest и spend validation.
+- `SolastaUnfinishedBusiness/Models/MultipleSpellRepertoiresContext.cs` — registered native source checks, independent repertoire exclusion, confirmed feat auto-attachments, grant boundary.
+- `SolastaUnfinishedBusiness/Api/Helpers/LevelUpHelper.cs` — preflight прямых feat grant helpers.
+- `SolastaUnfinishedBusiness/Patches/CharacterBuildingManagerPatcher.cs` — early feat/style/finalize validation.
+- `SolastaUnfinishedBusiness/Patches/RulesetCharacterHeroPatcher.cs` — invocation ownership/used/domain guard.
+- `SolastaUnfinishedBusiness/Patches/RulesetSpellRepertoirePatcher.cs` — native free-slot spend-domain validation.
+- `Tests/FighterProgression/AuxiliarySpellSourcesTests.cs` — production scenarios + отдельно обозначенный native audit.
+- `Tests/FighterProgression/CompressedMulticasterTests.cs` — calculator consumer allowlist нового isolated adapter.
+- `Tests/FighterProgression/FighterProgression.Tests.csproj`, `Program.cs` — production model link и suite runner.
+- `Documentation/AuxiliarySpellSourcesRegistry.md` — полный exact source inventory.
+- `Documentation/MulticasterIntegrationPlan.md` — эта acceptance matrix и ограничения.
+
+PactMagicResourcePlan/PactMagicMulticasterContext, Warlock transactions и proprietary game DLLs не изменялись. Generated mods/settings/saves/temp artifacts не входят в commit. SHA/push фиксируются в итоговом сообщении. **Остановка после Stage13.5D; full Stage13.5 completion не заявляется.**

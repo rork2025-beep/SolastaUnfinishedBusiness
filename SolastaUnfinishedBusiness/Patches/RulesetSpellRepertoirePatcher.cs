@@ -73,6 +73,7 @@ public static class RulesetSpellRepertoirePatcher
         [UsedImplicitly]
         public static bool Prefix(RulesetSpellRepertoire __instance, int slotLevel)
         {
+            AuxiliarySpellSourcesContext.ValidateNativeSpend(__instance, slotLevel);
             if (StandardMulticasterResourcesContext.TrySpend(__instance, slotLevel)) return false;
             SpendSpellSlot(__instance, slotLevel);
 

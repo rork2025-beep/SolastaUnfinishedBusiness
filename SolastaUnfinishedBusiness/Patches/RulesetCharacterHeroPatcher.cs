@@ -408,6 +408,7 @@ public static class RulesetCharacterHeroPatcher
         [UsedImplicitly]
         public static bool Prefix(RulesetCharacterHero __instance, ref bool __result, RulesetInvocation invocation)
         {
+            if (!AuxiliarySpellSourcesContext.ValidateInvocation(__instance, invocation)) { __result = false; return false; }
             //PATCH: make sure we can't cast hidden invocations, so they will be hidden
             var definition = invocation.InvocationDefinition;
             var isValid = definition

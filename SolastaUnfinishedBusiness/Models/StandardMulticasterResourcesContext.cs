@@ -32,6 +32,7 @@ internal static class StandardMulticasterResourcesContext
     internal static IDisposable EnterSpell(RulesetEffectSpell effect)
     {
         if (!RuntimeEnabled) return null;
+        AuxiliarySpellSourcesContext.ValidatePaidSpell(effect);
         var previous = spellOperation;
         spellOperation = effect.Guid == 0 ? null : "spell:" + effect.Guid;
         return new SpellScope(previous, PactMagicMulticasterContext.EnterSpell(effect));
@@ -61,6 +62,7 @@ internal static class StandardMulticasterResourcesContext
         if (!RuntimeEnabled || hero == null || hero.ClassesAndLevels.Values.Sum() != 0 ||
             initial == null || initial.Input.ActualCharacterLevel != 0)
             throw new InvalidOperationException("Standard resources: closed gate or non-new hero; automatic conversion is unsupported.");
+        AuxiliarySpellSourcesContext.ValidateSnapshot(hero, initial);
         MultipleSpellRepertoiresContext.EnsureCanBind(hero);
         PactMagicMulticasterContext.EnsureCanBind(hero);
         var allocation = Allocate(initial);
@@ -88,6 +90,7 @@ internal static class StandardMulticasterResourcesContext
         ? actor : DruidWildshapeContext.StandardResourceOwner(actor);
     private static void ValidateHero(RulesetCharacterHero hero, CompressedMulticasterProgressionPlan.Result result)
     {
+        AuxiliarySpellSourcesContext.ValidateSnapshot(hero, result);
         if (!result.IsValid || result.PactProgressions.Count > 1 ||
             hero.ClassesAndLevels.Count != result.Input.Classes.Count ||
             hero.ClassesAndLevels.Any(x => !result.Input.Classes.Any(c => c.ClassId == x.Key.Name && c.ActualLevel == x.Value)) ||
@@ -137,7 +140,7 @@ internal static class StandardMulticasterResourcesContext
         maximum = b.Budget.Current.BasePointMaximum; return true;
     }
     private static bool StandardRepertoire(RulesetSpellRepertoire repertoire) =>
-        repertoire.SpellCastingFeature.SpellCastingOrigin is CastingOrigin.Class or CastingOrigin.Subclass;
+        repertoire.SpellCastingFeature.SpellCastingOrigin is CastingOrigin.Class or CastingOrigin.Subclass && !AuxiliarySpellSourcesContext.IsIndependent(repertoire);
     internal static bool TryCanSpend(RulesetCharacter actor, int circle, out bool available)
     {
         available = false;
@@ -278,6 +281,7 @@ internal static class StandardMulticasterResourcesContext
         if (!TryBinding(actor, out var b) || simulate) return;
         var operation = "rest:" + Guid.NewGuid();
         b.Budget.Rest(operation, restType == RestType.LongRest);
+        AuxiliarySpellSourcesContext.FinishNativeRest((RulesetCharacterHero)ResolveOwner(actor), restType, simulate);
         PactMagicMulticasterContext.Rest(actor, operation, restType == RestType.LongRest, false); Project(actor, b);
     }
 }
