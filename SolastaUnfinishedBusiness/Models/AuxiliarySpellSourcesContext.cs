@@ -10,6 +10,7 @@ using SolastaUnfinishedBusiness.Feats;
 using SolastaUnfinishedBusiness.Validators;
 using P = SolastaUnfinishedBusiness.Models.AuxiliarySpellSourcesPlan;
 using R = SolastaUnfinishedBusiness.Models.MultipleSpellRepertoiresPlan;
+using G = SolastaUnfinishedBusiness.Models.AuxiliarySpellSourceGraphPlan;
 using C = SolastaUnfinishedBusiness.Models.CompressedMulticasterProgressionPlan;
 
 namespace SolastaUnfinishedBusiness.Models;
@@ -32,7 +33,33 @@ internal static class AuxiliarySpellSourcesContext
     private static P registry;
     private static Entry[] entries;
     internal static IReadOnlyList<P.Source> Coverage => registry == null ? Array.Empty<P.Source>() : registry.Sources.Values.ToArray();
-    private static FeatureDefinition[] Flatten(IEnumerable<FeatureDefinition> features) => features.SelectMany(CompressedProgressionDefinitions.Flatten).Distinct().ToArray();
+    private static FeatureDefinition[] Flatten(IEnumerable<FeatureDefinition> features)
+    {
+        IEnumerable<FeatureDefinition> Visit(FeatureDefinition feature,HashSet<FeatureDefinition> path)
+        {
+            if(!feature || !path.Add(feature))throw new P.Rejection(P.Code.UnsupportedSource,"null/cyclic auxiliary feature graph");
+            yield return feature;
+            if(feature is FeatureDefinitionFeatureSet set)
+                foreach(var child in set.FeatureSet.SelectMany(f=>Visit(f,new HashSet<FeatureDefinition>(path))))yield return child;
+        }
+        return features.SelectMany(f=>Visit(f,new())).Distinct().ToArray();
+    }
+    private static IReadOnlyList<G.Occurrence> Graph(BaseDefinition root,IEnumerable<FeatureDefinition> features)
+    {
+        G.Node Node(FeatureDefinition feature,HashSet<FeatureDefinition> stack)
+        {
+            if(!feature || !stack.Add(feature))throw new P.Rejection(P.Code.UnsupportedSource,root.Name+"/null or cyclic native graph");
+            if(feature is not FeatureDefinitionFeatureSet set)return new G.Node(feature.Name);
+            var mode=set.Mode switch
+            {
+                FeatureDefinitionFeatureSet.FeatureSetMode.Union=>G.Mode.Union,
+                FeatureDefinitionFeatureSet.FeatureSetMode.Exclusion=>G.Mode.Exclusion,
+                _=>G.Mode.Unsupported
+            };
+            return new G.Node(feature.Name,mode,set.FeatureSet.Select(f=>Node(f,new HashSet<FeatureDefinition>(stack))));
+        }
+        return G.Walk(root.Name,new G.Node("root",G.Mode.Union,features.Select(f=>Node(f,new()))));
+    }
     private static R.Spell[] Spells(SpellListDefinition list) => list == null ? Array.Empty<R.Spell>() : list.SpellsByLevel.SelectMany(r=>r.Spells).Distinct().Select(s=>new R.Spell(s.Name,s.SpellLevel,s.SchoolOfMagic)).ToArray();
     private static int[] Rows(IReadOnlyList<int> rows) => Enumerable.Range(0,20).Select(i=>rows.Count==0?0:rows[Math.Min(i,rows.Count-1)]).ToArray();
     private static bool SpellPool(FeatureDefinitionPointPool pool) => pool.PoolType is HeroDefinitions.PointsPoolType.Cantrip or HeroDefinitions.PointsPoolType.Spell or HeroDefinitions.PointsPoolType.CantripOrSpell;
@@ -43,55 +70,76 @@ internal static class AuxiliarySpellSourcesContext
         {
             EldritchInvocationSourcesContext.CaptureInstalledDefinitions();
             var output=new List<Entry>();
-            void Invocation(BaseDefinition root,P.Origin kind,InvocationDefinition inv,FeatureDefinitionCastSpell cast,string owner)
+            void Invocation(BaseDefinition root,P.Origin kind,InvocationDefinition inv,FeatureDefinitionCastSpell cast,string owner,P.Variant variant=null)
             {
                 if(!inv.GrantedSpell)return;
                 var recharge=inv.HasSubFeatureOfType<RechargeInvocationOnShortRest>()?"ShortRest":inv.LongRestRecharge?"LongRest":"AtWill";
-                var spec=new P.Source(kind+":"+root.Name+":invocation:"+inv.Name,kind,root.Name,inv.Name,"Invocation",cast.spellcastingAbility,owner,
+                var spec=new P.Source(kind+":"+root.Name+":invocation:"+inv.Name+(variant==null?"":":"+variant.Id),kind,root.Name,inv.Name,"Invocation",cast.spellcastingAbility,owner,
                     inv.ConsumesSpellSlot?(EldritchInvocationSourcesContext.IsRegisteredPaid(inv)?P.Domain.PaidInvocation:P.Domain.Unsupported):P.Domain.NativeInvocation,owner==null?0:Math.Max(1,inv.RequiredLevel),recharge,"FixedList",
-                    new[]{new R.Spell(inv.GrantedSpell.Name,inv.GrantedSpell.SpellLevel)},atWillInvocation:recharge=="AtWill",prerequisites:new[]{inv.RequiredPact?.Name,inv.RequiredKnownSpell?.Name}.Where(n=>n!=null),castingFeature:cast.Name);
+                    new[]{new R.Spell(inv.GrantedSpell.Name,inv.GrantedSpell.SpellLevel)},atWillInvocation:recharge=="AtWill",prerequisites:new[]{inv.RequiredPact?.Name,inv.RequiredKnownSpell?.Name}.Where(n=>n!=null),castingFeature:cast.Name,variant:variant);
                 output.Add(new Entry(spec,root,cast,null,Array.Empty<FeatureDefinitionPointPool>(),inv));
             }
             void Root(BaseDefinition root,P.Origin kind,IEnumerable<FeatureDefinition> original,int unlock=1,string ownerClass=null)
             {
-                var features=Flatten(original);var casts=features.OfType<FeatureDefinitionCastSpell>().ToArray();
-                var allPools=features.OfType<FeatureDefinitionPointPool>().Where(SpellPool).ToArray();
-                foreach(var cast in casts)
+                var originals=original.ToArray();
+                var features=Flatten(originals);var byName=features.ToDictionary(f=>f.Name,StringComparer.Ordinal);
+                var graph=Graph(root,originals);
+                var casting=graph.Where(o=>byName.TryGetValue(o.Feature,out var f) && f is FeatureDefinitionCastSpell).ToArray();
+                var nativePools=graph.Where(o=>byName.TryGetValue(o.Feature,out var f) && f is FeatureDefinitionPointPool pool && SpellPool(pool)).ToArray();
+                var bindings=(casting.Length==0?Array.Empty<G.Occurrence>():nativePools).Select(o=>(Pool:o,Cast:G.BindPool(o,casting,
+                    name=>((FeatureDefinitionCastSpell)byName[name]).GetFirstSubFeatureOfType<FeatHelpers.SpellTag>()?.Name,
+                    ((FeatureDefinitionPointPool)byName[o.Feature]).ExtraSpellsTag))).ToArray();
+                foreach(var occurrence in casting)
                 {
-                    var tag=cast.GetFirstSubFeatureOfType<FeatHelpers.SpellTag>();
-                    var pools=allPools.Where(p=>casts.Length==1 || tag!=null && p.ExtraSpellsTag==tag.Name).ToArray();
-                    var choices=pools.SelectMany(p=>new[]{false,true}.Where(cantrip=>cantrip?p.PoolType!=HeroDefinitions.PointsPoolType.Spell:p.PoolType!=HeroDefinitions.PointsPoolType.Cantrip)
-                        .Select(cantrip=>new P.Pool(p.Name+(cantrip?":cantrip":":spell"),Spells(p.SpellListOverride??cast.SpellListDefinition)
-                            .Where(s=>(s.Circle==0)==cantrip && s.Circle>=p.MinSpellLevel && s.Circle<=R.ChoiceMaximum(p.MaxSpellLevel,p.PoolType==HeroDefinitions.PointsPoolType.Cantrip) &&
-                                (!p.RitualOnly || DatabaseHelper.GetDefinition<SpellDefinition>(s.Id).Ritual)),p.PoolAmount,cantrip))).ToList();
+                    var cast=(FeatureDefinitionCastSpell)byName[occurrence.Feature];
+                    var bound=bindings.Where(b=>ReferenceEquals(b.Cast,occurrence)).Select(b=>b.Pool).ToArray();
+                    var pools=bound.Select(o=>(FeatureDefinitionPointPool)byName[o.Feature]).ToArray();
+                    var choices=bound.Select(o=>
+                    {
+                        var pool=(FeatureDefinitionPointPool)byName[o.Feature];var list=Spells(pool.SpellListOverride??cast.SpellListDefinition);
+                        return new P.Pool(pool.Name+":"+o.Variant.Id,list,pool.PoolAmount,pool.PoolType switch
+                        {
+                            HeroDefinitions.PointsPoolType.Cantrip=>P.ChoiceKind.Cantrip,
+                            HeroDefinitions.PointsPoolType.Spell=>P.ChoiceKind.Spell,
+                            _=>P.ChoiceKind.CantripOrSpell
+                        },pool.MinSpellLevel,pool.MaxSpellLevel,pool.ExtraSpellsTag,pool.SpellListOverride?.Name,pool.RitualOnly,
+                        list.Where(spell=>DatabaseHelper.GetDefinition<SpellDefinition>(spell.Id).Ritual).Select(spell=>spell.Id),variant:o.Variant,authorizedList:(pool.SpellListOverride??cast.SpellListDefinition)?.Name);
+                    }).ToList();
                     if(pools.Length==0 && cast.SpellKnowledge==RuleDefinitions.SpellKnowledge.Selection)
                     {
                         var count=Rows(cast.KnownCantrips)[Math.Max(0,unlock-1)];
-                        if(count>0)choices.Add(new P.Pool(cast.Name+":native-cantrips",Spells(cast.SpellListDefinition).Where(s=>s.Circle==0),count,true));
+                        if(count>0)choices.Add(new P.Pool(cast.Name+":native-cantrips",Spells(cast.SpellListDefinition).Where(spell=>spell.Circle==0),count,true));
                     }
-                    // Native CantripOrSpell has one shared budget; it needs a dedicated variant journal.
-                    var supported=cast.SpellCastingOrigin==FeatureDefinitionCastSpell.CastingOrigin.Race && casts.Length==1 &&
-                        !pools.Any(p=>p.PoolType==HeroDefinitions.PointsPoolType.CantripOrSpell) && !features.OfType<FeatureDefinitionFeatureSet>().Any(s=>s.Mode==FeatureDefinitionFeatureSet.FeatureSetMode.Exclusion);
-                    var spec=new P.Source(kind+":"+root.Name+":"+cast.Name,kind,root.Name,cast.Name,cast.SpellCastingOrigin.ToString(),cast.spellcastingAbility,ownerClass,
+                    var supported=cast.SpellCastingOrigin==FeatureDefinitionCastSpell.CastingOrigin.Race && !occurrence.Variant.Unsupported;
+                    var spec=new P.Source(kind+":"+root.Name+":"+cast.Name+":"+occurrence.Variant.Id,kind,root.Name,cast.Name,cast.SpellCastingOrigin.ToString(),cast.spellcastingAbility,ownerClass,
                         supported?P.Domain.NativeSlots:P.Domain.Unsupported,unlock,cast.SlotsRecharge.ToString(),cast.SpellKnowledge.ToString(),Spells(cast.SpellListDefinition),choices,
-                        Enumerable.Range(0,20).Select(i=>cast.SlotsPerLevels.Count==0?new int[9]:cast.SlotsPerLevels[Math.Min(i,cast.SlotsPerLevels.Count-1)].Slots.Take(9).Concat(new int[9]).Take(9)),Rows(cast.KnownSpells),Rows(cast.KnownCantrips));
+                        Enumerable.Range(0,20).Select(i=>cast.SlotsPerLevels.Count==0?new int[9]:cast.SlotsPerLevels[Math.Min(i,cast.SlotsPerLevels.Count-1)].Slots.Take(9).Concat(new int[9]).Take(9)),
+                        Rows(cast.KnownSpells),Rows(cast.KnownCantrips),variant:occurrence.Variant,spellListId:cast.SpellListDefinition?.Name);
                     output.Add(new Entry(spec,root,cast,cast,pools));
-                    foreach(var inv in features.OfType<FeatureDefinitionGrantInvocations>().SelectMany(f=>f.Invocations))Invocation(root,kind,inv,cast,null);
                 }
-                foreach(var invocationPool in features.OfType<FeatureDefinitionPointPool>().Where(p=>p.PoolType==HeroDefinitions.PointsPoolType.Invocation))
+                foreach(var grant in graph.Where(o=>byName.TryGetValue(o.Feature,out var f) && f is FeatureDefinitionGrantInvocations))
                 {
+                    var carrier=G.BindPool(grant,casting,name=>((FeatureDefinitionCastSpell)byName[name]).GetFirstSubFeatureOfType<FeatHelpers.SpellTag>()?.Name,"");
+                    if(carrier.Variant.Constrained)throw new P.Rejection(P.Code.PendingAtomicJournal,root.Name+"/conditional invocation carrier requires native identity proof");
+                    foreach(var inv in ((FeatureDefinitionGrantInvocations)byName[grant.Feature]).Invocations)
+                        Invocation(root,kind,inv,(FeatureDefinitionCastSpell)byName[carrier.Feature],null,grant.Variant);
+                }
+                foreach(var occurrence in graph.Where(o=>byName.TryGetValue(o.Feature,out var f) && f is FeatureDefinitionPointPool p && p.PoolType==HeroDefinitions.PointsPoolType.Invocation))
+                {
+                    var invocationPool=(FeatureDefinitionPointPool)byName[occurrence.Feature];
                     var adept=root.Name=="FeatEldritchAdept" && invocationPool.Name=="PointPoolFeatEldritchAdept";
-                    var spec=new P.Source(kind+":"+root.Name+":"+invocationPool.Name,kind,root.Name,invocationPool.Name,
+                    var spec=new P.Source(kind+":"+root.Name+":"+invocationPool.Name+":"+occurrence.Variant.Id,kind,root.Name,invocationPool.Name,
                         adept?"InvocationChoice":"UnresolvedInvocation",adept?"InvocationSpecific":"UnresolvedNativeAbility",null,
-                        adept?P.Domain.InvocationSelection:P.Domain.Unsupported,adept?2:1,"NativeInvocation","InvocationChoice",Array.Empty<R.Spell>());
+                        adept?P.Domain.InvocationSelection:P.Domain.Unsupported,adept?2:1,"NativeInvocation","InvocationChoice",Array.Empty<R.Spell>(),variant:occurrence.Variant);
                     output.Add(new Entry(spec,root,null,invocationPool,new[]{invocationPool}));
                 }
-                foreach(var auto in features.OfType<FeatureDefinitionAutoPreparedSpells>())
+                foreach(var occurrence in graph.Where(o=>byName.TryGetValue(o.Feature,out var f) && f is FeatureDefinitionAutoPreparedSpells))
                 {
+                    var auto=(FeatureDefinitionAutoPreparedSpells)byName[occurrence.Feature];
                     var matcher=auto.GetFirstSubFeatureOfType<RepertoireValidForAutoPreparedFeature>();
                     var supported=auto.SpellcastingClass || kind==P.Origin.Feat && ReferenceEquals(matcher,ValidateRepertoireForAutoprepared.AnyClassOrSubclass);
-                    var spec=new P.Source(kind+":"+root.Name+":"+auto.Name,kind,root.Name,auto.Name,"Attachment","NativeClassAbility",auto.SpellcastingClass?.Name,
-                        supported?P.Domain.AttachedClass:P.Domain.Unsupported,unlock,"NativeClass","AutoPrepared",auto.AutoPreparedSpellsGroups.SelectMany(g=>g.SpellsList).Distinct().Select(s=>new R.Spell(s.Name,s.SpellLevel)),castingFeature:null);
+                    var spec=new P.Source(kind+":"+root.Name+":"+auto.Name+":"+occurrence.Variant.Id,kind,root.Name,auto.Name,"Attachment","NativeClassAbility",auto.SpellcastingClass?.Name,
+                        supported?P.Domain.AttachedClass:P.Domain.Unsupported,unlock,"NativeClass","AutoPrepared",auto.AutoPreparedSpellsGroups.SelectMany(g=>g.SpellsList).Distinct().Select(s=>new R.Spell(s.Name,s.SpellLevel)),castingFeature:null,variant:occurrence.Variant);
                     output.Add(new Entry(spec,root,null,auto,Array.Empty<FeatureDefinitionPointPool>()));
                 }
             }
@@ -105,12 +153,22 @@ internal static class AuxiliarySpellSourcesContext
             var warlockCast=DatabaseHelper.FeatureDefinitionCastSpells.CastSpellWarlock;
             void AttachedPool(BaseDefinition root,P.Origin kind,FeatureDefinition feature,int level)
             {
-                foreach(var pool in Flatten(new[]{feature}).OfType<FeatureDefinitionPointPool>().Where(SpellPool))
+                var features=Flatten(new[]{feature}).ToDictionary(f=>f.Name,StringComparer.Ordinal);
+                foreach(var occurrence in Graph(root,new[]{feature}).Where(o=>features.TryGetValue(o.Feature,out var f) && f is FeatureDefinitionPointPool p && SpellPool(p)))
                 {
-                    var list=Spells(pool.SpellListOverride??warlockCast.SpellListDefinition).Where(s=>s.Circle>=pool.MinSpellLevel && s.Circle<=R.ChoiceMaximum(pool.MaxSpellLevel,pool.PoolType==HeroDefinitions.PointsPoolType.Cantrip) &&
-                        (!pool.RitualOnly || DatabaseHelper.GetDefinition<SpellDefinition>(s.Id).Ritual)).ToArray();
-                    var spec=new P.Source(kind+":"+root.Name+":"+pool.Name,kind,root.Name,pool.Name,"Attachment",warlockCast.spellcastingAbility,warlock.Name,pool.RitualOnly?P.Domain.NativeRitual:P.Domain.AttachedClass,
-                        level,"NativeClass","ChoicePool",list,new[]{new P.Pool(pool.Name,list,pool.PoolAmount,pool.PoolType==HeroDefinitions.PointsPoolType.Cantrip)},castingFeature:warlockCast.Name);
+                    var pool=(FeatureDefinitionPointPool)features[occurrence.Feature];
+                    var list=Spells(pool.SpellListOverride??warlockCast.SpellListDefinition);
+                    var choice=new P.Pool(pool.Name,list,pool.PoolAmount,pool.PoolType switch
+                    {
+                        HeroDefinitions.PointsPoolType.Cantrip=>P.ChoiceKind.Cantrip,
+                        HeroDefinitions.PointsPoolType.Spell=>P.ChoiceKind.Spell,
+                        _=>P.ChoiceKind.CantripOrSpell
+                    },pool.MinSpellLevel,pool.MaxSpellLevel,pool.ExtraSpellsTag,pool.SpellListOverride?.Name,pool.RitualOnly,
+                        list.Where(spell=>DatabaseHelper.GetDefinition<SpellDefinition>(spell.Id).Ritual).Select(spell=>spell.Id),variant:occurrence.Variant,
+                        authorizedList:(pool.SpellListOverride??warlockCast.SpellListDefinition).Name);
+                    var spec=new P.Source(kind+":"+root.Name+":"+pool.Name+":"+occurrence.Variant.Id,kind,root.Name,pool.Name,"Attachment",warlockCast.spellcastingAbility,warlock.Name,
+                        occurrence.Variant.Unsupported?P.Domain.Unsupported:pool.RitualOnly?P.Domain.NativeRitual:P.Domain.AttachedClass,
+                        level,"NativeClass","ChoicePool",choice.Allowed,new[]{choice},castingFeature:warlockCast.Name,variant:occurrence.Variant);
                     output.Add(new Entry(spec,root,warlockCast,pool,new[]{pool}));
                 }
             }
@@ -119,11 +177,23 @@ internal static class AuxiliarySpellSourcesContext
             foreach(var inv in DatabaseRepository.GetDatabase<InvocationDefinition>().Where(i=>i is not InvocationDefinitionCustom))
             {
                 Invocation(inv,P.Origin.Invocation,inv,warlockCast,warlock.Name);
-                if(inv.GrantedFeature)AttachedPool(inv,P.Origin.Invocation,inv.GrantedFeature,Math.Max(1,inv.RequiredLevel));
+                if(inv.GrantedFeature)
+                {
+                    if(Flatten(new[]{inv.GrantedFeature}).OfType<FeatureDefinitionCastSpell>().Any())Root(inv,P.Origin.Invocation,new[]{inv.GrantedFeature},Math.Max(1,inv.RequiredLevel));
+                    else AttachedPool(inv,P.Origin.Invocation,inv.GrantedFeature,Math.Max(1,inv.RequiredLevel));
+                }
             }
-            // Observed non-OneThird subclass source, with its inherited native Race-origin cantrip.
-            var archer=DatabaseHelper.GetDefinition<CharacterSubclassDefinition>("MartialArcaneArcher");
-            Root(archer,P.Origin.Subclass,archer.FeatureUnlocks.Where(u=>u.Level==3).Select(u=>u.FeatureDefinition),3,"Fighter");
+            // Standard class/subclass casting and Bard Secrets retain their existing adapters.
+            // Discover auxiliary Race-origin casting under every registered subclass instead.
+            foreach(var sub in DatabaseRepository.GetDatabase<CharacterSubclassDefinition>())
+                foreach(var group in sub.FeatureUnlocks.GroupBy(u=>u.Level))
+                {
+                    var auxiliary=group.Select(u=>u.FeatureDefinition).ToArray();
+                    if(!Flatten(auxiliary).OfType<FeatureDefinitionCastSpell>().Any(c=>c.SpellCastingOrigin==FeatureDefinitionCastSpell.CastingOrigin.Race))continue;
+                    var owner=DatabaseRepository.GetDatabase<CharacterClassDefinition>().FirstOrDefault(c=>c.FeatureUnlocks.SelectMany(u=>Flatten(new[]{u.FeatureDefinition})).OfType<FeatureDefinitionSubclassChoice>().Any(choice=>choice.Subclasses.Contains(sub.Name)));
+                    if(!owner)throw new P.Rejection(P.Code.WrongOwner,sub.Name+"/no registered parent class");
+                    Root(sub,P.Origin.Subclass,auxiliary,group.Key,owner.Name);
+                }
             var candidate=new P(output.Select(e=>e.Source));
             entries=output.ToArray();registry=candidate;
             foreach(var e in entries)Main.Info("Auxiliary spell source: "+e.Source.Id+" casting="+e.Source.CastingFeature+" ability="+e.Source.Ability+" domain="+e.Source.Resource+" recharge="+e.Source.Recharge);
@@ -142,14 +212,14 @@ internal static class AuxiliarySpellSourcesContext
         InvocationDefinition inv=>hero.Invocations.Any(i=>i.InvocationDefinition==inv),
         FeatureDefinition feature=>hero.HasAnyFeature(feature), _=>false
     };
-    private static int Level(Entry e,RulesetCharacterHero hero) => e.Source.OwnerClass=="Warlock"?WarlockInvocationContext.PrerequisiteLevel(hero):
+    private static int Level(Entry e,RulesetCharacterHero hero) => (e.Source.OwnerClass=="Warlock" || e.Root is InvocationDefinition { RequiredLevel: > 1 })?WarlockInvocationContext.PrerequisiteLevel(hero):
         e.Source.OwnerClass==null?hero.ClassesHistory.Count:hero.ClassesAndLevels.FirstOrDefault(p=>p.Key.Name==e.Source.OwnerClass).Value;
     private static Entry Independent(RulesetSpellRepertoire rep)
     {
         Ready();var hero=rep.GetCaster() as RulesetCharacterHero ?? DruidWildshapeContext.StandardResourceOwner(rep.GetCaster());
         if(hero==null || !hero.SpellRepertoires.Contains(rep) && !rep.GetCaster().SpellRepertoires.Contains(rep))throw new P.Rejection(P.Code.WrongOwner,"no confirmed repertoire owner");
         var matches=entries.Where(e=>e.Cast==rep.SpellCastingFeature && e.Source.NativeOrigin!="Invocation" && e.Source.NativeOrigin!="Attachment" && Owned(e,hero)).ToArray();
-        if(matches.Length!=1)throw new P.Rejection(P.Code.UnknownSource,rep.SpellCastingFeature.Name+"/unowned or ambiguous");
+        if(matches.Length!=1)throw new P.Rejection(matches.Length>1?P.Code.AmbiguousTag:P.Code.UnknownSource,rep.SpellCastingFeature.Name+"/unowned or ambiguous native source identity");
         if(rep.SpellCastingRace && rep.SpellCastingRace!=hero.RaceDefinition && rep.SpellCastingRace!=hero.SubRaceDefinition)throw new P.Rejection(P.Code.WrongOwner,"native race identity");
         var entry=matches[0];entry.Source.ValidateOwner(entry.Root.Name,rep.SpellCastingFeature.Name,rep.SpellCastingAbility,rep.SpellCastingClass?.Name,Level(entry,hero));
         return entry;
@@ -246,6 +316,8 @@ internal static class AuxiliarySpellSourcesContext
             foreach(var e in found)
             {
                 if(e.Source.Resource==P.Domain.InvocationSelection)EldritchInvocationSourcesContext.RequireAdeptJournal();
+                e.Source.Variant.Active(null);
+                foreach(var pool in e.Source.Pools)pool.Variant?.Active(null);
                 if(e.Source.Resource==P.Domain.Unsupported)throw new P.Rejection(P.Code.UnsupportedSource,e.Source.Id);
             }
             if(root is FeatDefinitionWithPrerequisites feat && !feat.Validate(feat,hero).result)throw new P.Rejection(P.Code.PrematureSource,root.Name);
@@ -279,12 +351,25 @@ internal static class AuxiliarySpellSourcesContext
         var journal=new P.Selection(registry,selected.Select(e=>e.Source.Id));
         if(!complete)return true;
         var claimed=new HashSet<string>(StringComparer.Ordinal);
+        var rewards=selected.SelectMany(e=>e.Source.Pools.Select(p=>(Entry:e,Pool:p))).ToArray();
+        P.ValidateNativeTags(rewards.Select(r=>new KeyValuePair<string,P.Pool>(r.Entry.Source.Id,r.Pool)));
         foreach(var e in selected)
         foreach(var pool in e.Source.Pools)
         {
-            var definition=e.Pools.SingleOrDefault(p=>pool.Id==p.Name || pool.Id.StartsWith(p.Name+":",StringComparison.Ordinal));
+            var definitions=e.Pools.Where(p=>pool.Id==p.Name || pool.Id.StartsWith(p.Name+":",StringComparison.Ordinal)).Distinct().ToArray();
+            if(definitions.Length>1)throw new P.Rejection(P.Code.AmbiguousTag,e.Source.Id+"/native pool definition");
+            var definition=definitions.SingleOrDefault();
             if(definition==null)throw new P.Rejection(P.Code.PendingAtomicJournal,e.Source.Id+"/native race selection binding requires13.7");
             var nativeTag=definition.ExtraSpellsTag;
+            if(pool.Shared)
+            {
+                var sharedKeys=data.AcquiredCantrips.Keys.Concat(data.AcquiredSpells.Keys).Distinct().Where(k=>!string.IsNullOrEmpty(nativeTag) && k.EndsWith(nativeTag+nativeTag,StringComparison.Ordinal)).ToArray();
+                if(sharedKeys.Length!=1 || !claimed.Add("cantrip:"+sharedKeys[0]) || !claimed.Add("spell:"+sharedKeys[0]))throw new P.Rejection(P.Code.AmbiguousTag,e.Source.Id+"/shared budget origin");
+                var key=sharedKeys[0];var cantrips=data.AcquiredCantrips.TryGetValue(key,out var c)?c: new List<SpellDefinition>();
+                var spells=data.AcquiredSpells.TryGetValue(key,out var s)?s:new List<SpellDefinition>();
+                journal.Select(e.Source.Id,pool.Id,cantrips.Concat(spells).Select(spell=>spell.Name));
+                continue;
+            }
             var map=pool.Cantrip?data.AcquiredCantrips:data.AcquiredSpells;
             var keys=map.Keys.Where(k=>!string.IsNullOrEmpty(nativeTag) && k.EndsWith(nativeTag+nativeTag,StringComparison.Ordinal)).ToArray();
             if(keys.Length!=1 || !claimed.Add((pool.Cantrip?"cantrip:":"spell:")+keys[0]))throw new P.Rejection(P.Code.AmbiguousTag,e.Source.Id+"/"+nativeTag);

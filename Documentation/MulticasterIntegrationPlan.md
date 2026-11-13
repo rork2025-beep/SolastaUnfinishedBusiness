@@ -1343,3 +1343,80 @@ Early `ValidateRootChoice` закрывает Adept до native TrainFeat/pool g
 8. Gate OFF: сравнить прежние free/at-will/paid invocations и Adept обычной игры. Смешанные compressed builds остаются запрещены до финального admission.
 
 Ни один из этих native game tests в Cloud не запускался. **Остановка после13.5E-1.**
+
+## 18. Stage13.5E-2 — Conditional sources и shared choice budgets
+
+Baseline: commit `28740f7d439669adc41217c8f9679aab9df8a0fe` (13.5E-1), tracked clean, feature branch. Повторно проверены SDK9.0.320, **13154 checks passed**, Release Workflow **0 errors /0 warnings**. Pre-existing untracked `SolastaFiles/Mods/` не включается в commit.
+
+### 18.1 Production implementation
+
+- Новый pure `AuxiliarySpellSourceGraphPlan`: occurrence paths, Union/Exclusion/Conditional/Unsupported modes, deterministic source IDs и explicit structural/tag pool owner binding. IDs устойчивы к перестановке различных siblings по переведённым titles. Не использует selected class, общий list/ability или hero name для угадывания owner.
+- `AuxiliarySpellSourcesPlan.Source.Variant`/`VariantState`: root/path, native feature/origin, owned roots, branch/condition proof, list/ability/resource/slot/recharge metadata остаются независимы. Неизвестные predicate/mode/branch и двойной branch — structured failure. Разные roots одной casting definition не объединяются.
+- **Существующий Selection** расширен для active source/pool variants, revisions, SetVariants и общего CantripOrSpell pool. Один N для cantrips+spells; отдельные min/max/ritual/list/tag constraints; no duplicate rewards. Back/Reset/Cancel сохраняют чужие confirmed origins. Изменение variant инвалидирует зависимые provisional keys; stale selections не проходят. Confirmed replacement/branch change требует native journal. Повтор Commit идемпотентен.
+- Native `AuxiliarySpellSourcesContext.Root` больше не объявляет каждый multiple-caster или соседний Exclusion blanket unsupported. Capture обходит полный graph; кастеры и pools связываются только по структурному scope/явному native tag. Race-origin auxiliary casting обнаруживается у всех registered subclasses; class/subclass casting и Bard Secrets остаются в прежних adapters. Invocation attachments/auto-prepared grants сохраняют occurrence paths. Неизвестный carrier binding закрывается с diagnostic.
+- Native preflight читает один shared pool из acquired spell+cantrip maps и проверяет общий бюджет, не две независимые награды. AmbiguousTag/PendingAtomicJournal сохраняются, native finalization не включается. Conditional native source без branch/predicate proof отклоняется до grants. Независимый native repertoire с несколькими возможными roots требует explicit identity journal.
+- Не создавались новые resource pools/setting/admission. Class12, total20, classes3, actual history/HP/PB, shared index<=20 и Pact separation не изменялись. `MixedGameplayReady=false`.
+
+### 18.2 Actual inventory и границы доказательств
+
+Полный affected inventory и supported/blocked matrix: [AuxiliarySpellSourcesRegistry.md, Stage13.5E-2](AuxiliarySpellSourcesRegistry.md#stage135e-2--variants-conditional-graphs-и-общий-выбор).
+
+Доступные registered snapshots: **60 Race-origin casting occurrences** (race16/feat40/style2/background1/subclass1). Реально исправляемый blanket Exclusion отказ: `MartialArcaneArcher` — INT cast независим от Arcane Lore skill choice. Реальный background: `BackgroundDevoted` → `BonusCantripsBackgroundDevoted`, WIS/FixedList1/LongRest/no slots. Shared casting IDs: `CastSpellElfHigh` (ElfHigh/RaceHalfElfHigh) и `CastSpellDarkelfMagic` (RaceDarkelf/RaceHalfElfDark).
+
+Реальных conditional/multiple-caster spell graphs и distinct multiple pool tags под auxiliary roots в этих snapshots/registration constructors не обнаружено. Это **не** выдуманные зарегистрированные definitions: тесты этих shape явно synthetic и исполняют тот же production walker/Selection. Все4 native CantripOrSpell definitions принадлежат Bard Secrets10/14/18 и CollegeOfLore6; реальный Bard путь не переписывался. Проверены реальные Tome/Book graphs, native counts и ritual filters.
+
+`DeterminedByAncestry`/неизвестные modes не считаются доказанным conditional casting: при casting descendants остаётся UnsupportedSource. Неизвестный future/custom graph не получает best-effort grant. Отдельная native DB coverage матрица появится в логах capture только при реальном запуске игры; Cloud audits не заменяют Unity.
+
+### 18.3 Финальная Stage13.5 acceptance matrix
+
+| Criterion | Backend | Native runtime readiness / evidence |
+|---|---|---|
+|M05-01 Legacy Bard Secrets |**PASS** |Production original-event/college suites13.5B сохранены. Native atomic finalization всё ещё blocked13.7 |
+|M05-02 Bard2024 expanded lists |**PASS** |Own original10 gate, installed list rules и independent repertoire regressions сохранены; runtime/GUI не исполнялись |
+|M05-03 Secrets transactions/origins |**PASS** |Source-local event ordering, origins, Back/Cancel/repeat/stale suites сохранены. Durable native journal не готов |
+|M05-04 Third-caster subclasses |**PASS** |Четыре registered adapters, rounding/access/rejection regressions сохранены. Compressed Fighter magic не включён |
+|M05-05 Auxiliary coverage |**PARTIAL** |Новые typed graph/shared-budget backends покрывают проблемы13.5E-2; реальные60 casting roots, две shared-ID пары,4 Bard descriptors, Tome/Book проверены. Native journal ожидается13.7. Кроме него остаётся содержательный backend gap13.5E-1: AdeptSelection поддерживает passive3 и paid6, но не все легитимные options, например **ArmorOfShadows у настоящего Warlock с invocation-access repertoire** сейчас Kind.Unsupported. Такой допустимый путь не объявлен outside scope для получения PASS |
+|M05-06 Early unknown-source validation |**PASS** |Root/source/pool/variant ownership, unknown/double branch, unknown predicate, native-tag ambiguity, early guards, invalid/stale selections проверены. Native mutation не запускается без journal |
+
+**Итог Stage13.5: PARTIALLY COMPLETE.** Общий M05-05 не получает PASS. Не требующий resource invention Adept option выше — конкретный остающийся backend gap, не только вопрос Unity validation или13.7. Также действуют ранее документированные ограничения13.5E-1 для неподтверждённых options. Это явно оставшаяся работа, не основание обойти guards; в13.5E-2 Pact/Adept engine не переписывался.
+
+### 18.4 Точные зависимости13.7
+
+1. Native UI choice → registered root/path/selected branch/predicate proof; persisted source identity вместо угадывания по class tag. Unsupported custom modes остаются закрыты до собственного adapter.
+2. Binding acquired spell/cantrip entries и native pool exhaustion к одному original choice origin, включая merged/empty tags. Не делить indistinguishable native reward автоматически.
+3. Перед TrainFeat/style/invocation grants и FinalizeCharacter — единый atomic validation + mutation journal. Current helpers/preflight не дают частичных grants.
+4. GrantSpellRepertoire/GrantSpell/GrantCantrip: exact native feature+root owner, borrowed/aux origins без class inflation. Reused casting feature не разрешает удвоить native budgets или удалить соседний source.
+5. Durable journal spell origins, actual inventory/repertoire snapshots, rest/resource debt, Druid original-owner projection; rollback при отмене/исключении. Native paid invocation action identity и used-before-debit проблема13.5E-1 остаются.
+6. Confirmed branch changes, retraining, respec, feat removal/save-load требуют cleanup/rollback. Никаких автоматических migrations, native rewrites или respec support здесь нет.
+
+### 18.5 Проверки и изменённые файлы
+
+Финальный полный прогон: **13350 checks passed** = **13154** подтверждённый baseline13.5E-1 + **196 новых** (**186 executed production behavior checks**, **10 fixture/compiled-binding audits**). SDK **9.0.320**. `dotnet build SolastaUnfinishedBusiness.sln --no-restore -c "Release Workflow" -m:2`: **0 errors /0 warnings**. `dotnet run --project Tests/FighterProgression/FighterProgression.Tests.csproj`: **13350 passed**. `git diff --check` проходит; зависимости не переустанавливались.
+
+Новые executable tests:60 реальных casting graph occurrences, реальные shared-ID пары, four native Bard shared-pool descriptors и Tome/Book pools; synthetic exclusive/conditional/multiple-caster graphs, branch/pool invalidation, stable IDs при сортировке siblings, all-cantrip/all-spell/mixed budget, min/max/list/ritual, duplicate/confirmed replacement guards, native-tag ambiguity, Back/Reset/Cancel/repeat/stale checks,3-class calculator + auxiliary, SP/slots isolation. Весь прежний suite, включая полный13.5E-1 suite из **13154** проверок и предыдущие Bard/Pact/third-caster/class regressions выполнен без изменений старых test assertions. Native/compiled audits отдельно проверяют typed fixtures (SpellDefinition, не одноимённый ItemDefinition), actual mode ABI, preflight bindings и Druid original-owner path. Harmony, GUI, combat, native rest, respec/save-load **не выполнялись**.
+
+Изменены/добавлены только:
+
+- `SolastaUnfinishedBusiness/Models/AuxiliarySpellSourceGraphPlan.cs` — pure graph/path/tag adapter.
+- `SolastaUnfinishedBusiness/Models/AuxiliarySpellSourcesPlan.cs` — typed variants, shared budgets, существующий selection journal.
+- `SolastaUnfinishedBusiness/Models/AuxiliarySpellSourcesContext.cs` — native capture/preflight/owner ambiguity guards.
+- `Tests/FighterProgression/AuxiliarySpellSourceVariantsTests.cs` — executable model tests, реальные definitions и отдельно synthetic shape/compiled audits.
+- `Tests/FighterProgression/FighterProgression.Tests.csproj`, `Program.cs` — test link/runner.
+- `Documentation/AuxiliarySpellSourcesRegistry.md`, `Documentation/MulticasterIntegrationPlan.md` — inventory, matrix, remaining gaps.
+
+Warlock/Pact/paid-invocation/Bard Secrets/third-caster engines, class caps и settings не переписаны. No release/worktree/save migration/generated assemblies. Commit/push SHA сообщается в итоговом отчёте.
+
+### 18.6 Manual acceptance после native journal integration
+
+Только после требуемых journal/admission этапов, новые test heroes и отдельные saves:
+
+1. ArcaneArcher3: оба Arcane Lore навыка должны сохранять один законный INT cantrip source; Back/Cancel не выдаёт второй cast feature.
+2. High Elf/Half Elf High, Darkelf/Half Elf Dark, BackgroundDevoted: native origin/list/ability/free uses и rest; zero auxiliary caster contribution. Проверить Druid transformation/reversion без нового resource owner.
+3. Для реально registered conditional/multiple-caster additions — зафиксировать coverage log; выбрать ровно установленную branch, переключить её до grants, проверить stale UI события. Никакого double branch/чужого repertoire.
+4. Shared N: все cantrips, все spells и mix; N-1/N+1, неправильный круг/list/ritual, duplicate. Проверить native remaining pool и original award ownership, не 2N.
+5. Same spell у race/feat/class origins: Back/Reset/Cancel не удаляет чужие confirmed origins. Native ambiguous tags должны дать diagnostic до mutation.
+6. Three-class build + auxiliary, SP ON/OFF, ordinary/Pact/exhaustion/rest: нет новых class contributions, shared cap20, отдельный Pact. Повторить13.5E-1 paid invocation use debt.
+7. Bard legacy/2024/CollegeLore Secrets: original события/amounts и класс-владелец unchanged. Повторить third-caster и предыдущие class regressions.
+8. Gate OFF сравнить с обычным native leveling/casting. Native feats/styles/invocations, save/load/respec/rollback здесь **не проверены**.
+
+**Остановка после13.5E-2;13.6/13.7 не начаты.**

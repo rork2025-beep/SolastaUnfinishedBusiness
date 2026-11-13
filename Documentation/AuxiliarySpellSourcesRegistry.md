@@ -270,3 +270,56 @@ Native `TrainFeat` складывает pool в текущий class tag + empty
 Результаты финального прогона приведены в Stage13.5E-1 разделе `MulticasterIntegrationPlan.md`. Production backend тестируется с реальными compiled slot/SP tables и JSON prerequisites всех шести invocations, в обоих resource modes, Warlock-only /Warlock+Sorcerer /Warlock+Paladin и обоих acquisition origins. Отдельные compiled audits проверяют ABI и actual spend path; они **не выполняют** Harmony/native GUI/бой/отдых/save-load.
 
 `MixedGameplayReady=false`; новых settings нет. При gate OFF ранний выход сохраняет обычные native invocation/feat paths, включая free/at-will invocations. Settings.xml, saves и game DLLs не меняются. M05-05 остаётся **PARTIAL**: backend gaps для данных paths сокращены, native journal и остальные auxiliary variants требуют отдельных этапов. Stage13.5E-2 не начат.
+
+## Stage13.5E-2 — variants, conditional graphs и общий выбор
+
+Этот раздел уточняет прежние blanket rejections multiple-caster/Exclusion/CantripOrSpell; исторические результаты13.5D/13.5E-1 выше сохранены. Native gameplay по-прежнему выключен. Источник инвентаря — все available JSON roots race/feat/style/background/subclass/invocation плюс registration/builders исходников, а не tabletop предположения. Unity DB здесь не выполнялась; runtime capture повторяет обход реального DB и закрывается при неподдержанном/неоднозначном graph.
+
+### Точный инвентарь затронутых definitions
+
+| Registered root / definition | Установленная структура и владение | Backend / native boundary |
+|---|---|---|
+| `MartialArcaneArcher` | Original3: независимый `CastSpellMartialArcaneArcherArcaneMagic` (Race origin, INT, `SpellListMartialArcaneArcherArcaneMagic`) и `FeatureSetMartialArcaneArcherArcaneLore` (Exclusion: `ProficiencyMartialArcaneArcherArcana` / `ProficiencyMartialArcaneArcherNature`) |SUPPORTED_BACKEND: skill exclusion не находится на пути cast; прежний blanket отказ устранён. Acquisition — PendingAtomicJournal |
+| `ElfHigh`, `RaceHalfElfHigh` | Оба используют `CastSpellElfHigh`, INT / `SpellListWizard`; различные root identities |SUPPORTED_BACKEND, независимые origin IDs. Совпадение actual repertoire с несколькими подтверждёнными roots — AmbiguousTag до13.7 |
+| `RaceDarkelf`, `RaceHalfElfDark` | Оба используют `CastSpellDarkelfMagic`, CHA / `SpellListDarkelf`; различные roots |SUPPORTED_BACKEND, тот же guard при ambiguous native identity |
+| `BackgroundDevoted` | `BonusCantripsBackgroundDevoted`, Race origin, WIS, `SpellListBackgroundDevoted`, FixedList, known cantrips1, LongRest, нулевые slot rows |Подтверждённый background source, SUPPORTED_BACKEND; не дополнительный casting class |
+| `PointPoolBardMagicalSecrets10` | Amount2, CantripOrSpell, min0/max9, `SpellListAllSpells`, tag `MagicalSecrets`, non-ritual; Bard original10 |Существующий Bard Secrets adapter сохранён |
+| `PointPoolBardMagicalSecrets14` | Те же pool rules, Bard original14 |Существующий Bard adapter |
+| `PointPoolBardMagicalSecrets18` | Те же pool rules, Bard original18 |Существующий Bard adapter |
+| `PointPoolCollegeLoreAdditionalMagicalSecrets` | Те же pool rules; `CollegeOfLore`, original6 |Существующий Bard adapter |
+| `FeatureSetPactTome`, `InvocationPactTome`, `BookAncientSecrets` | Native attached Warlock cantrip/ritual pools; class/invocation roots различаются |Пути сохраняются новым graph walker; counts3/3/2, native lists/tags/ritual-only policy. Prerequisites и Warlock ownership прежние |
+
+Доступные snapshots содержат **60 Race-origin casting occurrences**: race16, feat40, style2, background1, subclass1. Их старый основной inventory выше дополнен здесь background и subclass. Среди этих roots: **0** multiple-caster cast graphs; **0** условных/exclusive ветвей, содержащих сам CastSpell; **0** multiple distinct native spell-pool tags под одним casting root. Единственный реально затронутый blanket Exclusion rejection — независимый Arcane Lore у ArcaneArcher. Совпадающих casting feature IDs между roots — ровно **две пары**, перечисленные выше. Это не утверждение, что один герой законно имеет обе race roots одновременно.
+
+Всего registered snapshot `CantripOrSpell` definitions — ровно **четыре** Bard pools выше. Standalone auxiliary mixed pool в этих данных не обнаружен; production adapter проверен на тех же native pool descriptors и явно synthetic auxiliary fixtures. Source searches не нашли других constructors с CantripOrSpell. Динамически создаваемые UI pools известных классов принадлежат их уже существующим class-local transactions, не регистрируются повторно как auxiliary.
+
+### Typed variants и один shared budget
+
+`AuxiliarySpellSourceGraphPlan.Walk` сохраняет каждый child occurrence, Union и Exclusion вместо безусловного flatten. Variant хранит root, полный feature path, stable ID, branch prerequisites и predicate IDs. Path и branch IDs используют definition names + occurrence ordinal одинаковых siblings, **не переводимый title и не позицию в UI**; перестановка различных siblings не меняет IDs. Повторные одинаковые children сохраняют отдельные occurrences. Неизвестный mode, null/cycle/неподдержанная структура дают UnsupportedSource. Native `DeterminedByAncestry` не выдаётся за проверенный spell predicate: для cast descendants такой mode закрыт, реально наблюдённых casting descendants этого типа нет.
+
+Source отдельно хранит native origin/feature, root owner, ability, authorized spell IDs/list ID, resource domain, все20 slot/known/cantrip rows, recharge и acquisition origin. `VariantState` — source-scoped proof owned roots, единственного selected child каждой relevant exclusion и результатов зарегистрированных conditions. Отсутствующий proof не означает выбор обеих ветвей. Неизвестный/double branch отвергается; false condition не выдаёт source; неизвестный predicate — UnverifiedCondition. Native получение такого proof/durable journal остаётся13.7. Никакие существующие save choices не импортируются автоматически.
+
+Pools связываются с casting feature по ближайшей структурной области или точному установленному `FeatHelpers.SpellTag`/ExtraSpellsTag. Общие ability/list/selected class не являются evidence. Совпадающие tags при нескольких возможных owners дают AmbiguousTag. Root mismatch не допускается. Два подтверждённых независимых native источника одной casting definition сохраняют отдельные model origins; adapter не создаёт два native repertoires без binding proof.
+
+`Pool.ChoiceKind.CantripOrSpell` содержит **один Amount=N**. Allowed list фильтруется по raw/native min/max, kind, override и ritual-only whitelist. Maximum0 сохраняет установленное UB значение «без явной верхней границы» для Spell/CantripOrSpell; Cantrip остаётся circle0. Raw maximum, ExtraSpellsTag и override сохраняются отдельно. N cantrips, N spells или смешанные N selections расходуют один бюджет; N+N запрещено. Один spell не удовлетворяет два independent pools одного source без явной duplicate policy; ни один установленный adapter такую дополнительную policy не включает. Одинаковый spell в двух легитимных разных source origins сохраняется отдельно.
+
+Расширен **существующий** `AuxiliarySpellSourcesPlan.Selection`: Select/Preview/Back/Reset/Cancel/Commit/repeated Commit, revision checks, active source/pool variants. `SetVariants` инвалидирует только зависимые pending keys, сохраняет unrelated choices. Reset возвращает initial variant proof и confirmed choices. Подтверждённое изменение branch либо replacement существующего award требует PendingAtomicJournal; free retraining/respec не добавлены. Менять pending preview внутри исходного N можно без дополнительного award. Commit заново проверяет исходные/выбранные amounts, list/circle и duplicates.
+
+### Итоговая supported / blocked матрица
+
+| Shape | Backend | Native состояние |
+|---|---|---|
+| Наблюдённые60 native independent casting occurrences |SUPPORTED_BACKEND |Новая acquisition/finalization BLOCKED_PENDING_NATIVE_JOURNAL; прежние подтверждённые native budgets не превращаются в shared class pool |
+| Независимый non-spell Exclusion рядом с cast |SUPPORTED_BACKEND на реальном ArcaneArcher graph |Skill choice не активирует/отключает cast |
+| Union нескольких casting features |SUPPORTED_BACKEND, synthetic graph tests; фактических roots не обнаружено |Binding до выдачи каждого feature обязателен; незавершённый native commit blocked |
+| Exclusive/conditional cast или pool |SUPPORTED_BACKEND при точном branch/predicate proof; synthetic tests |Без native proof — PendingAtomicJournal / UnverifiedCondition, не double grant |
+| Два native casting features с различными явными spell tags |SUPPORTED_BACKEND, synthetic tests |При совпадающем/неразличимом execution tag — AmbiguousTag |
+| CantripOrSpell |SUPPORTED_BACKEND: единый N; реальные4 Bard descriptors + synthetic auxiliary cases |Bard прежний путь; новые auxiliary acquisitions требуют13.7 |
+| Shared casting ID у разных roots |SUPPORTED_BACKEND, реальные две пары; origins независимы |Неоднозначный native repertoire ownership — AmbiguousTag |
+| Неизвестный ancestry/conditional graph mode |UNSUPPORTED, fail-closed |Нет native grants |
+| Paid invocation / Adept поддержанные варианты13.5E-1 |SUPPORTED_BACKEND, прежние suites сохранены |BLOCKED_PENDING_NATIVE_JOURNAL |
+| Остальные допустимые Adept options, ещё не адаптированные13.5E-1 |Остаются unresolved/UNSUPPORTED в текущем backend |Не переведены в «вне scope» ради PASS; M05-05 остаётся PARTIAL |
+
+Native preflight объединяет acquired cantrips и spells только при одном подтверждённом shared-pool tag, проверяет сумму N и резервирует обе стороны tag. Неразличимый/empty/unbound native tag не угадывается. Ранний feat/style/root preflight требует branch proof до pool/feature helpers; pending invocation attachments и прямые grant helpers проходят существующие preflight guards. Native atomic commit/rollback, durable origins, save-load, respec и resource projection после этих операций **не реализуются** здесь.
+
+Финальные counts/build и M05 acceptance — в §18 `MulticasterIntegrationPlan.md`. MixedGameplayReady=false; class/total/shared caps, Pact separation, Bard/third-caster и обычные gate-OFF paths сохранены. Никакая native игровая проверка не заявляется. Остановка после13.5E-2.
