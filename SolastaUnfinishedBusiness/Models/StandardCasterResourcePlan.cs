@@ -49,10 +49,16 @@ internal sealed class StandardCasterResourcePlan
         internal IReadOnlyList<int> Slots { get; }
         internal int MaximumCircle { get; }
         internal Allocation(Tables tables, CompressedMulticasterProgressionPlan.Result progression,
-            ResourceMode mode, IEnumerable<Modifier> modifiers = null)
+            ResourceMode mode, IEnumerable<Modifier> modifiers = null) : this(tables, progression, mode, modifiers, false) { }
+        // Explicit coordinator boundary: Pact remains outside this allocation. Do not re-calculate
+        // after removing Pact: its presence affects installed UB grouped rounding for half casters.
+        internal static Allocation StandardPortion(Tables tables, CompressedMulticasterProgressionPlan.Result progression,
+            ResourceMode mode, IEnumerable<Modifier> modifiers = null) => new(tables, progression, mode, modifiers, true);
+        private Allocation(Tables tables, CompressedMulticasterProgressionPlan.Result progression,
+            ResourceMode mode, IEnumerable<Modifier> modifiers, bool separatePact)
         {
             if (tables == null || progression == null) throw new ArgumentNullException();
-            if (!progression.IsValid || progression.PactProgressions.Count != 0)
+            if (!progression.IsValid || progression.PactProgressions.Count > 1 || !separatePact && progression.PactProgressions.Count != 0)
                 throw new ArgumentException("Invalid progression or Pact participant: Stage13.3 supports standard resources only.");
             if (!Enum.IsDefined(typeof(ResourceMode), mode)) throw new ArgumentOutOfRangeException(nameof(mode));
             RegistryVersion = progression.RegistryVersion; Mode = mode; CasterLevel = progression.ResourceTableIndex;

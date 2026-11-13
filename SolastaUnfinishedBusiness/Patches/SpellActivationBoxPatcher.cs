@@ -50,6 +50,8 @@ public static class SpellActivationBoxPatcher
             RulesetCharacter caster,
             SpellActivationBox spellActivationBox)
         {
+            if (PactMagicMulticasterContext.DisplaySlots(caster, repertoire, spellActivationBox.GuiSpellDefinition?.SpellDefinition,
+                    spellLevel, out remaining, out max)) return;
             if (caster.IsSpellPointsEnabled())
             {
                 var canCastSpell = SpellPointsContext.CanCastSpellOfLevel(caster, spellLevel);

@@ -86,7 +86,7 @@ internal static class MultipleSpellRepertoiresContext
     private static void CaptureCore()
     {
         var captured = new Dictionary<string, Definition>(StringComparer.Ordinal);
-        foreach (var name in new[] { "Bard", "Cleric", "Druid", "Paladin", "Ranger", "Sorcerer", "Wizard", InventorClass.ClassName })
+        foreach (var name in new[] { "Bard", "Cleric", "Druid", "Paladin", "Ranger", "Sorcerer", "Wizard", "Warlock", InventorClass.ClassName })
         {
             var owner = DatabaseHelper.GetDefinition<CharacterClassDefinition>(name);
             var sources = Sources(owner.FeatureUnlocks, owner.Name);
@@ -151,7 +151,7 @@ internal static class MultipleSpellRepertoiresContext
                     Plan.GrantKind.KnownBonus, Array.Empty<Plan.Spell>(), learning.AdditionalKnownSpellsCount));
             }
             if (source.Feature is FeatureDefinitionPointPool pool && pool.PoolType is HeroDefinitions.PointsPoolType.Cantrip or HeroDefinitions.PointsPoolType.Spell or HeroDefinitions.PointsPoolType.CantripOrSpell)
-                grants.Add(new Plan.Grant(source.Id + ":" + pool.Name, source.Original, Plan.GrantKind.BonusChoice,
+                grants.Add(new Plan.Grant(source.Id + ":" + pool.Name, source.Original, pool.ExtraSpellsTag == "MysticArcanum" ? Plan.GrantKind.MysticArcanum : Plan.GrantKind.BonusChoice,
                     Spells(pool.SpellListOverride ?? definition.Casting.SpellListDefinition)
                         .Where(s => s.Circle >= (pool.PoolType == HeroDefinitions.PointsPoolType.Spell ? Math.Max(1, pool.MinSpellLevel) : pool.MinSpellLevel) &&
                             s.Circle <= Plan.ChoiceMaximum(pool.MaxSpellLevel, pool.PoolType == HeroDefinitions.PointsPoolType.Cantrip) &&
@@ -171,7 +171,7 @@ internal static class MultipleSpellRepertoiresContext
     }
     internal static void Synchronize(RulesetCharacterHero hero, CompressedMulticasterProgressionPlan.Result progression)
     {
-        if (!RuntimeEnabled || !Sessions.TryGetValue(hero, out var session) || !progression.IsValid || progression.PactProgressions.Count != 0)
+        if (!RuntimeEnabled || !Sessions.TryGetValue(hero, out var session) || !progression.IsValid || progression.PactProgressions.Count > 1)
             throw new InvalidOperationException("Unbound/invalid standard repertoire session.");
         var views = new List<Plan.Repertoire>();
         foreach (var c in progression.Classes.Where(c => c.IsCastingParticipant))
@@ -279,7 +279,7 @@ internal static class MultipleSpellRepertoiresContext
         {
             var tag = "MultiRepertoire:" + id.Length + ":" + id + ":" + e.Original;
             session.Tags.Add(tag, new Tag(id, classId, definitions[classId].Casting.Name, e.Original));
-            foreach (var grant in transaction.Definition.Grants.Where(g => g.Kind == Plan.GrantKind.BonusChoice && g.Original == e.Original))
+            foreach (var grant in transaction.Definition.Grants.Where(g => (g.Kind is Plan.GrantKind.BonusChoice or Plan.GrantKind.MysticArcanum) && g.Original == e.Original))
                 session.Tags.Add(tag + ":" + grant.Id.Length + ":" + grant.Id, new Tag(id, classId, definitions[classId].Casting.Name, e.Original, grant.Id));
         }
         return transaction;
@@ -303,7 +303,7 @@ internal static class MultipleSpellRepertoiresContext
         if (!TryTag(data, tag, out var session, out var origin)) return true;
         var profile = session.Transactions[origin.Transaction].Definition;
         var allowed = origin.Grant == null ? profile.Allows(spell.Name, origin.Original, type == HeroDefinitions.PointsPoolType.Cantrip)
-            : profile.Grants.Single(g => g.Id == origin.Grant).Spells.Any(s => s.Id == spell.Name && s.Circle <= profile.MaximumCircles[origin.Original - 1]);
+            : profile.Grants.Single(g => g.Id == origin.Grant).Spells.Any(s => s.Id == spell.Name && (profile.Grants.Single(g => g.Id == origin.Grant).Kind == Plan.GrantKind.MysticArcanum || s.Circle <= profile.MaximumCircles[origin.Original - 1]));
         if (!allowed) return false;
         var own = session.Transactions[origin.Transaction].Preview().Repertoires[origin.Class];
         return !own.Known.Concat(own.Cantrips).Concat(own.AutoPrepared).Concat(own.Bonus.Values.SelectMany(s => s)).Contains(spell.Name);

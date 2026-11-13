@@ -976,6 +976,7 @@ public static class RulesetCharacterPatcher
         [UsedImplicitly]
         public static void Postfix(RulesetCharacter __instance, int slotLevel, RulesetSpellRepertoire repertoire)
         {
+            if (PactMagicMulticasterContext.TryNumbers(__instance, out _, out _, out _)) return;
             if (__instance.OriginalFormCharacter is RulesetCharacterHero hero && hero != __instance)
             {
                 hero.CreateSorceryPoints(slotLevel, repertoire);

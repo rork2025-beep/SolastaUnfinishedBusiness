@@ -133,6 +133,7 @@ internal static class BootContext
             SpellPointsContext.LateLoad();
             StandardMulticasterResourcesContext.CaptureInstalledTables();
             MultipleSpellRepertoiresContext.CaptureInstalledDefinitions();
+            PactMagicMulticasterContext.CaptureInstalledTables();
 
             FighterProgressionContext.LateLoad();
             BarbarianProgressionContext.LateLoad();

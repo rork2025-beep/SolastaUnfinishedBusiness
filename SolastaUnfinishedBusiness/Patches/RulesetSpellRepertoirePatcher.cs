@@ -345,8 +345,9 @@ public static class RulesetSpellRepertoirePatcher
         [UsedImplicitly]
         public static void Postfix(
             RulesetSpellRepertoire __instance,
-            List<int> availableSlotLevels)
+            List<int> availableSlotLevels, SpellDefinition __0, ref bool __result)
         {
+            if (PactMagicMulticasterContext.UpcastLevels(__instance, __0, availableSlotLevels, out var available)) { __result = available; return; }
             if (__instance.SpellCastingFeature.SpellCastingOrigin is FeatureDefinitionCastSpell.CastingOrigin.Race
                 or FeatureDefinitionCastSpell.CastingOrigin.Monster)
             {
@@ -410,6 +411,7 @@ public static class RulesetSpellRepertoirePatcher
         [UsedImplicitly]
         public static bool Prefix(RulesetSpellRepertoire __instance, ref int __result)
         {
+            if (PactMagicMulticasterContext.Lowest(__instance, out var circle)) { __result = circle; return false; }
             // get off here if not multicaster
             if (__instance.GetCaster() is not RulesetCharacterHero hero ||
                 !SharedSpellsContext.IsMulticaster(hero))

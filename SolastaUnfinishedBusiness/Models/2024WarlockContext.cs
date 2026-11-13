@@ -267,6 +267,8 @@ public static partial class Tabletop2024Context
                 yield break;
             }
 
+            if (PactMagicMulticasterContext.RecoverPower(hero, baseDefinition, action.ActionParams.RulesetEffect?.Guid ?? 0)) yield break;
+
             var repertoire = SharedSpellsContext.GetWarlockSpellRepertoire(hero);
 
             if (repertoire == null)

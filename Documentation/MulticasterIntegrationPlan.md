@@ -762,3 +762,157 @@ Auto-prepared spells вычисляются из original class/subclass groups 
 - `Documentation/MulticasterIntegrationPlan.md` — этот отчёт.
 
 `release`, Settings.xml, saves и proprietary assemblies не менялись. Generated `SolastaFiles/Mods/` остаётся вне commit. SHA/push публикуются в итоговом сообщении. **Stage13.4 repertoire backend и gated integration добавлены; mixed gameplay по-прежнему выключен. Native finalization/persistence остаются ограниченными до13.7; готовность игровых сценариев не заявляется.** Работа остановлена после repertoire integration,13.5 не начат.
+
+## 13. Stage13.5 — Pact Magic рядом со standard multicaster engine
+
+### 13.1 Scope и baseline
+
+Эта секция следует **новому заданию пользователя Stage13.5: Warlock Pact Magic**, которое меняет первоначальный порядок этапов§9: Pact integration выполняется сейчас, не начинается новый scope Secrets/third-caster/auxiliary adapters или shared conversions. Runtime activation остаётся выключенной до13.8.
+
+Проверен HEAD `be3009cb9b1c4ec87b4c75868648504c5c2b85c2` и предыдущие committed13.1–13.3. Повторный baseline: **9114 checks passed**, SDK9.0.320, Release Workflow **0 errors /0 warnings**. Tracked tree до работы чистое, прежний `SolastaFiles/Mods/` — untracked build output. Исходные Stage6 (`f15c4f4c7df6b3b74e728dd9530370e509492a7e`), Stage6.1 (`37ac8cdebd`, ordered invocation transactions) и `Documentation/WarlockProgressionPrototype.md` перечитаны; используется их progression/known/invocation transaction infrastructure. Native game execution не выполнялось.
+
+### 13.2 Установленные resource paths
+
+| Source | Проверенные факты |
+|---|---|
+| `SharedSpellsContext.GetWarlockSpellLevel/GetWarlockMaxSlots/GetWarlockUsedSlots`, `PactMagicSlotsTab=-1` | Старые `WarlockCastingSlots` —20 **display rows**: count повторён в circles1..P, затем0. Это не native independent spell slots. Sentinel хранит mirrored Pact spent count. Warlock не добавлен в `ClassCasterType` |
+| `WarlockSpellcastingContext.Initialize` | Final `CastSpellWarlock` — ShortRest, один положительный круг≤5, независимые known/replacement rows. Именно эти native source rows снимает новый capture до compression |
+| `RulesetSpellRepertoirePatcher.SpendMulticasterWarlockSlots` | В старом пути policy зависит от owning repertoire, Shift и `AlwaysSpendPactSlotsFirst`; каждый view получает mirrored counters. Это не несколько бюджетов |
+| `RulesetCharacter.CastSpell` → `RulesetSpellRepertoire.SpendMysticArcanum` | Проверено по native IL: Arcanum расходуется внутри CastSpell, отдельным вызовом и `usedMysticArcanum`, а не обычной ячейкой9 |
+| `RulesetCharacter.CreateSorceryPoints` | Native IL сначала `SpendSpellSlot(slotLevel)`, затем уменьшает usedSorceryPoints наslotLevel и вызывает notification. Это **Sorcery Points**, не Spell Points. Старые actual costs не переписаны |
+| `2024WarlockContext.PowerOrSpellFinishedByMeMagicalCunning` | Cunning восстанавливает ceil(Pact max/2), на original20 — все uses; native power action/use count/LongRest recharge сохраняются |
+| `RulesetImplementationManagerPatcher.ApplySpellSlotsForm` | Legacy Eldritch Master уже имеет Warlock-specific recovery; новый typed path перехватывает именно этот source, не Wizard recovery |
+| `WarlockInvocationContext` и `WarlockInvocationTransactionsContext` | Stage6.1 `Uses` привязан к selected Warlock class. Before/Replay/Prepare/ApplyPrepared сохраняют original ordering, prerequisites, Pact Boons и rollback surface. Их исходники не менялись |
+
+### 13.3 Pure модель и budgets
+
+`Models/PactMagicResourcePlan.cs` содержит:
+
+- `Tables`: defensive snapshot двадцати **native single-circle** Pact rows и исходных Arcanum grants с own allowed lists; shared full-caster rows не допускаются.
+- `Allocation`: actual/effective Warlock level из существующего calculator13.2, Pact circle/count, отдельно unlocked Arcanum. Martial levels и standard caster level не повышают Pact progression. Chitinous Boon — отдельный native Pact capacity modifier.
+- `Budget`: Pact used/debt, confirmed Arcanum selections и per-circle uses; action/recovery/rest receipts. Refresh не возвращает ресурсы. Удаление/возвращение capacity modifier сохраняет расход. Confirmed Arcanum retraining через это API не разрешён; без journal/respec миграции нет.
+- `CastingLedger`: ссылка на **тот же** `StandardCasterResourcePlan.Budget`13.3 плюс отдельный Pact Budget. Он выбирает источник и хранит action receipt; не клонирует standard allocation/power и не суммирует бюджеты классов.
+
+`StandardCasterResourcePlan.Allocation.StandardPortion` — явная граница coordinator. Ordinary allocation по умолчанию по-прежнему отвергает Pact participant без coordinator. Factory принимает validated result и читает только `ResourceTableIndex` для standard slots/SP. Важная деталь: результат **не пересчитывается после удаления Warlock**. Его присутствие выбирает native UB grouped rounding, например Paladin original11+Pact даёт floor(11/2)=5, не solo ceil=6. Сам Warlock contribution остаётся0, table index≤20.
+
+| Actual build, оба compression ON | Standard S / base SP | Pact | Arcanum own access |
+|---|---|---|---|
+| Sorcerer12 / Warlock8 |20 /133 |3×circle5 (original11) |6 |
+| Warlock12 / Sorcerer8 |11 /73 |4×circle5 (original20) |6–9 |
+| Bard12 / Warlock8 |20 /133 |3×circle5 |6 |
+| Paladin12 / Warlock8 |10 /64 |3×circle5 |6 |
+| Warlock12 / Fighter8 Champion |0 /0 |4×circle5 |6–9 |
+
+Uncompressed Warlock8 остаётся original8/Pact2×circle4 независимо от сжатого Sorcerer12. Warlock actual1–12 и обычный1–20 проверены against compiled UB display counts, преобразованными в single-circle test fixture. В production capture используется actual native casting definition, не display fixture. Actual levels/history/HP/PB/ability не переписываются.
+
+### 13.4 Cross-casting и source selection
+
+Обычное известное Warlock spell может оплачиваться standard slot/SP. Eligible spell из другого class repertoire может оплачиваться Pact. Cast request сохраняет class, casting feature, spell ID, **собственные** ability/DC, base circle и выбранный effect circle. Ресурс не меняет spell list, класс, spellcasting ability, DC, knowledge/prepared rules или spell access.
+
+При совпадающем Pact circle:
+
+- `AlwaysSpendPactSlotsFirst=true`: предпочесть Pact, если доступен.
+- Иначе Warlock repertoire без Shift предпочитает Pact; с Shift — standard.
+- Другой class без Shift предпочитает standard; с Shift — Pact.
+- Если preferred budget исчерпан, используется другой **легальный на выбранном круге** источник. Оба исчерпаны — явный отказ без отрицательных uses.
+
+Один action token закрепляет итоговый источник. Повторный callback/потерянный Shift state не переключает debit на второй бюджет. Конфликтующий spell/source/circle с тем же token отвергается; отменённый расход возвращается ровно в свой budget и не recommit-ится под старым token.
+
+Pact расходуется **только на своём настоящем circle P**. В legacy code есть ветка, допускающая `slotLevel<P`; backend не списывает Pact5 за уже построенный effect1. Следует выбрать upcast5 **до** commitment; иначе запрос, которому не хватает standard1, получает `SelectPactCircle`, без free cast или silent source change. На обычном standard budget можно upcast Warlock spell выше5, если shared resources это допускают; это не unlock новых Warlock spells.
+
+### 13.5 Arcanum, rests и powers
+
+Arcanum grants оригинальных11/13/15/17 → actual8/9/10/11 остаются отдельными choices с exact circles6/7/8/9 и ExtraSpellsTag MysticArcanum. В repertoire model добавлен отдельный `GrantKind.MysticArcanum`: он разрешает свой high-circle выбор по списку/событию, не поднимая ordinary Warlock maximum выше5 и не создавая class contribution.
+
+Runtime adapter требует для Arcanum и actual native extra grant, и подтверждённый frozen selected spell. Его casting authorization не выводится из generic class ceiling5 или общей availability9. Один use выбранного spell/circle до LongRest, без upcast; repeated receipt не дебетует повторно. Arcanum-only spell нельзя просто переключить на standard resource. Если тот же spell независимо известен другому классу, тот owner может законно кастовать свою копию за свой standard resource.
+
+Short rest восстанавливает Pact, не standard resources или Arcanum. Long rest восстанавливает три отдельных состояния; simulation ничего не изменяет. Cunning/legacy Master по **своему actual owned power + effect GUID** восстанавливают только Pact. Power use costs/recharge остаются native. Full recovery очищает Pact debt и после снятия extra-capacity item, не увеличивая максимум и не создавая SP. Recovery обычных points/slots не сбрасывает Arcanum permission. Sentinel-1 не передаётся в standard recovery или resource-table index.
+
+D&D2014/2024 switches не переписаны: legacy/2024 patron selection, Boons, invocation rewards8/10, original retraining boundary3/2 и Cunning сохраняются. Чистый Pact slot table от этих invocation/patron flags не становится full-caster table. Final snapshot снимается после включённых rule switches; изменение Warlock settings в bound session требует restart. Actual runtime combinations flags должны быть проверены в Unity; model tests не запускают native переключатели.
+
+### 13.6 Native integration и изоляция
+
+`Models/PactMagicMulticasterContext.cs` использует общий закрытый `RuntimeEnabled` и original hero, включая recognised Druid form owner. Binder вызывается из **существующего** standard BindNewHero; у native creation flow по-прежнему нет caller этого binder до дальнейшей integration. Каждому hero принадлежит один standard Budget, один Pact Budget и выбранные Arcanum; нет нового PowerSpellPoints или fabricated repertoire.
+
+Основные точки подключения:
+
+```text
+final rules / Spell Points / repertoire capture
+ → PactMagicMulticasterContext.CaptureInstalledTables
+ → существующие class compression modules
+
+resource BindNewHero / UpdateProgression / Refresh
+ → same-owner Pact bind/synchronize, no refill
+
+RulesetCharacter.CastSpell prefix/finalizer → scoped native spell effect GUID
+ + existing actor SpendSpellSlot scope
+ → standard TrySpend delegates Pact-aware dispatch
+ → ONE source debit → projection to class/subclass views
+
+GetWarlockSpellLevel / GetWarlockMaxSlots / GetWarlockUsedSlots
+ → authoritative Pact Budget (legacy bodies when gate off)
+
+SpellActivationBox / CanUpcastSpell / GetLowestAvailableSlotLevel
+ → source-aware display/availability, actual Pact circle only
+
+SpendMysticArcanum → separate Arcanum debit
+ApplyRest → ordinary rest + independent Pact/Arcanum rest, then projection
+Cunning / legacy Eldritch Master → typed Pact recovery only
+```
+
+Positive slot capacities показывают standard availability плюс Pact **только на P**; lower circles не получают phantom Pact slots. `usedSpellsSlots[-1]` сохраняется как **view** Pact consumption. Display counts clamp к current capacity после снятия modifier, raw debt сохраняется в ledger. `usedMysticArcanum` проецируется отдельно только на owning Warlock repertoire. Ни одна ячейка6–9 не создаётся из Arcanum.
+
+Во всех новых hooks gateOFF возвращает старый путь. Existing mixed `CanSelectClass`/`IsSupportedHero`, level12/total20/class-count/attribute guards не ослаблены. Нового Settings switch и автоматической записи Settings.xml нет. Warlock progressions/boons/invocation methods вне resource hook не изменены.
+
+### 13.7 Явно заблокированные/оставшиеся действия
+
+- **Slot → Sorcery Points** в bound Pact prototype блокируется prefix **до native списания/начисления**, в slots и SP modes: нет typed stable action journal для native flexible-casting path. Это Sorcery Points, не Spell Points; стоимость native conversion не заменена другой таблицей. При gateOFF старый UB conversion работает как прежде. Это намеренно неполная capability; не заявляется готовность Sorcerer/Warlock conversions.
+- **Pact → Spell Points** не добавлен. Chitinous Pact capacity не превращается в standard temporary credits. Нет implicit refund/slot creation при расходе Pact.
+- Unscoped direct `SpendSpellSlot` (включая неподключённые power consumers/conversion/Smite paths) отклоняется с диагностикой. Eligible **spell casts** имеют scoped effect; остальные consumers требуют typed adapters. Generic standard recovery без standard budget или с sentinel/unknown index также не переключается молча на другой ресурс.
+- Native ability recovery/source classification, flexible-casting UI, reactions, free invocation casting и spell preservation требуют game tests. Existing native invocation charges/slot-free paths не переписаны.
+- Stage13.4 pending transaction/native atomic finalizer/persistence ограничения сохраняются до13.7. Нет automatic respec/save migration; существующие Warlocks выше12 не конвертируются. Новый source selection receipt пока in-memory, не save journal. Не открывать gate простой правкой константы.
+- Harmony hooks/GUI, actual casts/effect scaling, native rests, invocation UI finalization, power cost, respec, save/load и source-owner roundtrip в игре **не выполнялись**. Доказательства здесь: production pure checks, blueprint metadata и compiled/native IL inspections. Старые class suites сохранены полностью.
+
+### 13.8 Ручной план после завершения journals/admission
+
+Новые герои и отдельные saves, без конвертации существующих персонажей. В этой версии runtime activation оставитьOFF.
+
+1. OFF regression: single Warlock2014/2024, Warlock+eligible martial, ordinary noncompressed UB multiclass, SP/slots. Проверить старые resources, Boons, class cap, invoked spells, short/long rest и интерфейс.
+2. Пять builds§13.3, оба modes: сравнить standard index/maximum и Pact count/circle. Warlock12/Fighter8 имеет0 ordinary SP; Warlock levels не увеличивают full/half contribution.
+3. Каждый repertoire: cast обычным ресурсом и Pact, оба состояния Shift/AlwaysSpend. Подтвердить фактический effect upcastP, own ability/DC и один debit. Запрос lower-circle Pact не должен терять use с неправильным эффектом.
+4. Исчерпать Pact при оставшихся standard points/slots; затем standard при оставшемся Pact; затем оба. Upcast UI показывает только реальные source circles, без phantom lower Pact slots. Не должно быть negative count/free cast/duplicate PowerSpellPoints.
+5. Mystic Arcanum6–9: own exact selected spell, один use, fixed circle, нет shared ninth slot. Тот же spell, независимо известный Sorcerer, кастуется как Sorcerer и не возвращает Warlock charge. Проверить все milestones actual8/9/10/11 и что Warlock8 не получает Arcanum7–9 от Sorcerer20 budget.
+6. Short rest: только Pact. Long rest: standard, Pact и Arcanum каждый своим путём. Simulation и повторный callback не меняют/не удваивают resources. Снять/надеть Chitinous capacity после расхода — debt сохранён.
+7. Cunning original2/20 и legacy Master20: correct power cost/action/LongRest recovery, половина/все Pact uses; standard SP и Arcanum не восстанавливаются.
+8. Warlock advancement после Sorcerer advancement и наоборот: original18/19/20 invocation transaction сохраняет sequence, Pact/known-spell prerequisites, new-event replacement; Sorcerer level не grant-ит invocations и не возвращает Pact. Проверить Legacy Boons и2024 pacts-as-invocations, cancellation/Back/Reset/Tome/Chain cleanup.
+9. Попытка slot→Sorcery Points в bound prototype: явное сообщение **до** изменений обоих budgets и Sorcery Points. Проверить unchanged costs в OFF mode. Generic unscoped consumers должны отказать, не тратить Pact и не давать бесплатные points.
+10. Native cast cancellation, reaction, free invocation spell, spell preservation, Druid form/reversion, save/load/respec и смена rules — отдельные Unity scenarios после journal integration. До этих проверок mixed gameplay не считается готовым.
+
+### 13.9 Validation / delivery
+
+Финальный полный прогон: **9319 checks passed** =9114 baseline + **205 новых**: **184 executed production-model behavioral checks**, **4 blueprint metadata checks**, **17 compiled-table/binding/native-IL checks**. В полный прогон входят все прежние class/resource/repertoire suites и Warlock Stage6/6.1 regressions.2014/2024 differences проверяются прежними полными Warlock suites и новым invocation boundary/journal тестом; одинаковый slot table не выдаётся за отдельный runtime запуск flags.
+
+`dotnet --list-sdks`: **9.0.320**. `dotnet build SolastaUnfinishedBusiness.sln --no-restore -c "Release Workflow" -m:2`: **0 errors /0 warnings**. `dotnet run --project Tests/FighterProgression/FighterProgression.Tests.csproj`: **9319 passed**. `git diff --check` проходит. Reinstall dependencies не понадобился. Native inspection выполнялась через Cecil, игра не запускалась.
+
+Изменённые/добавленные18 файлов:
+
+- `SolastaUnfinishedBusiness/Models/PactMagicResourcePlan.cs` — pure Pact/Arcanum allocation, budgets, casting dispatch и receipts.
+- `SolastaUnfinishedBusiness/Models/PactMagicMulticasterContext.cs` — gated native owner, source capture, spell scope, recovery и conversion guard.
+- `SolastaUnfinishedBusiness/Models/StandardCasterResourcePlan.cs` — explicit standard-only allocation portion для Pact coordinator.
+- `SolastaUnfinishedBusiness/Models/StandardMulticasterResourcesContext.cs` — shared owner binding, source dispatch, refresh/rest и view projection.
+- `SolastaUnfinishedBusiness/Models/MultipleSpellRepertoiresPlan.cs` — isolated high-circle Warlock Arcanum choice kind, exact owner/circle/tag validation.
+- `SolastaUnfinishedBusiness/Models/MultipleSpellRepertoiresContext.cs` — Warlock original profile и separate Arcanum origins.
+- `SolastaUnfinishedBusiness/Models/SharedSpellsContext.cs` — Pact getter adapters, sentinel unchanged.
+- `SolastaUnfinishedBusiness/Models/BootContext.cs` — original Pact capture до compression.
+- `SolastaUnfinishedBusiness/Models/2024WarlockContext.cs` — early gated Cunning resource hook, остальные правила unchanged.
+- `SolastaUnfinishedBusiness/Patches/RulesetImplementationManagerPatcher.cs` — gated legacy Master typed recovery.
+- `SolastaUnfinishedBusiness/Patches/RulesetSpellRepertoirePatcher.cs` — source-aware upcast/lowest queries.
+- `SolastaUnfinishedBusiness/Patches/SpellActivationBoxPatcher.cs` — separate ordinary/Pact/Arcanum availability display adapter.
+- `SolastaUnfinishedBusiness/Patches/RulesetCharacterPatcher.cs` — no duplicated form conversion postfix when conversion blocked.
+- `Tests/FighterProgression/PactMagicMulticasterTests.cs` — production model composition + metadata/native IL checks.
+- `Tests/FighterProgression/CompressedMulticasterTests.cs` — calculator consumer allowlist допускает isolated Pact components, gate remains closed.
+- `Tests/FighterProgression/FighterProgression.Tests.csproj` — production Pact model link.
+- `Tests/FighterProgression/Program.cs` — suite entry point.
+- `Documentation/MulticasterIntegrationPlan.md` — этот отчёт/таблицы/ограничения/checklist.
+
+Изменения предназначены только для feature branch; нет worktree, release merge или публикации пакета. Generated DLLs/game assemblies/settings/saves/logs не входят в commit. SHA/push фиксируются в итоговом сообщении. **Pact backend и gated hooks реализованы; mixed gameplay остаётся выключенным и не готовым к активации до недостающих этапов.** Работа остановлена после Pact integration.

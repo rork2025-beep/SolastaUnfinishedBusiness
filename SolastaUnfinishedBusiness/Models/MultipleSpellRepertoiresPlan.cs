@@ -10,7 +10,7 @@ internal sealed class MultipleSpellRepertoiresPlan
 {
     internal enum Knowledge { Selection, Spellbook, WholeList }
     internal enum Preparation { None, AbilityPlusLevel, AbilityPlusHalfLevel, AbilityOnly, InstalledTable }
-    internal enum GrantKind { AutoPrepared, ExpandedList, BonusChoice, ScribingBonus, KnownBonus }
+    internal enum GrantKind { AutoPrepared, ExpandedList, BonusChoice, ScribingBonus, KnownBonus, MysticArcanum }
     internal sealed class Spell(string id, int circle)
     {
         internal string Id { get; } = id;
@@ -59,9 +59,12 @@ internal sealed class MultipleSpellRepertoiresPlan
             List = new ReadOnlyDictionary<string, Spell>(spells.GroupBy(x => x.Id, StringComparer.Ordinal).ToDictionary(x => x.Key, x => x.First(), StringComparer.Ordinal));
             var extra = (grants ?? Enumerable.Empty<Grant>()).ToArray();
             if (extra.Any(g => g == null || string.IsNullOrWhiteSpace(g.Id) || g.Original is < 1 or > 20 || g.Choices < 0 ||
-                               !Enum.IsDefined(typeof(GrantKind), g.Kind) || g.Kind is not (GrantKind.BonusChoice or GrantKind.ScribingBonus or GrantKind.KnownBonus) && g.Choices != 0) ||
+                               !Enum.IsDefined(typeof(GrantKind), g.Kind) || g.Kind is not (GrantKind.BonusChoice or GrantKind.ScribingBonus or GrantKind.KnownBonus or GrantKind.MysticArcanum) && g.Choices != 0) ||
                 extra.Select(g => g.Id).Distinct(StringComparer.Ordinal).Count() != extra.Length) throw new ArgumentException("Ambiguous grant origin.");
             ValidateSpells(spells.Concat(extra.SelectMany(g => g.Spells)));
+            if (extra.Any(g => g.Kind == GrantKind.MysticArcanum && (classId != "Warlock" || g.Choices != 1 ||
+                g.ExtraSpellsTag != "MysticArcanum" || g.Spells.Any(s => s.Circle is < 6 or > 9) || g.Spells.Select(s => s.Circle).Distinct().Count() != 1)))
+                throw new ArgumentException("Mystic Arcanum requires its own Warlock grant, exact high circle and native extra tag.");
             Grants = Array.AsReadOnly(extra);
         }
         internal int PreparedLimit(int original, int abilityModifier, int scopedBonus)
@@ -238,10 +241,10 @@ internal sealed class MultipleSpellRepertoiresPlan
                 // replace an earlier same-advancement selection, never a spell in another class.
                 known = KnownSpellsProgressionPlan.ApplyEvent(known, c.Removed, c.Added);
                 cantrips.AddRange(c.Cantrips);
-                foreach (var g in profile.Grants.Where(g => g.Kind == GrantKind.BonusChoice && g.Original == e.Original))
+                foreach (var g in profile.Grants.Where(g => (g.Kind is GrantKind.BonusChoice or GrantKind.MysticArcanum) && g.Original == e.Original))
                 {
                     if (!c.Bonus.TryGetValue(g.Id, out var selected) || selected.Count != g.Choices || selected.Any(s =>
-                        !g.Spells.Any(sp => sp.Id == s && sp.Circle <= profile.MaximumCircles[e.Original - 1]) || known.Contains(s) || cantrips.Contains(s) || bonus.Values.Any(b => b.Contains(s))))
+                        !g.Spells.Any(sp => sp.Id == s && (g.Kind == GrantKind.MysticArcanum || sp.Circle <= profile.MaximumCircles[e.Original - 1])) || known.Contains(s) || cantrips.Contains(s) || bonus.Values.Any(b => b.Contains(s))))
                         throw new InvalidOperationException("Invalid owner-scoped bonus spell choice.");
                     if (g.StoreInExtra) bonus.Add(g.Id, selected);
                     else
@@ -251,7 +254,7 @@ internal sealed class MultipleSpellRepertoiresPlan
                     }
                     history.AddRange(selected.Select(s => OriginFor(s, e.Original, g.Id)));
                 }
-                if (c.Bonus.Keys.Any(k => !profile.Grants.Any(g => g.Id == k && g.Kind == GrantKind.BonusChoice && g.Original == e.Original)))
+                if (c.Bonus.Keys.Any(k => !profile.Grants.Any(g => g.Id == k && (g.Kind is GrantKind.BonusChoice or GrantKind.MysticArcanum) && g.Original == e.Original)))
                     throw new InvalidOperationException("Foreign bonus choice origin.");
                 history.AddRange(c.Removed.Select(s => OriginFor(s, e.Original, "replacement", true)));
                 history.AddRange(c.Added.Select(s => OriginFor(s, e.Original, profile.Mode == Knowledge.Spellbook ? "spellbook" : "ordinary")));

@@ -686,6 +686,9 @@ public static class RulesetImplementationManagerPatcher
                 return true;
             }
 
+            if (PactMagicMulticasterContext.RuntimeEnabled &&
+                PactMagicMulticasterContext.RecoverPower(originalHero, formsParams.activeEffect.SourceDefinition, formsParams.activeEffect.Guid)) return false;
+
             // The upstream legacy capstone clones Arcane Recovery. Pact Magic must recover
             // all pact uses, without touching the separate Arcanum or Spell Points resources.
             if (WarlockProgressionContext.Active &&

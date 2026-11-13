@@ -119,6 +119,7 @@ internal static class SharedSpellsContext
 
     internal static int GetWarlockSpellLevel([CanBeNull] RulesetCharacterHero rulesetCharacterHero)
     {
+        if (PactMagicMulticasterContext.TryNumbers(rulesetCharacterHero, out var circle, out _, out _)) return circle;
         var warlockLevel = GetWarlockCasterLevel(rulesetCharacterHero);
 
         return warlockLevel > 0
@@ -128,6 +129,7 @@ internal static class SharedSpellsContext
 
     internal static int GetWarlockMaxSlots(RulesetCharacterHero rulesetCharacterHero)
     {
+        if (PactMagicMulticasterContext.TryNumbers(rulesetCharacterHero, out _, out var maximum, out _)) return maximum;
         var warlockLevel = GetWarlockCasterLevel(rulesetCharacterHero);
         var warlockAdditionalSlots = rulesetCharacterHero
             .FeaturesByType<FeatureDefinitionMagicAffinity>()
@@ -142,6 +144,7 @@ internal static class SharedSpellsContext
 
     internal static int GetWarlockUsedSlots([NotNull] RulesetCharacterHero rulesetCharacterHero)
     {
+        if (PactMagicMulticasterContext.TryNumbers(rulesetCharacterHero, out _, out _, out var used)) return used;
         var repertoire = GetWarlockSpellRepertoire(rulesetCharacterHero);
 
         if (repertoire == null)

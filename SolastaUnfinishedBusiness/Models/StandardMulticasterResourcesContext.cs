@@ -25,16 +25,16 @@ internal static class StandardMulticasterResourcesContext
         internal readonly string SettingsSignature = ResourceSettingsSignature();
     }
     [ThreadStatic] private static string spellOperation;
-    private sealed class SpellScope(string previous) : IDisposable
+    private sealed class SpellScope(string previous, IDisposable pactScope) : IDisposable
     {
-        public void Dispose() => spellOperation = previous;
+        public void Dispose() { pactScope?.Dispose(); spellOperation = previous; }
     }
     internal static IDisposable EnterSpell(RulesetEffectSpell effect)
     {
         if (!RuntimeEnabled) return null;
         var previous = spellOperation;
         spellOperation = effect.Guid == 0 ? null : "spell:" + effect.Guid;
-        return new SpellScope(previous);
+        return new SpellScope(previous, PactMagicMulticasterContext.EnterSpell(effect));
     }
     // Explicit audit tool only: samples legacy calculations without changing their production path.
     internal static string CompareLegacyResources(RulesetCharacterHero hero, CompressedMulticasterProgressionPlan.Result proposed)
@@ -62,10 +62,12 @@ internal static class StandardMulticasterResourcesContext
             initial == null || initial.Input.ActualCharacterLevel != 0)
             throw new InvalidOperationException("Standard resources: closed gate or non-new hero; automatic conversion is unsupported.");
         MultipleSpellRepertoiresContext.EnsureCanBind(hero);
+        PactMagicMulticasterContext.EnsureCanBind(hero);
         var allocation = Allocate(initial);
         var budget = new ResourcePlan.Budget(tables, allocation);
         Owners.Bind(hero, budget); Bindings.Add(hero, new Binding(initial, budget));
         MultipleSpellRepertoiresContext.BindNewHero(hero);
+        PactMagicMulticasterContext.BindNewHero(hero, budget, initial);
     }
     internal static void UpdateProgression(RulesetCharacterHero hero, CompressedMulticasterProgressionPlan.Result progression)
     {
@@ -76,16 +78,17 @@ internal static class StandardMulticasterResourcesContext
             throw new InvalidOperationException("Resource mode/registry changed during repertoire synchronization.");
         MultipleSpellRepertoiresContext.Synchronize(hero, progression);
         binding.Budget.Refresh(allocation); binding.Progression = progression;
+        PactMagicMulticasterContext.Synchronize(hero, progression);
         Refresh(hero);
     }
     private static ResourcePlan.Allocation Allocate(CompressedMulticasterProgressionPlan.Result result,
-        IEnumerable<ResourcePlan.Modifier> modifiers = null) => new(tables ?? throw new InvalidOperationException("Missing installed resource tables."),
+        IEnumerable<ResourcePlan.Modifier> modifiers = null) => ResourcePlan.Allocation.StandardPortion(tables ?? throw new InvalidOperationException("Missing installed resource tables."),
         result, Main.Settings.UseAlternateSpellPointsSystem ? ResourcePlan.ResourceMode.SpellPoints : ResourcePlan.ResourceMode.Slots, modifiers);
     private static RulesetCharacter ResolveOwner(RulesetCharacter actor) => actor is RulesetCharacterHero
         ? actor : DruidWildshapeContext.StandardResourceOwner(actor);
     private static void ValidateHero(RulesetCharacterHero hero, CompressedMulticasterProgressionPlan.Result result)
     {
-        if (!result.IsValid || result.PactProgressions.Count != 0 ||
+        if (!result.IsValid || result.PactProgressions.Count > 1 ||
             hero.ClassesAndLevels.Count != result.Input.Classes.Count ||
             hero.ClassesAndLevels.Any(x => !result.Input.Classes.Any(c => c.ClassId == x.Key.Name && c.ActualLevel == x.Value)) ||
             !hero.ClassesHistory.Select(x => x.Name).SequenceEqual(result.Input.ActualClassHistory) ||
@@ -94,7 +97,7 @@ internal static class StandardMulticasterResourcesContext
     }
     private static string ResourceSettingsSignature() => string.Join("|", typeof(Settings).GetProperties()
         .Where(p => p.PropertyType == typeof(bool) && (p.Name.Contains("CompressedProgression") || p.Name.EndsWith("2024", StringComparison.Ordinal) ||
-            p.Name.Contains("SpellCastingAtLevel1") || p.Name == "EnableLevel20" || p.Name == "EnableMulticlass" || p.Name == "UseAlternateSpellPointsSystem"))
+            p.Name.Contains("SpellCastingAtLevel1") || p.Name.StartsWith("EnableWarlock", StringComparison.Ordinal) || p.Name == "EnableLevel20" || p.Name == "EnableMulticlass" || p.Name == "UseAlternateSpellPointsSystem"))
         .OrderBy(p => p.Name, StringComparer.Ordinal).Select(p => p.Name + "=" + p.GetValue(Main.Settings)));
     private static bool TryBinding(RulesetCharacter actor, out Binding binding)
     {
@@ -139,11 +142,13 @@ internal static class StandardMulticasterResourcesContext
     {
         available = false;
         if (!TryBinding(actor, out var b)) return false;
+        if (PactMagicMulticasterContext.CanSpend(actor, circle, out available)) return true;
         available = b.Budget.CanSpend(circle); return true;
     }
     internal static bool TrySpend(RulesetSpellRepertoire repertoire, int circle)
     {
         if (!StandardRepertoire(repertoire) || !TryBinding(repertoire.GetCaster(), out var b)) return false;
+        if (PactMagicMulticasterContext.Spend(repertoire, circle)) return true;
         if (circle != 0 && (spellOperation == null || !b.Budget.Spend(spellOperation, circle)))
             throw new InvalidOperationException("Standard resources: missing action identity or exhausted resource. Conversion/power callers require later typed transaction adapters.");
         Project(repertoire.GetCaster(), b); return true;
@@ -151,6 +156,8 @@ internal static class StandardMulticasterResourcesContext
     internal static bool Recover(RulesetCharacter actor, Dictionary<int, int> slots)
     {
         if (!TryBinding(actor, out var b)) return false;
+        if (slots.Keys.Any(c => c is < 1 or > 9)) throw new InvalidOperationException("Pact sentinel/unknown resource is not an ordinary recovery index; use its typed owner.");
+        if (b.Budget.Current.CasterLevel == 0 && slots.Count > 0) throw new InvalidOperationException("No standard caster budget to recover; Pact/Arcanum require their own recovery path.");
         b.Budget.Recover("recovery:" + Guid.NewGuid(), slots); Project(actor, b); return true;
     }
     internal static bool AddPoints(RulesetCharacter actor, int points)
@@ -217,7 +224,9 @@ internal static class StandardMulticasterResourcesContext
                 modifiers.Add(new ResourcePlan.Modifier("native-point-capacity", pointCapacity: extra));
             }
         }
-        b.Budget.Refresh(Allocate(b.Progression, modifiers)); Project(actor, b); return true;
+        b.Budget.Refresh(Allocate(b.Progression, modifiers));
+        PactMagicMulticasterContext.Synchronize(hero, b.Progression);
+        Project(actor, b); return true;
     }
     private static RulesetUsablePower CanonicalPower(RulesetCharacterHero hero, Binding b)
     {
@@ -256,6 +265,7 @@ internal static class StandardMulticasterResourcesContext
                     if (capacity == 0) continue;
                     capacities[circle] = capacity; used[circle] = capacity - b.Budget.RemainingSlots(circle);
                 }
+                PactMagicMulticasterContext.Project(actor, view, capacities, used);
                 view.spellsSlotCapacities = capacities; view.usedSpellsSlots = used;
                 view.RepertoireRefreshed?.Invoke(view);
             }
@@ -266,6 +276,8 @@ internal static class StandardMulticasterResourcesContext
     internal static void FinishRest(RulesetCharacter actor, RestType restType, bool simulate)
     {
         if (!TryBinding(actor, out var b) || simulate) return;
-        b.Budget.Rest("rest:" + Guid.NewGuid(), restType == RestType.LongRest); Project(actor, b);
+        var operation = "rest:" + Guid.NewGuid();
+        b.Budget.Rest(operation, restType == RestType.LongRest);
+        PactMagicMulticasterContext.Rest(actor, operation, restType == RestType.LongRest, false); Project(actor, b);
     }
 }
