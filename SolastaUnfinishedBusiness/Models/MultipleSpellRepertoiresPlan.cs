@@ -11,12 +11,13 @@ internal sealed class MultipleSpellRepertoiresPlan
     internal enum Knowledge { Selection, Spellbook, WholeList }
     internal enum Preparation { None, AbilityPlusLevel, AbilityPlusHalfLevel, AbilityOnly, InstalledTable }
     internal enum GrantKind { AutoPrepared, ExpandedList, BonusChoice, ScribingBonus, KnownBonus, MysticArcanum }
-    internal sealed class Spell(string id, int circle)
+    internal sealed class Spell(string id, int circle, string school = null)
     {
         internal string Id { get; } = id;
         internal int Circle { get; } = circle;
+        internal string School { get; } = school;
     }
-    internal sealed class Grant(string id, int original, GrantKind kind, IEnumerable<Spell> spells, int choices = 0, string extraSpellsTag = "Extra")
+    internal sealed class Grant(string id, int original, GrantKind kind, IEnumerable<Spell> spells, int choices = 0, string extraSpellsTag = "Extra", bool usesFeatureProgression = false)
     {
         internal string Id { get; } = id;
         internal int Original { get; } = original;
@@ -24,6 +25,7 @@ internal sealed class MultipleSpellRepertoiresPlan
         internal IReadOnlyList<Spell> Spells { get; } = Array.AsReadOnly(spells.ToArray());
         internal int Choices { get; } = choices;
         internal string ExtraSpellsTag { get; } = extraSpellsTag;
+        internal bool UsesFeatureProgression { get; } = usesFeatureProgression;
         internal bool StoreInExtra => !string.IsNullOrEmpty(ExtraSpellsTag);
     }
     internal sealed class Profile
@@ -33,6 +35,9 @@ internal sealed class MultipleSpellRepertoiresPlan
         internal string Ability { get; }
         internal string ListId { get; }
         internal Knowledge Mode { get; }
+        internal bool SupportsCastingCompression { get; }
+        internal int UnlockOriginalLevel { get; }
+        internal IReadOnlyList<string> RestrictedSchools { get; }
         internal Preparation PreparedRule { get; }
         internal IReadOnlyList<int> MaximumCircles { get; }
         internal IReadOnlyList<int> Cantrips { get; }
@@ -45,10 +50,14 @@ internal sealed class MultipleSpellRepertoiresPlan
         internal Profile(string classId, string featureId, string ability, string listId, Knowledge mode, Preparation preparation,
             IEnumerable<Spell> list, IEnumerable<int> maximumCircles, IEnumerable<int> cantrips,
             IEnumerable<int> known, IEnumerable<int> replacements, IEnumerable<int> scribed,
-            IEnumerable<int> preparedTable = null, IEnumerable<Grant> grants = null)
+            IEnumerable<int> preparedTable = null, IEnumerable<Grant> grants = null,
+            bool supportsCastingCompression = true, int unlockOriginalLevel = 1, IEnumerable<string> restrictedSchools = null)
         {
             Id(classId); Id(featureId); Id(ability); Id(listId);
             if (!Enum.IsDefined(typeof(Knowledge), mode) || !Enum.IsDefined(typeof(Preparation), preparation)) throw new ArgumentException("Unknown casting rule.");
+            if (unlockOriginalLevel is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(unlockOriginalLevel));
+            SupportsCastingCompression = supportsCastingCompression; UnlockOriginalLevel = unlockOriginalLevel;
+            RestrictedSchools = Unique(restrictedSchools);
             ClassId = classId; FeatureId = featureId; Ability = ability; ListId = listId; Mode = mode; PreparedRule = preparation;
             MaximumCircles = Rows(maximumCircles); Cantrips = Rows(KnownSpellsProgressionPlan.RetainedCantrips(cantrips));
             Known = Rows(known); Replacements = Rows(replacements); Scribed = Rows(scribed);
@@ -82,10 +91,10 @@ internal sealed class MultipleSpellRepertoiresPlan
         }
         internal bool Allows(string spell, int original, bool cantrip = false)
         {
-            if (original is < 1 or > 20) return false;
+            if (original < UnlockOriginalLevel || original > 20) return false;
             var found = List.TryGetValue(spell, out var entry) ? entry : Grants.Where(g => g.Kind == GrantKind.ExpandedList && g.Original <= original)
                 .SelectMany(g => g.Spells).FirstOrDefault(x => x.Id == spell);
-            return found != null && (cantrip ? found.Circle == 0 : found.Circle > 0 && found.Circle <= MaximumCircles[original - 1]);
+            return found != null && (RestrictedSchools.Count == 0 || RestrictedSchools.Contains(found.School)) && (cantrip ? found.Circle == 0 : found.Circle > 0 && found.Circle <= MaximumCircles[original - 1]);
         }
         internal Spell Find(string id) => List.TryGetValue(id, out var spell) ? spell : Grants.SelectMany(g => g.Spells).FirstOrDefault(s => s.Id == id)
             ?? throw new InvalidOperationException("Unknown spell in owning repertoire.");
@@ -104,13 +113,14 @@ internal sealed class MultipleSpellRepertoiresPlan
         internal Profile Definition { get; }
         internal int ActualLevel { get; }
         internal int EffectiveLevel { get; }
+        internal int EffectiveFeatureLevel { get; }
         internal bool Compressed { get; }
         internal IReadOnlyList<string> Known { get; }
         internal IReadOnlyList<string> Cantrips { get; }
         internal IReadOnlyList<string> Prepared { get; }
         internal IReadOnlyList<Origin> History { get; }
         internal IReadOnlyDictionary<string, IReadOnlyList<string>> Bonus { get; }
-        internal IEnumerable<string> AutoPrepared => Definition.Grants.Where(g => g.Kind == GrantKind.AutoPrepared && g.Original <= EffectiveLevel)
+        internal IEnumerable<string> AutoPrepared => Definition.Grants.Where(g => g.Kind == GrantKind.AutoPrepared && g.Original <= (g.UsesFeatureProgression ? EffectiveFeatureLevel : EffectiveLevel))
             .SelectMany(g => g.Spells).Select(s => s.Id).Distinct(StringComparer.Ordinal);
         internal int MaximumCircle => EffectiveLevel == 0 ? 0 : Definition.MaximumCircles[EffectiveLevel - 1];
         internal Repertoire(Profile definition, int actual, bool compressed, IEnumerable<string> known = null,
@@ -119,7 +129,9 @@ internal sealed class MultipleSpellRepertoiresPlan
         {
             Definition = definition ?? throw new ArgumentNullException(nameof(definition));
             if (actual < 0 || actual > (compressed ? 12 : 20)) throw new ArgumentOutOfRangeException(nameof(actual));
-            ActualLevel = actual; Compressed = compressed; EffectiveLevel = compressed ? FighterProgressionPlan<int>.EffectiveLevel(actual) : actual;
+            ActualLevel = actual; Compressed = compressed;
+            EffectiveFeatureLevel = compressed ? FighterProgressionPlan<int>.EffectiveLevel(actual) : actual;
+            EffectiveLevel = compressed && definition.SupportsCastingCompression ? EffectiveFeatureLevel : actual;
             Known = Unique(known); Cantrips = Unique(cantrips); Prepared = Unique(prepared);
             if (Known.Intersect(Cantrips).Any()) throw new ArgumentException("Spell/cantrip collision.");
             History = Array.AsReadOnly((history ?? Enumerable.Empty<Origin>()).ToArray());
@@ -189,8 +201,14 @@ internal sealed class MultipleSpellRepertoiresPlan
         internal Transaction(string id, HeroState state, Profile profile, int actual, bool compressed)
         {
             MultipleSpellRepertoiresPlan.Id(id); Id = id; initial = state;
-            previous = state.Repertoires.TryGetValue(profile.ClassId, out var old) ? old : new Repertoire(profile, 0, compressed);
-            if (previous.Definition.FeatureId != profile.FeatureId || previous.Compressed != compressed || actual != previous.ActualLevel + 1)
+            var hasPrevious = state.Repertoires.TryGetValue(profile.ClassId, out var old);
+            var firstActual = compressed && profile.SupportsCastingCompression
+                ? Enumerable.Range(1, 12).First(n => FighterProgressionPlan<int>.EffectiveLevel(n) >= profile.UnlockOriginalLevel)
+                : profile.UnlockOriginalLevel;
+            if (!hasPrevious && actual != firstActual) throw new InvalidOperationException("First casting advancement must match the registered unlock; no late save import.");
+            previous = hasPrevious ? old : new Repertoire(profile, firstActual - 1, compressed);
+            if (previous.Definition.FeatureId != profile.FeatureId || previous.Definition.SupportsCastingCompression != profile.SupportsCastingCompression ||
+                previous.Definition.UnlockOriginalLevel != profile.UnlockOriginalLevel || previous.Compressed != compressed || actual != previous.ActualLevel + 1)
                 throw new InvalidOperationException("Class mode/ownership changed or nonsequential advancement.");
             target = new Repertoire(profile, actual, compressed);
             var knownPlan = new KnownSpellsProgressionPlan(profile.Known, profile.Replacements);

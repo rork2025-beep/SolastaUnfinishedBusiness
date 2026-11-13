@@ -104,4 +104,5 @@ StandardCasterResourceTests.Run(Check, mod);
 MultipleSpellRepertoiresTests.Run(Check, mod);
 PactMagicMulticasterTests.Run(Check, game, mod);
 BardMagicalSecretsIntegrationTests.Run(Check, mod);
+ThirdCasterIntegrationTests.Run(Check, mod);
 Console.WriteLine($"{count} checks passed; these are game-independent planner tests, not gameplay tests.");

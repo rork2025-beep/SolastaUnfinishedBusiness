@@ -97,7 +97,7 @@ internal static class StandardMulticasterResourcesContext
     }
     private static string ResourceSettingsSignature() => string.Join("|", typeof(Settings).GetProperties()
         .Where(p => p.PropertyType == typeof(bool) && (p.Name.Contains("CompressedProgression") || p.Name.EndsWith("2024", StringComparison.Ordinal) ||
-            p.Name.Contains("SpellCastingAtLevel1") || p.Name.StartsWith("EnableWarlock", StringComparison.Ordinal) || p.Name == "EnableLevel20" || p.Name == "EnableMulticlass" || p.Name == "UseAlternateSpellPointsSystem"))
+            p.Name.Contains("SpellCastingAtLevel1") || p.Name.StartsWith("EnableWarlock", StringComparison.Ordinal) || p.Name == "EnableLevel20" || p.Name == "EnableMulticlass" || p.Name == "UseAlternateSpellPointsSystem" || p.Name is "RemoveSchoolRestrictionsFromSpellBlade" or "RemoveSchoolRestrictionsFromShadowCaster"))
         .OrderBy(p => p.Name, StringComparer.Ordinal).Select(p => p.Name + "=" + p.GetValue(Main.Settings)));
     private static bool TryBinding(RulesetCharacter actor, out Binding binding)
     {

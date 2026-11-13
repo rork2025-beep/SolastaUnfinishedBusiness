@@ -74,7 +74,7 @@ internal static partial class MultipleSpellRepertoiresContext
     private static int[] Cumulative(IReadOnlyList<int> values) => Enumerable.Range(0, 20).Select(i => values.Count == 0 ? 0 : values[Math.Min(i, values.Count - 1)]).ToArray();
     private static int[] Events(IReadOnlyList<int> values) => Enumerable.Range(0, 20).Select(i => i < values.Count ? values[i] : 0).ToArray();
     private static Plan.Spell[] Spells(SpellListDefinition list) => list == null ? Array.Empty<Plan.Spell>() : list.SpellsByLevel
-        .SelectMany(s => s.Spells).Distinct().Select(s => new Plan.Spell(s.Name, s.SpellLevel)).ToArray();
+        .SelectMany(s => s.Spells).Distinct().Select(s => new Plan.Spell(s.Name, s.SpellLevel, s.SchoolOfMagic)).ToArray();
     internal static void CaptureInstalledDefinitions()
     {
         if (definitions != null) return;
@@ -95,33 +95,39 @@ internal static partial class MultipleSpellRepertoiresContext
             var sources = Sources(owner.FeatureUnlocks, owner.Name);
             var casting = sources.Select(x => x.Feature).OfType<FeatureDefinitionCastSpell>().Distinct()
                 .Single(x => x.SpellCastingOrigin == CastingOrigin.Class);
-            var mode = casting.SpellKnowledge switch
-            {
-                SpellKnowledge.Selection => Plan.Knowledge.Selection, SpellKnowledge.Spellbook => Plan.Knowledge.Spellbook,
-                SpellKnowledge.WholeList => Plan.Knowledge.WholeList,
-                _ => throw new InvalidOperationException("Unsupported installed class spell knowledge: " + name)
-            };
-            var table = Main.Settings.EnablePreparedSpellsTables2024
-                ? RulesetCharacterHeroPatcher.ComputeMaxPreparedSpells_Patch.CopyInstalledPreparedTable(owner) : null;
-            var prepared = casting.SpellReadyness != SpellReadyness.Prepared ? Plan.Preparation.None : table != null
-                ? Plan.Preparation.InstalledTable : casting.SpellPreparationCount switch
-                {
-                    SpellPreparationCount.AbilityBonusPlusLevel => Plan.Preparation.AbilityPlusLevel,
-                    SpellPreparationCount.AbilityBonusPlusHalfLevel => Plan.Preparation.AbilityPlusHalfLevel,
-                    _ => Plan.Preparation.AbilityOnly
-                };
-            var profile = new Plan.Profile(name, casting.Name, casting.spellcastingAbility, casting.SpellListDefinition.Name,
-                mode, prepared, Spells(casting.SpellListDefinition),
-                casting.SlotsPerLevels.Take(20).Select(r => r.Slots.FindLastIndex(n => n > 0) + 1),
-                Cumulative(casting.KnownCantrips), Cumulative(casting.KnownSpells), Events(casting.ReplacedSpells), Events(casting.ScribedSpells), table);
+            var profile = CaptureProfile(owner, casting);
             var subclasses = sources.Select(x => x.Feature).OfType<FeatureDefinitionSubclassChoice>().SelectMany(c => c.Subclasses).Distinct()
                 .ToDictionary(id => id, id => Sources(DatabaseHelper.GetDefinition<CharacterSubclassDefinition>(id).FeatureUnlocks, id), StringComparer.Ordinal);
             var definition = new Definition(owner, casting, profile, sources, subclasses);
             foreach (var source in sources.Concat(subclasses.Values.SelectMany(x => x))) source.Grants = CaptureGrants(definition, source);
             captured.Add(name, definition);
         }
+        CaptureThirdCasterDefinitions();
         definitions = captured; // atomic immutable source publication, before any class projection
         foreach (var row in BardSources) Main.Info("Bard Secrets source: " + row.Owner + "/" + row.Definition + "@" + row.Original + " " + row.Kind + " amount=" + row.Amount);
+    }
+    private static Plan.Profile CaptureProfile(CharacterClassDefinition owner, FeatureDefinitionCastSpell casting,
+        bool supportsCastingCompression = true, int unlockOriginalLevel = 1)
+    {
+        var mode = casting.SpellKnowledge switch
+        {
+            SpellKnowledge.Selection => Plan.Knowledge.Selection, SpellKnowledge.Spellbook => Plan.Knowledge.Spellbook,
+            SpellKnowledge.WholeList => Plan.Knowledge.WholeList,
+            _ => throw new InvalidOperationException("Unsupported installed class spell knowledge: " + owner.Name)
+        };
+        var table = Main.Settings.EnablePreparedSpellsTables2024
+            ? RulesetCharacterHeroPatcher.ComputeMaxPreparedSpells_Patch.CopyInstalledPreparedTable(owner) : null;
+        var prepared = casting.SpellReadyness != SpellReadyness.Prepared ? Plan.Preparation.None : table != null
+            ? Plan.Preparation.InstalledTable : casting.SpellPreparationCount switch
+            {
+                SpellPreparationCount.AbilityBonusPlusLevel => Plan.Preparation.AbilityPlusLevel,
+                SpellPreparationCount.AbilityBonusPlusHalfLevel => Plan.Preparation.AbilityPlusHalfLevel,
+                _ => Plan.Preparation.AbilityOnly
+            };
+        return new Plan.Profile(owner.Name, casting.Name, casting.spellcastingAbility, casting.SpellListDefinition.Name,
+            mode, prepared, Spells(casting.SpellListDefinition),
+            casting.SlotsPerLevels.Take(20).Select(r => r.Slots.FindLastIndex(n => n > 0) + 1),
+            Cumulative(casting.KnownCantrips), Cumulative(casting.KnownSpells), Events(casting.ReplacedSpells), Events(casting.ScribedSpells), table, supportsCastingCompression: supportsCastingCompression, unlockOriginalLevel: unlockOriginalLevel, restrictedSchools: casting.RestrictedSchools);
     }
     private static Source[] OwnSources(Definition definition, string subclass, RulesetCharacterHero hero) => definition.Sources.Concat(subclass == null
         ? Array.Empty<Source>() : definition.Subclasses.TryGetValue(subclass, out var sources) ? sources
@@ -130,7 +136,7 @@ internal static partial class MultipleSpellRepertoiresContext
     {
         var p = definition.Profile;
         return new Plan.Profile(p.ClassId, p.FeatureId, p.Ability, p.ListId, p.Mode, p.PreparedRule, p.List.Values,
-            p.MaximumCircles, p.Cantrips, p.Known, p.Replacements, p.Scribed, p.PreparedTable, OwnSources(definition, subclass, hero).SelectMany(s => s.Grants));
+            p.MaximumCircles, p.Cantrips, p.Known, p.Replacements, p.Scribed, p.PreparedTable, OwnSources(definition, subclass, hero).SelectMany(s => s.Grants), p.SupportsCastingCompression, p.UnlockOriginalLevel, p.RestrictedSchools);
     }
     private static Plan.Grant[] CaptureGrants(Definition definition, Source source)
     {
@@ -143,7 +149,7 @@ internal static partial class MultipleSpellRepertoiresContext
                 {
                     var group = auto.AutoPreparedSpellsGroups[index];
                     grants.Add(new Plan.Grant(source.Id + ":" + auto.Name + ":" + index, Math.Max(source.Original, group.ClassLevel), Plan.GrantKind.AutoPrepared,
-                        group.SpellsList.Select(s => new Plan.Spell(s.Name, s.SpellLevel))));
+                        group.SpellsList.Select(s => new Plan.Spell(s.Name, s.SpellLevel)), usesFeatureProgression: !definition.Profile.SupportsCastingCompression));
                 }
             }
             if (source.Feature is FeatureDefinitionMagicAffinity affinity && affinity.ExtendedSpellList)
@@ -181,10 +187,12 @@ internal static partial class MultipleSpellRepertoiresContext
         var views = new List<Plan.Repertoire>();
         foreach (var c in progression.Classes.Where(c => c.IsCastingParticipant))
         {
-            if (!definitions.TryGetValue(c.ClassId, out var definition) || definition.Casting.Name != c.CastingDefinitionId)
+            var definition = DefinitionFor(c.ClassId, c.SubclassId);
+            if (definition.Casting.Name != c.CastingDefinitionId)
                 throw new InvalidOperationException("Unsupported repertoire owner/feature.");
-            var matches = hero.SpellRepertoires.Where(r => r.SpellCastingClass == definition.Owner && r.SpellCastingFeature == definition.Casting).ToArray();
+            var matches = hero.SpellRepertoires.Where(r => MatchesDefinition(r, definition, c.SubclassId)).ToArray();
             if (matches.Length != 1 || matches[0].SpellCastingAbility != definition.Profile.Ability) throw new InvalidOperationException("Missing/duplicate repertoire or mismatched ability.");
+            if (!definition.Profile.SupportsCastingCompression) ThirdCasters.Sources[c.SubclassId].ForAdvancement(c.ActualClassLevel, progression.Input.Classes.Single(i => i.ClassId == c.ClassId).CompressionEnabled);
             var rep = matches[0]; var p = Profile(definition, c.SubclassId, hero);
             var known = rep.KnownSpells.AsEnumerable();
             if (p.Mode == Plan.Knowledge.Spellbook) known = known.Concat(rep.EnumerateAvailableScribedSpells());
@@ -192,10 +200,12 @@ internal static partial class MultipleSpellRepertoiresContext
             var nativeBonus = rep.ExtraSpellsByTag.Select(x => new KeyValuePair<string, IReadOnlyList<string>>(x.Key,
                 Array.AsReadOnly(x.Value.Select(s => s.Name).Distinct().ToArray()))).ToArray();
             var bonus = c.ClassId == "Bard" ? BardMagicalSecretsPlan.PreserveOrigins(p, old, nativeBonus) : nativeBonus.AsEnumerable();
-            views.Add(new Plan.Repertoire(p, c.ActualClassLevel, c.EffectiveCastingLevel != c.ActualClassLevel ||
-                progression.Input.Classes.Single(i => i.ClassId == c.ClassId).CompressionEnabled,
+            var view = new Plan.Repertoire(p, c.ActualClassLevel, progression.Input.Classes.Single(i => i.ClassId == c.ClassId).CompressionEnabled,
                 known.Select(s => s.Name).Distinct(), rep.KnownCantrips.Select(s => s.Name).Distinct(), rep.PreparedSpells.Select(s => s.Name).Distinct(),
-                old?.History, bonus));
+                old?.History, bonus);
+            if (view.EffectiveLevel != c.EffectiveCastingLevel || view.MaximumCircle != c.MaximumSpellCircle || view.EffectiveFeatureLevel != c.EffectiveClassLevel)
+                throw new InvalidOperationException("Casting/feature source progression does not match the registered calculator profile.");
+            views.Add(view);
         }
         session.State = new Plan.HeroState(views); // racial/feat/Secrets list owners never create a class
     }
@@ -211,8 +221,8 @@ internal static partial class MultipleSpellRepertoiresContext
         view = null;
         if (!RuntimeEnabled || repertoire.SpellCastingFeature.SpellCastingOrigin is not (CastingOrigin.Class or CastingOrigin.Subclass)) return false;
         var hero = character as RulesetCharacterHero ?? DruidWildshapeContext.StandardResourceOwner(character);
-        if (hero == null || !Sessions.TryGetValue(hero, out var session) || repertoire.SpellCastingClass == null ||
-            (view = CurrentView(session, repertoire.SpellCastingClass.Name)) == null || view.Definition.FeatureId != repertoire.SpellCastingFeature.Name)
+        if (hero == null || !Sessions.TryGetValue(hero, out var session) ||
+            (view = CurrentView(session, RepertoireClassId(repertoire))) == null || view.Definition.FeatureId != repertoire.SpellCastingFeature.Name)
             throw new InvalidOperationException("Unclassified/unbound class repertoire; no shared-circle learning fallback.");
         return true;
     }
@@ -224,12 +234,12 @@ internal static partial class MultipleSpellRepertoiresContext
     }
     private static int ScopedPreparedBonus(RulesetCharacterHero hero, Plan.Repertoire view, int ability)
     {
-        var definition = definitions[view.Definition.ClassId];
+        var definition = DefinitionFor(view.Definition.ClassId, hero.ClassesAndSubclasses.FirstOrDefault(p => p.Key.Name == view.Definition.ClassId).Value?.Name);
         hero.ClassesAndSubclasses.TryGetValue(definition.Owner, out var subclass);
-        var own = new HashSet<FeatureDefinition>(OwnSources(definition, subclass?.Name, hero).Where(s => s.Original <= view.EffectiveLevel).Select(s => s.Feature));
+        var own = new HashSet<FeatureDefinition>(OwnSources(definition, subclass?.Name, hero).Where(s => s.Original <= view.EffectiveFeatureLevel).Select(s => s.Feature));
         // Class/subclass affinity ownership is explicit. Generic item/feat affinity classification
         // is intentionally not guessed from another repertoire's list (Stage13.5 adapters).
-        var all = new HashSet<FeatureDefinition>(definitions.Values.SelectMany(d => d.Sources.Concat(d.Subclasses.Values.SelectMany(s => s))).Select(s => s.Feature));
+        var all = new HashSet<FeatureDefinition>(definitions.Values.Concat(ThirdDefinitions.Values).SelectMany(d => d.Sources.Concat(d.Subclasses.Values.SelectMany(s => s))).Select(s => s.Feature));
         var features = hero.FeaturesByType<FeatureDefinitionMagicAffinity>().ToArray();
         if (features.Any(f => f.PreparedSpellModifier != PreparedSpellsModifier.None && !all.Contains(f)))
             throw new InvalidOperationException("Prepared affinity has no registered class owner; explicit auxiliary adapter required.");
@@ -275,12 +285,15 @@ internal static partial class MultipleSpellRepertoiresContext
         if (session.Published.Contains(id)) throw new InvalidOperationException("Advancement identity already published.");
         if (session.Transactions.TryGetValue(id, out var existing))
         {
-            if (existing.ClassId != classId || existing.ActualLevel != actual || existing.Compressed != compressed)
+            if (existing.ClassId != classId || existing.ActualLevel != actual || existing.Compressed != compressed ||
+                existing.Definition.FeatureId != DefinitionFor(classId, subclass).Casting.Name)
                 throw new InvalidOperationException("Conflicting advancement identity.");
             return existing;
         }
         if (session.Transactions.Values.Any(t => !t.IsClosed)) throw new InvalidOperationException("Finish or cancel the previous repertoire advancement first.");
-        var transaction = new Plan.Transaction(id, session.State, Profile(definitions[classId], subclass, hero), actual, compressed);
+        var definition = DefinitionFor(classId, subclass);
+        if (!definition.Profile.SupportsCastingCompression) ThirdCasters.Sources[subclass].ForAdvancement(actual, compressed);
+        var transaction = new Plan.Transaction(id, session.State, Profile(definition, subclass, hero), actual, compressed);
         session.Transactions.Add(id, transaction);
         RegisterTransactionTags(session, transaction);
         return transaction;
@@ -301,8 +314,8 @@ internal static partial class MultipleSpellRepertoiresContext
     internal static bool TryFeature(CharacterHeroBuildingData data, string tag, out FeatureDefinitionCastSpell casting)
     {
         casting = null;
-        if (!TryTag(data, tag, out _, out var origin)) return false;
-        casting = definitions[origin.Class].Casting; return true;
+        if (!TryTag(data, tag, out var session, out var origin)) return false;
+        casting = DatabaseHelper.GetDefinition<FeatureDefinitionCastSpell>(session.Transactions[origin.Transaction].Definition.FeatureId); return true;
     }
     internal static bool CanAcquire(CharacterHeroBuildingData data, SpellDefinition spell, string tag, HeroDefinitions.PointsPoolType type)
     {
@@ -375,7 +388,7 @@ internal static partial class MultipleSpellRepertoiresContext
         if (session.Published.Contains(transactionId)) return;
         if (!session.Transactions.TryGetValue(transactionId, out var transaction)) throw new InvalidOperationException("Unknown repertoire commit.");
         var target = transaction.Preview().Repertoires[transaction.ClassId];
-        var native = hero.SpellRepertoires.Single(r => r.SpellCastingClass?.Name == transaction.ClassId && r.SpellCastingFeature.Name == target.Definition.FeatureId);
+        var native = hero.SpellRepertoires.Single(r => r.SpellCastingFeature.Name == target.Definition.FeatureId && RepertoireClassId(r) == transaction.ClassId);
         var known = native.KnownSpells.AsEnumerable();
         if (target.Definition.Mode == Plan.Knowledge.Spellbook) known = known.Concat(native.EnumerateAvailableScribedSpells());
         if (!new HashSet<string>(known.Select(s => s.Name)).SetEquals(target.Known) ||
@@ -397,7 +410,7 @@ internal static partial class MultipleSpellRepertoiresContext
                 if (pair.Value.IsCancelled) return false; // native pending-data cleanup belongs to the coordinator
                 var target = pair.Value.Preview().Repertoires[pair.Value.ClassId];
                 if (target.Definition.Mode != Plan.Knowledge.Spellbook) continue;
-                var rep = hero.SpellRepertoires.Single(r => r.SpellCastingFeature.Name == target.Definition.FeatureId && r.SpellCastingClass.Name == target.Definition.ClassId);
+                var rep = hero.SpellRepertoires.Single(r => r.SpellCastingFeature.Name == target.Definition.FeatureId && RepertoireClassId(r) == target.Definition.ClassId);
                 rep.GatherAndSortSpellbooks();
                 if (!pair.Value.FitsSpellbooks(rep.foundSpellbooks.Select(b => (b.OwnerName, b.RemainingPages)), hero.Name,
                         ServiceRepository.GetService<IGameSettingsService>().SpellbookPagesConstraint,

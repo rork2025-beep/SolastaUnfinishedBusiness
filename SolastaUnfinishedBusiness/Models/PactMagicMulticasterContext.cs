@@ -110,7 +110,7 @@ internal static class PactMagicMulticasterContext
         var spell = effect.SpellDefinition;
         var onlyArcanum = ArcanumOnly(repertoire, spell);
         var hero = Owner(repertoire.GetCaster());
-        var classId = repertoire.SpellCastingClass?.Name ?? throw new InvalidOperationException("Unknown spell class owner.");
+        var classId = MultipleSpellRepertoiresContext.RepertoireClassId(repertoire);
         var arcanumCast = arcanum || onlyArcanum;
         // Arcanum access is not the ordinary class-circle5 boundary. Require BOTH the actual
         // native grant and the frozen selection; used charges are checked by the resource ledger.

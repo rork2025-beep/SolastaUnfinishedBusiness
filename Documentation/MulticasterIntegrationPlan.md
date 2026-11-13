@@ -1018,3 +1018,118 @@ Existing saves/settings не меняются; миграции и восста�
 - `Documentation/MulticasterIntegrationPlan.md` — эта секция, полная матрица, ограничения и checklist.
 
 **Stage13.5B backend выполнен, runtime mixed gameplay остаётся выключенным. Готовность к активации в игре не заявляется.** Scope остановлен после M05-01/M05-02/M05-03.
+
+## 15. Stage13.5C — Third-caster subclass integration (M05-04)
+
+### 15.1 Baseline и границы
+
+Prerequisite проверен: Stage13.5B commit `5a643efb31e46e53020203677c98a1e527c4c32d` присутствует в `feature/progression-20-to-12`. До редактирования: SDK **9.0.320**, Release Workflow **0 errors /0 warnings**, **10921 passed**; baseline failures нет. Tracked-дерево было чистым; прежний `SolastaFiles/Mods/` — untracked build output. Повторная установка зависимостей не требовалась.
+
+Реализован M05-04: registered source/profile adapter для обычной OneThird магии и feature-compressed Rogue с **несжатой** магией. `MixedGameplayReady=false`, runtime admission/UI guards и native finalize boundary сохранены. Third-caster casting compression не добавляется. Stage13.5D/13.6 не начаты.
+
+### 15.2 Точная матрица зарегистрированных источников
+
+Production `SharedSpellsContext.SubclassCasterType` содержит ровно четыре OneThird регистрации. Capture читает реальные parent subclass choices, `SubclassesContext.KlassListContextTab.AllSubClasses`, casting feature графы и registry types после Subclasses/rule/SpellPoints switches, перед Fighter/Rogue feature projection. Назначение источника не зависит от имени/Guid героя или spell list другого класса. Original casting tables читаются из итоговых installed definitions; definitions не переписываются.
+
+| Parent / subclass | Происхождение | Собственный casting feature | Choice / casting unlock | Ordinary original20: max circle / known / cantrips | При parent compression |
+|---|---|---|---|---|---|
+| Fighter / `MartialSpellblade` |Official |`CastSpellMartialSpellBlade` |3 /3 |4 /13 /3 |**Не поддерживается**, явный отказ |
+| Fighter / `MartialSpellShield` |UB |`CastSpellSpellShield` |3 /3 |4 /14 /4 |**Не поддерживается**, явный отказ |
+| Rogue / `RoguishShadowCaster` |Official |`CastSpellShadowcaster` |3 /3 |4 /13 /3 |Feature12→20, casting12; max circle2, known8, cantrips3 |
+| Rogue / `RoguishArcaneScoundrel` |UB |`CastSpellRoguishArcaneScoundrel` |3 /3 |4 /14 /4 |Feature12→20, casting12; max circle2, known9, cantrips4 |
+
+Все четыре: **Intelligence**, `SpellListWizard`, `Selection`, `AllKnown`, long-rest ordinary casting. Заимствование Wizard list не создаёт Wizard repertoire или spellbook. Optional replacements — отдельные actual/original casting events4…20 (17 в ordinary20); у compressed Rogue доступны4…12 (9), а не17: casting compression явно отсутствует. Никакие дополнительные original18/19/20 spell awards на actual12 не придумываются.
+
+Важно: official blueprint snapshots не равны финальным20-level tables. `Level20Context.MartialSpellBladeLoad/RoguishShadowcasterLoad` повторно вызывают UB `EnumerateSlotsPerLevel(OneThird)`, `EnumerateKnownSpells(3, OneThird)` и replacement helper through20. Поэтому installed ordinary20 max circle4, known13 для обоих official sources. UB Shield/Scoundrel используют starting known4 и получают14. Тестовые fixtures читают compiled builder arrays/slot rows и исходные casting metadata; это не исполнение Unity DB.
+
+Других зарегистрированных **OneThird** sources не найдено. Найден дополнительный casting feature `MartialArcaneArcher / CastSpellMartialArcaneArcherArcaneMagic`: он создан из `CastSpellElfHigh`, сохраняет **Race origin** и innate cantrip механизм, отсутствует в OneThird registry. Он **не включён** в standard third-caster contribution или новый repertoire adapter; auxiliary integration остаётся отдельным этапом13.5D. У `RoguishSwashbuckler` отсутствует blueprint snapshot; constructor IL проверен отдельно на отсутствие casting-feature builder/reference, а compiled OneThird registry не содержит его. Полная runtime-проверка этих вспомогательных источников здесь не заявляется.
+
+| School policy | Установленные ограничения | Существующий switch |
+|---|---|---|
+| Spellblade |Conjuration, Enchantment, Evocation, Transmutation |`RemoveSchoolRestrictionsFromSpellBlade` |
+| ShadowCaster |Abjuration, Divination, Illusion, Necromancy |`RemoveSchoolRestrictionsFromShadowCaster` |
+| SpellShield / ArcaneScoundrel |Нет ограничений школ |Новые switches не добавлены |
+
+Capture сохраняет **итоговый** список школ после этих switches, включая пустой при снятии ограничений. Production `Profile.Allows` проверяет собственный список, школу, cantrip/spell type и собственный circle. Эти два существующих bool включены в resource settings signature: смена правил посреди bound-сессии требует restart, не приводит к тихому изменению frozen profile. Настройки пользователя не меняются.
+
+### 15.3 Уровни, rounding и ownership
+
+`ThirdCasterProgressionPlan.Source` хранит parent/subclass/feature IDs, actual unlock, ordinary spell table и политику parent feature compression. `AdaptParent` заменяет casting profile **существующего subclass внутри одного parent ClassProfile**; второй class contributor не создаётся. Parent class casting обязан отсутствовать; дублированный subclass/feature source и несовпадающий parent registry отклоняются. `ThirdCasterClassProfiles` публикует readonly parent profiles для будущего coordinator, без включения admission. Новый калькулятор арифметики не создаётся: используется Stage13.2 calculator с исходной политикой rounding.
+
+```text
+actual parent level = a
+actual subclass level = a (как в native UB, не число уровней после выбора)
+eParentFeature = compression ? M(a) : a
+eSubclassFeature = compression и поддержка features ? M(a) : a
+eSubclassCasting = a                        // всегда actual в этом этапе
+own spell access = installed subclass row[a] после реального casting unlock
+solo SThird = ceil(a /3)
+mixed SThird = floor(sum(eSubclassCasting) /3)
+shared resource index = clamp(SFull +SHalf +SHalfRoundUp +SThird, 0, 20)
+```
+
+Порог subclass choice проверяет parent feature progression, порог casting unlock и собственные таблицы — actual casting progression. Здесь у всех choice/casting3. До actual3 contribution0, при преждевременном subclass или пропущенном обязательном выборе calculator отказывает. Noncasting martial participant не превращает solo округление в mixed. Pact участвует в прежнем participant policy, но не прибавляет standard caster levels; его алгоритм не менялся.
+
+| Проверенный build | Feature / casting distinction | Shared S → bounded index | Собственный third spell circle |
+|---|---|---|---:|
+| Fighter8N Spellblade / Wizard12N |Fighter8 /casting8 |12+floor(8/3)=14→14 |2 |
+| Fighter8N SpellShield / Cleric12C |Fighter8 /casting8; Cleric effective20 |20+2=22→20 |2 |
+| Rogue8N ArcaneScoundrel / Bard12N |Rogue8 /casting8 |12+2=14→14 |2 |
+| Rogue8C ShadowCaster / Sorcerer12C |Rogue features11 /casting8 |20+2=22→20 |2 |
+| Fighter4N Spellblade / Rogue5N ShadowCaster |4 /5 actual casting |floor((4+5)/3)=3→3, не1+1 |1 /1 |
+| Rogue8C ShadowCaster / Wizard6C / Barbarian6C |Rogue11 /casting8; Wizard7, martial0 |7+floor(8/3)=9→9 |2 |
+| Solo third4 / third4+martial1 / third4+Wizard1 |4 actual casting |ceil(4/3)=2 /2 /1+floor(4/3)=2 |1 |
+| Fighter8C Spellblade или SpellShield |Прежний Fighter prototype допускает только Champion/WeaponMaster |`UnsupportedCompressedSubclass` |Не разрешается |
+
+Shared высокий circle9 открывает ресурс для upcast законного spell, **не** разрешение учить Fireball/другие circle3 на own actual8 либо circle5…9 на third20. Обе resource modes — ordinary slots и Spell Points — используют прежний единый budget. INT, реальные HP/PB/уровни/history и требования multiclass не заменяются effective numbers.
+
+Native subclass repertoire может иметь `SpellCastingClass=null`. `Source.Matches` и `RepertoireClassId` разрешают owner только по точному зарегистрированному subclass + casting feature и проверяют parent, если native class присутствует. Mismatch/unknown source не получает fallback через list/ability/другой repertoire. `Synchronize`, `TryView`, `TryFeature`, `BeginAdvancement` и managed commit reconciliation используют этот owner. Совпадение calculator casting/feature/access с repertoire дополнительно проверяется перед публикацией snapshot.
+
+### 15.4 Repertoire и transactions
+
+`MultipleSpellRepertoiresPlan.Profile` теперь отдельно задаёт `SupportsCastingCompression` и `UnlockOriginalLevel`; third profiles получают false и реальный3. `Repertoire.Compressed` по-прежнему означает включённый parent feature mode и class cap12, `EffectiveFeatureLevel` хранит M(actual), а `EffectiveLevel` для third casting остаётся actual. Все прежние class profiles сохраняют default true и свои прежние таблицы/транзакции.
+
+Первое создание subclass journal разрешено на зарегистрированном unlock3 с пустым spell state до2. Это не даёт фиктивные awards1/2 и не требует уже существующего repertoire на этих уровнях. Поздний импорт старого героя, раннее создание source, смена casting feature, compression policy или unlock внутри history запрещены. Каждый actual Rogue advancement создаёт **один** actual spell event, даже если features этого advancement охватывают несколько original levels. Known/cantrip/replacement budgets берутся из source tables, origins сохраняют parent + конкретный casting feature. Back/Reset/Cancel и повторный managed Commit не меняют другой class repertoire.
+
+Subclass auto-spell features разделены с casting access: `Grant.UsesFeatureProgression` применяется к third-source auto-prepared grants. В установленном `RoguishArcaneScoundrel` Counterspell — **feature original13**, поэтому при feature compression становится доступен на actual9. Это не переводит ordinary casting9 в casting13, не даёт учить третий круг и не создаёт full-caster contribution. Counterspell/native reaction powers, расход и реальные gameplay interactions требуют Unity-проверки; сами powers не переписывались.
+
+Pact compatibility ограничена одной заменой lookup в `PactMagicMulticasterContext.Spend`: вместо обязательного native class field используется зарегистрированный repertoire owner. Standard/Pact выбор источника, costs, charges, Arcanum, invocations, recovery, sentinel-1 и лимиты не изменялись. Bard13.5B journal, origins, Secrets2024 и прежние guards сохранены.
+
+### 15.5 Ограничения и дальнейшая приёмка
+
+**MixedGameplayReady остаётся false.** Нет activation switch или разблокировки UI-комбинаций. Pending native finalization продолжает отказывать до13.7 atomic journal. Source capture и compiled bindings не являются доказательством исполнения Harmony в игре. Не выполнялись Solasta/Unity, native GUI/navigation, actual subclass spell creation, combat/DC, rests, save/load или respec. Нет автоматической конвертации существующих saves. Current feature-only Rogue spells намеренно не доходят до casting20; compressed Fighter third casters намеренно недоступны.
+
+Unknown registered OneThird parent/conditional casting feature требует отдельного typed adapter и явной диагностики; он не получает автоматическое compression support. Racial/feat/item/ArcaneArcher auxiliary access остаётся вне этого scope. Ни `GetClassLevel`, ни upstream release, пользовательские settings/saves не изменены; worktree/пакет/release не создаются.
+
+После будущей coordinator/admission интеграции на новых отдельных heroes проверить:
+
+1. Все4 subclasses: выбор на actual3, первое native repertoire с правильным casting feature/INT/list/cantrips и отсутствие spell choices на1/2. Игра не должна создавать второй Fighter/Rogue contributor.
+2. Spellblade/Wizard, SpellShield/Cleric, ArcaneScoundrel/Bard, ShadowCaster/Sorcerer: high shared slots для upcast, но source learning по actual caster row. Отдельные spell origins/attributes и один standard debit. Проверить slots и Spell Points.
+3. Ordinary третья магия: circles1 на3,2 на7,3 на13,4 на19. Solo и mixed rounding на уровнях4/5/7/8/10/11; два third casters должны округлять общий bucket, не каждый по отдельности. Третий noncasting class не добавляет ресурс.
+4. Rogue compression ON: feature actual8→11 и12→20, casting8/12; original13 Counterspell feature на actual9, ordinary known/cantrips/replacements остаются actual. Сравнить с OFF, в котором Counterspell feature появляется только на13.
+5. Обе school restriction switches ON/OFF с полным restart: правильные списки, cantrip и replacement filtering; чужой class spell не обходится через global known list. Ни текущий save, ни frozen session не должны менять режим молча.
+6. Back/Cancel/Reset/Skip/repeated level-up/finalize: source rewards и прошлые replacements не дублируются и не удаляют spells другого класса. Повторить после save/load, rest и respec, проверить native extra-spell tags и resource exhaustion.
+7. Compressed Fighter Spellblade/SpellShield: явный отказ, сохранён выбор только поддержанных Fighter subclasses. Rogue13 при compression запрещён; ability prerequisites/total20/max3 не обходятся.
+8. Прежние Bard Secrets и Warlock Pact/Arcanum/invocation scenarios без регрессии. До такого игрового прогона gameplay readiness не заявляется.
+
+### 15.6 Validation и файлы
+
+Фактический финальный прогон: **11760 checks passed** =10921 baseline + **839 новых** (**825 executed production-model behavioral checks**, **14 fixture/compiled-binding audits**). SDK **9.0.320**. `dotnet build SolastaUnfinishedBusiness.sln --no-restore -c "Release Workflow" -m:2`: **0 errors /0 warnings**. `dotnet run --project Tests/FighterProgression/FighterProgression.Tests.csproj`: **11760 passed**. `git diff --check` проходит. Все предыдущие class suites, calculator/resources/repertoires, полный Bard13.5B (1586 behavioral +16 audits) и Pact/Warlock6.1 сохранены.
+
+Executed проверки включают ordinary careers всех4 и оба feature modes Rogue; mapping/casting separation, known/cantrip/replacement totals, source school rules и их removal variants, все4 mixed пары, two-third rounding boundaries, three-class martial build, independent resource/access/ability, раннее/позднее создание repertoire, неверный owner/source, duplicate class, compressed Fighter rejection, class12 cap, casting-policy change rejection, Back/Reset/Cancel/repeated managed finalize. Отдельные14 audits читают metadata/compiled arrays/IL; они не исполняют Harmony, GUI или native finalization. Solasta не запускалась.
+
+Изменённые/новые файлы:
+
+- `Models/ThirdCasterProgressionPlan.cs` — pure source registry, parent adapter, unlock/cap/owner policies.
+- `Models/MultipleSpellRepertoiresThirdCasterContext.cs` — installed source discovery, readonly calculator profiles, native subclass ownership.
+- `Models/MultipleSpellRepertoiresPlan.cs` — независимые feature/casting levels, поздний unlock, school filtering и auto-feature basis.
+- `Models/MultipleSpellRepertoiresContext.cs` — общая metadata factory и source-aware bind/access/transactions/reconciliation.
+- `Models/StandardMulticasterResourcesContext.cs` — fingerprint двух существующих school switches.
+- `Models/PactMagicMulticasterContext.cs` — один registered-owner lookup; resource rules сохранены.
+- `Tests/FighterProgression/ThirdCasterIntegrationTests.cs` — новые production scenarios и явно отделённый metadata audit.
+- `Tests/FighterProgression/CompressedMulticasterTests.cs` — разрешён новый isolated pure source adapter в calculator consumer allowlist.
+- `Tests/FighterProgression/FighterProgression.Tests.csproj` — link pure production adapter.
+- `Tests/FighterProgression/Program.cs` — запуск новой suite.
+- `Documentation/MulticasterIntegrationPlan.md` — эта секция с матрицей и ограничениями.
+
+Source-пути `Models/*` выше находятся в `SolastaUnfinishedBusiness/Models/`. Generated DLLs, proprietary game assemblies, personal settings/saves и временные logs в commit не входят. SHA/push публикуются в итоговом отчёте. **M05-04 backend реализован; runtime mixed gameplay выключен. Работа остановлена после Stage13.5C.**
