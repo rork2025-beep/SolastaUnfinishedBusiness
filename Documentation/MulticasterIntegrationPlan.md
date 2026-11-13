@@ -916,3 +916,105 @@ Positive slot capacities показывают standard availability плюс Pac
 - `Documentation/MulticasterIntegrationPlan.md` — этот отчёт/таблицы/ограничения/checklist.
 
 Изменения предназначены только для feature branch; нет worktree, release merge или публикации пакета. Generated DLLs/game assemblies/settings/saves/logs не входят в commit. SHA/push фиксируются в итоговом сообщении. **Pact backend и gated hooks реализованы; mixed gameplay остаётся выключенным и не готовым к активации до недостающих этапов.** Работа остановлена после Pact integration.
+
+## 14. Stage13.5B — Bard Magical Secrets integration (M05-01, M05-02, M05-03)
+
+### 14.1 Границы этапа и baseline
+
+Ветка `feature/progression-20-to-12`, исходный commit `11c28876fd6feb6d288c2be937dce5fd37a151d5` (Pact integration). До редактирования повторены SDK **9.0.320**, Release Workflow **0 errors / 0 warnings**, полный regression suite **9319 passed**. Прежние Stage7 Bard и Stage6/6.1 Warlock проверки включены. Зависимости повторно не устанавливались.
+
+Этот этап закрывает Secrets backend и его gated связь с class-local repertoires/transactions. **`CompressedMulticasterProgressionPlan.MixedGameplayReady = false` сохранено.** Нового activation switch нет, multiclass admission guards не ослаблены. Standard/Pact resource engines, Mystic Arcanum и invocation transactions не переписывались. Stage13.5C,13.5D,13.6 и atomic native journal13.7 не реализуются здесь.
+
+### 14.2 Полная матрица источников Secrets
+
+Источником является итоговый установленный граф `Bard.FeatureUnlocks` и всех зарегистрированных `SubclassChoiceBardColleges` после UB/2024 switches, **до** compressed projection. `Sources` сохраняет owner, индекс occurrence, путь дочернего feature set и native prerequisites для Exclusion options. `CaptureBardGrant` распознаёт реальный `FeatureDefinitionPointPool.ExtraSpellsTag == "MagicalSecrets"`; расписание подклассов в runtime не зашито. Пулы сохраняют список, число выборов, min/max circle и ritual restriction. Expanded affinities читаются из установленных `MagicAffinityBardMagicalSecrets*`.
+
+| Установленный источник | Original → actual | Выборы | Максимальный круг в этом событии | Режим |
+|---|---|---:|---:|---|
+| `PointPoolBardMagicalSecrets14`, первое occurrence |10→8 |2 |5 |Legacy base |
+| Тот же `PointPoolBardMagicalSecrets14`, другое occurrence |14→10 |2 |7 |Legacy base |
+| `Level20Context.PointPoolBardMagicalSecrets18` |18→12 |2 |9 |Legacy base |
+| `PointPoolBardMagicalSecrets10` из исходной игры |10→8, если действительно оставлен в installed graph |2 |5 |Штатный UB switch удаляет этот pool и использует14 на10; лишняя награда не создаётся |
+| `MagicAffinityBardMagicalSecretsCleric` |10→8 |0 |Собственный Bard circle |2024 expanded Cleric list |
+| `MagicAffinityBardMagicalSecretsDruid` |10→8 |0 |Собственный Bard circle |2024 expanded Druid list |
+| `MagicAffinityBardMagicalSecretsWizard` |10→8 |0 |Собственный Bard circle |2024 expanded Wizard list |
+| `PointPoolCollegeLoreAdditionalMagicalSecrets` |6→6 |2 |3 |Оба режима, только выбранный Lore |
+
+`Tabletop2024Context.SwitchBardBardMagicalSecrets` в `Models/2024BardContext.cs` удаляет base legacy pools при `EnableBardMagicalSecrets2024=true`, затем добавляет Union feature set с тремя extended lists на original10. Lore6 этим switch не удаляется. При false реально используются Pool14 на10 **и**14, а не два разных определения. Поэтому ID определяется occurrence/path, а не одним именем native definition. Если установленный граф явно содержит иной pool или сосуществование источников, planner сохраняет эти реальные события; самостоятельно складывать legacy награды с2024 affinity он не будет.
+
+Все зарегистрированные колледжи проверены рекурсивно по feature sets. Official registration взята из `SubclassChoiceBardColleges`, UB — из скомпилированных `AbstractSubclass.get_Klass == Bard` builders и соответствующих blueprint graphs.
+
+| Колледж | Источник регистрации | Дополнительные subclass Secrets | Base legacy | Base2024 | Оставшиеся runtime проверки |
+|---|---|---|---|---|---|
+| `CollegeOfHeroism` |Official |Нет |10/14/18→8/10/12, по2 |Expanded lists10→8 |Native UI/finalize, особенности колледжа |
+| `CollegeOfHope` |Official |Нет |То же |То же |То же |
+| `CollegeOfLore` |Official |6→6,2 выбора, circle≤3 |То же + Lore6 |Expanded lists + Lore6 |Native subclass gate, independent Lore tag |
+| `CollegeOfTraditions` |Official |Нет |То же |То же |Native UI/finalize, особенности колледжа |
+| `CollegeOfAudacity` |UB |Нет |То же |То же |Native UI/finalize, включение колледжа |
+| `CollegeOfElegance` |UB |Нет |То же |То же |То же |
+| `CollegeOfGuts` |UB |Нет |То же |То же |То же |
+| `CollegeOfLife` |UB |Нет; его spell affinity не считается Secrets reward |То же |То же |Собственный affinity и native UI |
+| `CollegeOfThespian` |UB |Нет |То же |То же |Native UI/finalize, включение колледжа |
+| `CollegeOfValiance` |UB |Нет |То же |То же |То же |
+
+Hidden/disabled college не присваивается герою автоматически: профиль использует только реально выбранный зарегистрированный subclass и native active feature prerequisites. Будущая сторонняя неизвестная class/subclass casting definition по-прежнему требует typed admission; эта матрица не обещает поддержку произвольных модов.
+
+### 14.3 Production ownership, spell access и транзакции
+
+Новый pure `BardMagicalSecretsPlan` получает installed `Source` и исходные20 строк собственного Bard maximum circle. `Grant` отделяет `BonusChoice` с native execution tag `MagicalSecrets` от `ExpandedList`. Обычные known-spell/replace/cantrip таблицы остаются отдельными. `EnablePreparedSpellsTables2024` независимо выбирает installed Bard known table; это не превращает Bard в WholeList/Prepared caster и не связывается принудительно с Secrets2024.
+
+Каждый selected spell, включая заклинание из Wizard/Cleric/Druid list, принадлежит **Bard / CastSpellBard / Charisma**. Borrowing не создаёт другой repertoire, class contribution, spellbook или подготовку по INT/WIS. Расход по-прежнему проходит через один shared standard resource engine; этот этап не добавляет budget или PowerSpellPoints. Высокий shared slot разрешает upcast, но не расширяет Bard learning: Secrets10 ограничены circle5,14 —7,18 —9. Expanded lists доступны только с собственного original10; до него общие ресурсы ничего не открывают.
+
+`MultipleSpellRepertoiresPlan.Transaction` получил Bard step journal:
+
+1. Каждый original event: ordinary acquisitions/replacement/cantrips, затем отдельный step **каждого** bonus-source occurrence, затем следующий original event. Порядок строится через production `BardSpellLearningState.Ordered`.
+2. Actual6: original6 ordinary → Lore6 → original7 ordinary. Actual8:10 ordinary → Secrets10 →11 ordinary. Actual10:14 ordinary → Secrets14 →15 ordinary. Actual12:18 ordinary → Secrets18 →19 ordinary →20 ordinary. В2024 mode отсутствующие base Secrets steps не создаются.
+3. Replay исполняет существующий production `BardSpellLearningState` и `KnownSpellsProgressionPlan.ApplyEvent`. Ранее изученное ordinary spell можно законно заменить на следующем original event того же advancement. Secrets не становятся валютой ordinary replacement.
+4. У каждого step свои award/replacement budgets, source ID и transaction revision. Пропуск необязательной replacement — пустой завершённый step; обязательную ordinary/Secrets награду пропустить нельзя. Следующий step блокируется до завершения предыдущего.
+5. При редактировании/Back удаляется зависимый suffix. Back на Secrets сохраняет ordinary выборы того же события. Все исходные budgets остаются в плане. Revision меняется; stale/foreign step и выдуманный budget отвергаются. Неудачный edit полностью восстанавливает прежний journal, revision и awards.
+6. Reset очищает только provisional choices; Cancel возвращает исходный immutable HeroState. Managed Commit требует всех steps и идемпотентен. Чужие repertoire objects/history не меняются; independently known foreign spell можно отдельно получить как Bard Secret. Новые дубликаты внутри собственного ordinary/cantrip/Secrets выбора отклоняются как в Stage7. Существующие разрешённые bonus aliases не удаляются из чужого источника.
+
+Gated native adapter `MultipleSpellRepertoiresBardContext` передаёт selection в этот journal; registered tags содержат original/source/revision. `RebuildBardNative` пересоздаёт только acquisition/unlearn/pool entries **этой transaction**, сохраняет valid prefix и оставляет остальные class tags нетронутыми. Pool list/min/max/ritual/native `CanUnlearn` policy сохраняются. `BardMagicalSecretsContext.FilterAvailableSpells` передаёт управление новому фильтру только для registered mixed tags при открытом общем gate; обычный Stage7 путь при текущем false не меняется.
+
+Native `ExtraSpellsByTag["MagicalSecrets"]` агрегирует spells, но managed `Bonus` и `Origin` остаются раздельными по occurrence. При `Synchronize` production `PreserveOrigins` сверяет native aggregate с ранее подтверждёнными source origins и сохраняет их, а не заменяет одним общим tag. Несовпадение, неизвестные/исчезнувшие Secrets или попытка импорта в чужой repertoire дают явный отказ. Происхождение не угадывается, старые saves автоматически не мигрируются. Runtime capture пишет матрицу реально установленных источников в log.
+
+### 14.4 Ограничения и безопасность
+
+**Native finalization по-прежнему блокируется при pending repertoire transaction.** Managed Commit не выдаётся за атомарный native commit. `ValidateBeforeFinalize` не вызывает `PublishValidatedCommit`; resource/spellbook/ExtraSpellsByTag journal, persistence и rollback native character state остаются для13.7. Native stack creation и полный UI wizard orchestration также остаются за этим координатором; adapter использует существующие stacks и не придумывает их. Back/Cancel typed APIs готовы, но полный native screen navigation ещё не проверен/не открыт. Смешанные игровые комбинации в UI не разблокированы.
+
+Игра/Unity не запускалась. GUI, Harmony interception в игре, actual casting/DC/attack, rest, native inventory/spellbooks, respec и save/load здесь **не валидированы**. Runtime feature Exclusion/колледж prerequisites подтверждены compiled bindings, а не живой DB. Blueprint spell lists — snapshots; ninth-circle fixtures дополнены реальными `SpellsContext.RegisterSpell` registrations и `SpellDefinition` metadata. Набор доступных spells в игре дополнительно зависит от установленных/включённых заклинаний. Тесты не выдают fixture switch inputs за исполнение игрового2024 switch.
+
+Existing saves/settings не меняются; миграции и восстановление origins старого mixed Bard не поддерживаются. Менять compression/Secrets rules посреди сессии небезопасно: использовать новые test heroes и полный restart после изменения правил. Проверенный typed guard на mismatched native Secrets отказывает вместо назначения неизвестной награды. Pact ресурсы/сентинел/Arcanum/invocations и предыдущие admission guards сохранены.
+
+### 14.5 Приёмочные проверки в игре после будущей интеграции
+
+Пока gate false, mixed сценарии **не включать**. После13.7/13.8, на отдельных новых saves:
+
+1. Legacy и2024, независимо оба варианта `EnablePreparedSpellsTables2024`: Bard/CollegeOfLore и каждый из остальных9 колледжей. На actual6 проверить ordinary6 → Lore6 → ordinary7; у остальных не должно быть Lore rewards. В2024 Lore6 остаётся.
+2. Actual8 и10: ordinary10/14, затем2 Secrets из допустимых lists/circles, затем ordinary11/15. Попытки circle6 на original10 и circle8 на original14 должны быть отклонены даже при shared circle9. Обычные learning/replacement counts проверить отдельно.
+3. Actual12: original18 ordinary →2 Secrets →19 independent replacement →20 independent replacement. Заменить ordinary spell18 на19; Secrets18 должны сохраниться. Изменить earlier ordinary/Secrets выбор, пройти Back/Reset/Cancel/Skip, снова завершить. Reward count/origins не должны потеряться/удвоиться.
+4. Проверить Secret cantrip через CantripOrSpell pool, дубликат собственного ordinary/Secret, тот же spell из другого класса, prerequisites и native cantrip UI. Чужие known/prepared/book/extra tags должны остаться идентичны.
+5. Bard/Sorcerer, Bard/Cleric, Bard/Wizard: Secrets всегда Bard CHA/feature/tag; второй repertoire только от фактического второго класса. У Wizard8 без compression максимум circle4, несмотря на shared circle9; borrowing не создаёт Wizard spellbook. Правильные DC/attack/upcast и один standard debit.
+6.2024: до собственного original10 extended Cleric/Druid/Wizard spells недоступны; с10 доступны только по Bard circle и обычным known/replacement budgets. Не должно появиться6 legacy bonus selections поверх base2024. Lore6 независимо сохраняет2.
+7. Сравнить native `ExtraSpellsByTag[MagicalSecrets]`, per-source journal и counts до/после finalize, повторного callback, save/load, long/short rest, respec и cancellation. Неизвестный/mismatched origin должен дать diagnostic до мутации, не миграцию или бесплатный spell.
+8. Повторить Stage7 single-Bard и Stage13.5 Pact regression checklist; при mixed prototype OFF убедиться в прежнем native поведении. Без такого прогона игровая готовность не заявляется.
+
+### 14.6 Validation и изменённые файлы
+
+Окончательные команды: `dotnet build SolastaUnfinishedBusiness.sln --no-restore -c "Release Workflow" -m:2`, `dotnet run --project Tests/FighterProgression/FighterProgression.Tests.csproj`, `git diff --check`.
+
+Фактический итог: **10921 checks passed** =9319 baseline + **1602 новых** (**1586 executed production-model behavioral checks**, **16 fixture/compiled-binding checks**). Release Workflow: **0 errors /0 warnings**; SDK **9.0.320**; `git diff --check` проходит. В полном прогоне сохранены все предыдущие class/multicaster/resource/repertoire/Pact suites, Bard Stage7 и Warlock Stage6/6.1. Новая suite выполняет40 careers (10 колледжей ×2 Secrets modes ×2 known-table modes), все12 actual levels, отдельные Bard/Sorcerer, Bard/Cleric, Bard/Wizard ownership/access scenarios и negative/edit/cancel/retry cases. Native adapter проверки явно выделены; эти числа не означают запуск Solasta.
+
+Файлы Stage13.5B:
+
+- `SolastaUnfinishedBusiness/Models/BardMagicalSecretsPlan.cs` — pure installed-source planner, ordered step tokens, native aggregate reconciliation.
+- `SolastaUnfinishedBusiness/Models/MultipleSpellRepertoiresBardContext.cs` — isolated gated native source/step/pool adapter.
+- `SolastaUnfinishedBusiness/Models/MultipleSpellRepertoiresPlan.cs` — owner-scoped Bard journal и production Stage7 replay.
+- `SolastaUnfinishedBusiness/Models/MultipleSpellRepertoiresContext.cs` — source owner, capture/sync/submit/reset integration.
+- `SolastaUnfinishedBusiness/Models/BardMagicalSecretsContext.cs` — gated delegation фильтра, прежний Stage7 fallback сохранён.
+- `Tests/FighterProgression/BardMagicalSecretsIntegrationTests.cs` — production behavior tests и отдельно отмеченный fixture/compiled audit.
+- `Tests/FighterProgression/FighterProgression.Tests.csproj` — link production Secrets planner.
+- `Tests/FighterProgression/Program.cs` — запуск новой suite.
+- `Documentation/MulticasterIntegrationPlan.md` — эта секция, полная матрица, ограничения и checklist.
+
+**Stage13.5B backend выполнен, runtime mixed gameplay остаётся выключенным. Готовность к активации в игре не заявляется.** Scope остановлен после M05-01/M05-02/M05-03.

@@ -134,6 +134,7 @@ internal static partial class BardSpellcastingContext
     }
     internal static void FilterAvailableSpells(RulesetCharacterHero hero, string tag, List<SpellDefinition> spells)
     {
+        if (MultipleSpellRepertoiresContext.FilterBardAvailable(hero, tag, spells)) return;
         var original = StepOriginal(hero, tag);
         if (original == 0 || !hero.TryGetHeroBuildingData(out var data)) return;
         var secret = TrySecret(hero, tag, out var found) ? found : null;

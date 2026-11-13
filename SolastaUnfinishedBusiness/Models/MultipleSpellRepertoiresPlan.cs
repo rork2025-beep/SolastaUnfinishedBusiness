@@ -170,6 +170,12 @@ internal sealed class MultipleSpellRepertoiresPlan
         private readonly Repertoire previous;
         private readonly Repertoire target;
         private readonly SortedDictionary<int, Choice> choices = new();
+        private readonly Dictionary<string, Choice> bardChoices = new(StringComparer.Ordinal);
+        private readonly HashSet<int> bardComplete = new();
+        private bool bardStepMode;
+        internal int BardRevision { get; private set; }
+        internal IReadOnlyList<BardMagicalSecretsPlan.Step> BardSteps => BardMagicalSecretsPlan.Steps(Id, BardRevision, Definition, Events);
+        internal IReadOnlyDictionary<string, Choice> BardSelections => new ReadOnlyDictionary<string, Choice>(bardChoices);
         private HeroState committed;
         private bool cancelled;
         internal string Id { get; }
@@ -198,6 +204,7 @@ internal sealed class MultipleSpellRepertoiresPlan
         internal void Select(Choice choice)
         {
             Editable();
+            if (bardStepMode) throw new InvalidOperationException("Do not mix original-event and Bard step journals.");
             if (!Events.Any(e => e.Original == choice.Original)) throw new InvalidOperationException("Foreign original event.");
             if (Events.Where(e => e.Original < choice.Original).Any(e => !choices.ContainsKey(e.Original))) throw new InvalidOperationException("Earlier event incomplete.");
             var saved = choices.ToArray();
@@ -206,14 +213,76 @@ internal sealed class MultipleSpellRepertoiresPlan
             try { Replay(false); }
             catch { choices.Clear(); foreach (var item in saved) choices.Add(item.Key, item.Value); throw; }
         }
+        internal void SelectBardStep(BardMagicalSecretsPlan.Step token, IEnumerable<string> added = null,
+            IEnumerable<string> removed = null, IEnumerable<string> cantrips = null)
+        {
+            Editable();
+            if (token == null) throw new ArgumentNullException(nameof(token));
+            if (!bardStepMode && choices.Count > 0) throw new InvalidOperationException("Do not mix Bard and event journals.");
+            var steps = BardSteps.ToArray();
+            var index = Array.FindIndex(steps, s => s.Key == token.Key);
+            if (index < 0 || token.Transaction != Id || token.Revision != BardRevision ||
+                token.Awards != steps[index].Awards || token.Replacements != steps[index].Replacements || token.Cantrips != steps[index].Cantrips)
+                throw new InvalidOperationException("Stale or foreign Bard selection step.");
+            if (steps.Take(index).Any(s => !bardChoices.ContainsKey(s.Key))) throw new InvalidOperationException("Earlier Bard step incomplete.");
+            var fragment = new Choice(token.Original, added, removed, cantrips);
+            if (fragment.Removed.Count > token.Replacements || fragment.Added.Count != token.Awards + fragment.Removed.Count || fragment.Cantrips.Count != token.Cantrips)
+                throw new InvalidOperationException("Incomplete Bard ordinary/Secrets budget.");
+            var before = bardChoices.ToArray(); var oldMode = bardStepMode; var revision = BardRevision;
+            var oldEvents = choices.ToArray();
+            try
+            {
+                if (bardChoices.ContainsKey(token.Key)) BardRevision++;
+                foreach (var later in steps.Skip(index)) bardChoices.Remove(later.Key);
+                bardChoices[token.Key] = fragment; bardStepMode = true;
+                RebuildBardEvents(); Replay(false);
+            }
+            catch
+            {
+                bardChoices.Clear(); foreach (var pair in before) bardChoices.Add(pair.Key, pair.Value);
+                bardStepMode = oldMode; BardRevision = revision;
+                choices.Clear(); foreach (var pair in oldEvents) choices.Add(pair.Key, pair.Value);
+                RecomputeBardComplete(); throw;
+            }
+        }
+        internal void BackBardStep(BardMagicalSecretsPlan.Step token)
+        {
+            Editable();
+            if (token == null) throw new ArgumentNullException(nameof(token));
+            if (!bardStepMode && choices.Count > 0) throw new InvalidOperationException("Do not mix Bard and event journals.");
+            var steps = BardSteps.ToArray(); var index = Array.FindIndex(steps, s => s.Key == token.Key);
+            if (index < 0 || token.Transaction != Id || token.Revision != BardRevision) throw new InvalidOperationException("Stale/foreign Bard Back step.");
+            foreach (var later in steps.Skip(index)) bardChoices.Remove(later.Key);
+            bardStepMode = true; BardRevision++; RebuildBardEvents();
+        }
+        private void RecomputeBardComplete()
+        {
+            bardComplete.Clear();
+            if (!bardStepMode) return;
+            foreach (var group in BardSteps.GroupBy(s => s.Original))
+                if (group.All(s => bardChoices.ContainsKey(s.Key))) bardComplete.Add(group.Key);
+        }
+        private void RebuildBardEvents()
+        {
+            choices.Clear(); RecomputeBardComplete();
+            foreach (var group in BardSteps.GroupBy(s => s.Original))
+            {
+                var ordinary = group.Single(s => s.GrantId == null);
+                if (!bardChoices.TryGetValue(ordinary.Key, out var selected)) continue;
+                var extra = group.Where(s => s.GrantId != null && bardChoices.ContainsKey(s.Key)).Select(s =>
+                    new KeyValuePair<string, IReadOnlyList<string>>(s.GrantId, bardChoices[s.Key].Added));
+                choices.Add(group.Key, new Choice(group.Key, selected.Added, selected.Removed, selected.Cantrips, extra));
+            }
+        }
         internal void Skip(int original) => Select(new Choice(original));
         internal void Back(int original)
         {
             Editable();
+            if (bardStepMode) { BackBardStep(BardSteps.Single(s => s.Original == original && s.GrantId == null)); return; }
             if (!Events.Any(e => e.Original == original)) throw new InvalidOperationException("Foreign Back event.");
             foreach (var key in choices.Keys.Where(k => k >= original).ToArray()) choices.Remove(key);
         }
-        internal void Reset() { Editable(); choices.Clear(); }
+        internal void Reset() { Editable(); choices.Clear(); bardChoices.Clear(); bardComplete.Clear(); BardRevision++; }
         internal HeroState Cancel() { if (committed != null) throw new InvalidOperationException("Already committed."); cancelled = true; return initial; }
         internal HeroState Commit()
         {
@@ -234,18 +303,42 @@ internal sealed class MultipleSpellRepertoiresPlan
                     break;
                 }
                 var profile = target.Definition;
+                var eventComplete = !bardStepMode || bardComplete.Contains(e.Original);
+                if (complete && !eventComplete) throw new InvalidOperationException("Incomplete Bard Secrets step.");
                 if (c.Removed.Count > e.Replacements || c.Added.Count != e.Learned + c.Removed.Count || c.Cantrips.Count != e.Cantrips ||
                     c.Added.Any(s => !profile.Allows(s, e.Original) || c.Removed.Contains(s) || cantrips.Contains(s) || bonus.Values.Any(b => b.Contains(s))) ||
                     c.Cantrips.Any(s => !profile.Allows(s, e.Original, true) || cantrips.Contains(s) || bonus.Values.Any(b => b.Contains(s)))) throw new InvalidOperationException("Invalid original spell budget/access.");
                 // Production known-event planner, scoped to THIS class; later original events may
                 // replace an earlier same-advancement selection, never a spell in another class.
-                known = KnownSpellsProgressionPlan.ApplyEvent(known, c.Removed, c.Added);
-                cantrips.AddRange(c.Cantrips);
-                foreach (var g in profile.Grants.Where(g => (g.Kind is GrantKind.BonusChoice or GrantKind.MysticArcanum) && g.Original == e.Original))
+                BardSpellLearningState<string> bard = null;
+                if (profile.ClassId == "Bard")
                 {
-                    if (!c.Bonus.TryGetValue(g.Id, out var selected) || selected.Count != g.Choices || selected.Any(s =>
+                    bard = new BardSpellLearningState<string>(known, cantrips, bonus.Values.SelectMany(v => v).Distinct(), true);
+                    bard = bard.LearnOrdinary(c.Removed, c.Added).LearnCantrips(c.Cantrips);
+                    known = bard.Ordinary.ToList(); cantrips = bard.Cantrips.ToList();
+                }
+                else
+                {
+                    known = KnownSpellsProgressionPlan.ApplyEvent(known, c.Removed, c.Added);
+                    cantrips.AddRange(c.Cantrips);
+                }
+                var ordinaryHistory = c.Removed.Select(s => OriginFor(s, e.Original, "replacement", true))
+                    .Concat(c.Added.Select(s => OriginFor(s, e.Original, profile.Mode == Knowledge.Spellbook ? "spellbook" : "ordinary")))
+                    .Concat(c.Cantrips.Select(s => OriginFor(s, e.Original, "cantrip"))).ToArray();
+                if (bard != null) history.AddRange(ordinaryHistory);
+                var bonusGrants = profile.Grants.Where(g => (g.Kind is GrantKind.BonusChoice or GrantKind.MysticArcanum) && g.Original == e.Original);
+                if (bard != null) bonusGrants = bonusGrants.OrderBy(g => g.Id, StringComparer.Ordinal);
+                foreach (var g in bonusGrants)
+                {
+                    if (!c.Bonus.TryGetValue(g.Id, out var selected))
+                    {
+                        if (!eventComplete) continue;
+                        throw new InvalidOperationException("Missing owner-scoped bonus step.");
+                    }
+                    if (selected.Count != g.Choices || selected.Any(s =>
                         !g.Spells.Any(sp => sp.Id == s && (g.Kind == GrantKind.MysticArcanum || sp.Circle <= profile.MaximumCircles[e.Original - 1])) || known.Contains(s) || cantrips.Contains(s) || bonus.Values.Any(b => b.Contains(s))))
                         throw new InvalidOperationException("Invalid owner-scoped bonus spell choice.");
+                    if (bard != null) bard = bard.LearnSecrets(selected);
                     if (g.StoreInExtra) bonus.Add(g.Id, selected);
                     else
                     {
@@ -256,9 +349,7 @@ internal sealed class MultipleSpellRepertoiresPlan
                 }
                 if (c.Bonus.Keys.Any(k => !profile.Grants.Any(g => g.Id == k && (g.Kind is GrantKind.BonusChoice or GrantKind.MysticArcanum) && g.Original == e.Original)))
                     throw new InvalidOperationException("Foreign bonus choice origin.");
-                history.AddRange(c.Removed.Select(s => OriginFor(s, e.Original, "replacement", true)));
-                history.AddRange(c.Added.Select(s => OriginFor(s, e.Original, profile.Mode == Knowledge.Spellbook ? "spellbook" : "ordinary")));
-                history.AddRange(c.Cantrips.Select(s => OriginFor(s, e.Original, "cantrip")));
+                if (bard == null) history.AddRange(ordinaryHistory);
             }
             return initial.With(new Repertoire(target.Definition, target.ActualLevel, target.Compressed, known, cantrips, previous.Prepared, history, bonus));
         }

@@ -15,14 +15,15 @@ using Plan = SolastaUnfinishedBusiness.Models.MultipleSpellRepertoiresPlan;
 namespace SolastaUnfinishedBusiness.Models;
 
 // Stage13.4: native repertoire ownership/access adapter. No class admission, Pact or second budget.
-internal static class MultipleSpellRepertoiresContext
+internal static partial class MultipleSpellRepertoiresContext
 {
     internal static bool RuntimeEnabled => StandardMulticasterResourcesContext.RuntimeEnabled;
-    private sealed class Source(FeatureDefinition feature, int original, string id, FeatureDefinition[] requiredOptions)
+    private sealed class Source(FeatureDefinition feature, int original, string id, FeatureDefinition[] requiredOptions, string owner)
     {
         internal readonly FeatureDefinition Feature = feature;
         internal readonly int Original = original;
         internal readonly string Id = id;
+        internal readonly string Owner = owner;
         internal Plan.Grant[] Grants = Array.Empty<Plan.Grant>();
         internal readonly FeatureDefinition[] RequiredOptions = requiredOptions;
     }
@@ -44,13 +45,14 @@ internal static class MultipleSpellRepertoiresContext
         internal readonly HashSet<string> Published = new(StringComparer.Ordinal);
         internal readonly Dictionary<string, Tag> Tags = new(StringComparer.Ordinal);
     }
-    private sealed class Tag(string transaction, string owner, string feature, int original, string grant = null)
+    private sealed class Tag(string transaction, string owner, string feature, int original, string grant = null, int revision = 0)
     {
         internal readonly string Transaction = transaction;
         internal readonly string Class = owner;
         internal readonly string Feature = feature;
         internal readonly int Original = original;
         internal readonly string Grant = grant;
+        internal readonly int Revision = revision;
     }
     private static Source[] Sources(IEnumerable<FeatureUnlockByLevel> unlocks, string owner)
     {
@@ -58,7 +60,7 @@ internal static class MultipleSpellRepertoiresContext
         void Walk(FeatureDefinition feature, int original, string path, FeatureDefinition[] selected, HashSet<FeatureDefinition> ancestors)
         {
             if (!ancestors.Add(feature)) throw new InvalidOperationException("Cyclic feature graph: " + owner);
-            result.Add(new Source(feature, original, path, selected));
+            result.Add(new Source(feature, original, path, selected, owner));
             if (feature is FeatureDefinitionFeatureSet set)
                 for (var i = 0; i < set.FeatureSet.Count; i++)
                     Walk(set.FeatureSet[i], original, path + ":" + i,
@@ -85,6 +87,7 @@ internal static class MultipleSpellRepertoiresContext
     }
     private static void CaptureCore()
     {
+        BardSources.Clear();
         var captured = new Dictionary<string, Definition>(StringComparer.Ordinal);
         foreach (var name in new[] { "Bard", "Cleric", "Druid", "Paladin", "Ranger", "Sorcerer", "Wizard", "Warlock", InventorClass.ClassName })
         {
@@ -118,6 +121,7 @@ internal static class MultipleSpellRepertoiresContext
             captured.Add(name, definition);
         }
         definitions = captured; // atomic immutable source publication, before any class projection
+        foreach (var row in BardSources) Main.Info("Bard Secrets source: " + row.Owner + "/" + row.Definition + "@" + row.Original + " " + row.Kind + " amount=" + row.Amount);
     }
     private static Source[] OwnSources(Definition definition, string subclass, RulesetCharacterHero hero) => definition.Sources.Concat(subclass == null
         ? Array.Empty<Source>() : definition.Subclasses.TryGetValue(subclass, out var sources) ? sources
@@ -131,6 +135,7 @@ internal static class MultipleSpellRepertoiresContext
     private static Plan.Grant[] CaptureGrants(Definition definition, Source source)
     {
         var grants = new List<Plan.Grant>();
+        if (CaptureBardGrant(definition, source, out var bardGrant)) { grants.Add(bardGrant); return grants.ToArray(); }
         {
             if (source.Feature is FeatureDefinitionAutoPreparedSpells auto && auto.SpellcastingClass == definition.Owner)
             {
@@ -184,11 +189,13 @@ internal static class MultipleSpellRepertoiresContext
             var known = rep.KnownSpells.AsEnumerable();
             if (p.Mode == Plan.Knowledge.Spellbook) known = known.Concat(rep.EnumerateAvailableScribedSpells());
             var old = session.State.Repertoires.TryGetValue(c.ClassId, out var before) ? before : null;
+            var nativeBonus = rep.ExtraSpellsByTag.Select(x => new KeyValuePair<string, IReadOnlyList<string>>(x.Key,
+                Array.AsReadOnly(x.Value.Select(s => s.Name).Distinct().ToArray()))).ToArray();
+            var bonus = c.ClassId == "Bard" ? BardMagicalSecretsPlan.PreserveOrigins(p, old, nativeBonus) : nativeBonus.AsEnumerable();
             views.Add(new Plan.Repertoire(p, c.ActualClassLevel, c.EffectiveCastingLevel != c.ActualClassLevel ||
                 progression.Input.Classes.Single(i => i.ClassId == c.ClassId).CompressionEnabled,
                 known.Select(s => s.Name).Distinct(), rep.KnownCantrips.Select(s => s.Name).Distinct(), rep.PreparedSpells.Select(s => s.Name).Distinct(),
-                old?.History, rep.ExtraSpellsByTag.Select(x => new KeyValuePair<string, IReadOnlyList<string>>(x.Key,
-                    Array.AsReadOnly(x.Value.Select(s => s.Name).Distinct().ToArray())))));
+                old?.History, bonus));
         }
         session.State = new Plan.HeroState(views); // racial/feat/Secrets list owners never create a class
     }
@@ -275,20 +282,19 @@ internal static class MultipleSpellRepertoiresContext
         if (session.Transactions.Values.Any(t => !t.IsClosed)) throw new InvalidOperationException("Finish or cancel the previous repertoire advancement first.");
         var transaction = new Plan.Transaction(id, session.State, Profile(definitions[classId], subclass, hero), actual, compressed);
         session.Transactions.Add(id, transaction);
-        foreach (var e in transaction.Events)
-        {
-            var tag = "MultiRepertoire:" + id.Length + ":" + id + ":" + e.Original;
-            session.Tags.Add(tag, new Tag(id, classId, definitions[classId].Casting.Name, e.Original));
-            foreach (var grant in transaction.Definition.Grants.Where(g => (g.Kind is Plan.GrantKind.BonusChoice or Plan.GrantKind.MysticArcanum) && g.Original == e.Original))
-                session.Tags.Add(tag + ":" + grant.Id.Length + ":" + grant.Id, new Tag(id, classId, definitions[classId].Casting.Name, e.Original, grant.Id));
-        }
+        RegisterTransactionTags(session, transaction);
         return transaction;
     }
     private static bool TryTag(CharacterHeroBuildingData data, string tag, out Session session, out Tag origin)
     {
         session = null; origin = null;
         if (!RuntimeEnabled || tag == null || !Sessions.TryGetValue(data.HeroCharacter, out session)) return false;
-        if (session.Tags.TryGetValue(tag, out origin)) return true;
+        if (session.Tags.TryGetValue(tag, out origin))
+        {
+            if (origin.Class == "Bard" && origin.Revision != session.Transactions[origin.Transaction].BardRevision)
+                throw new InvalidOperationException("Stale Bard Secrets step revision.");
+            return true;
+        }
         if (tag.StartsWith("MultiRepertoire:", StringComparison.Ordinal)) throw new InvalidOperationException("Stale/foreign repertoire origin.");
         return false;
     }
@@ -311,6 +317,7 @@ internal static class MultipleSpellRepertoiresContext
     internal static void Submit(CharacterHeroBuildingData data, string tag)
     {
         if (!TryTag(data, tag, out var session, out var origin)) throw new InvalidOperationException("Unknown repertoire event.");
+        if (origin.Class == "Bard") { SubmitBardStep(data, session, origin, tag); return; }
         IReadOnlyList<string> Selected(Dictionary<string, List<SpellDefinition>> values, string key) =>
             values.TryGetValue(key, out var spells) ? Array.AsReadOnly(spells.Select(s => s.Name).ToArray()) : Array.Empty<string>();
         var ordinary = session.Tags.Single(t => t.Value.Transaction == origin.Transaction && t.Value.Original == origin.Original && t.Value.Grant == null).Key;
@@ -328,6 +335,7 @@ internal static class MultipleSpellRepertoiresContext
             data.AcquiredSpells.Remove(own); data.AcquiredCantrips.Remove(own); data.UnlearnedSpells.Remove(own);
             foreach (var stack in data.PointPoolStacks.Values) stack.ActivePools.Remove(own);
         }
+        if (origin.Class == "Bard") RebuildBardNative(data, session, session.Transactions[origin.Transaction]);
         return true;
     }
     [HarmonyPatch(typeof(CharacterBuildingManager), nameof(CharacterBuildingManager.GetSpellFeature))]
