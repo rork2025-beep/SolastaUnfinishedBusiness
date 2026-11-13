@@ -161,12 +161,14 @@ internal static class StandardMulticasterResourcesContext
         if (!TryBinding(actor, out var b)) return false;
         if (slots.Keys.Any(c => c is < 1 or > 9)) throw new InvalidOperationException("Pact sentinel/unknown resource is not an ordinary recovery index; use its typed owner.");
         if (b.Budget.Current.CasterLevel == 0 && slots.Count > 0) throw new InvalidOperationException("No standard caster budget to recover; Pact/Arcanum require their own recovery path.");
-        b.Budget.Recover("recovery:" + Guid.NewGuid(), slots); Project(actor, b); return true;
+        throw new SpellResourceOperationPlan.Rejection(SpellResourceOperationPlan.Code.PendingAtomicJournal,
+            "RecoverMissingSlots/selection has no stable originating power/effect identity; use typed recovery preflight");
     }
     internal static bool AddPoints(RulesetCharacter actor, int points)
     {
         if (!TryBinding(actor, out var b) || b.Budget.Current.Mode != ResourcePlan.ResourceMode.SpellPoints) return false;
-        b.Budget.RecoverPoints("point-recovery:" + Guid.NewGuid(), points); Project(actor, b); return true;
+        throw new SpellResourceOperationPlan.Rejection(SpellResourceOperationPlan.Code.PendingAtomicJournal,
+            "Spell Points recovery/native callback lost its action identity; a retry must not mint another receipt");
     }
     internal static bool PrepareRefresh(RulesetCharacter actor)
     {
@@ -181,6 +183,7 @@ internal static class StandardMulticasterResourcesContext
             for (var i = 0; i < feature.AdditionalSlots.Count; i++)
             {
                 var slot = feature.AdditionalSlots[i];
+                SpellResourceOperationsContext.RequireNativeJournal(hero, "additional-slot-condition/funding-and-lifecycle");
                 b.Budget.GrantTemporarySlots("condition:" + condition.Guid + ":" + feature.Name + ":" + i, slot.SlotLevel, slot.SlotsNumber);
                 remove = true;
             }

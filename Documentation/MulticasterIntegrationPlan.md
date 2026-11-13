@@ -1494,3 +1494,62 @@ Executable checks проходят по всем68 source profiles для2014/20
 7. Повторить Bard Secrets, third-caster, auxiliary variants/shared budgets и обычный Warlock с mixed gate OFF. Не снимать gate на основании Cloud compilation/tests.
 
 **Остановка после13.5F;13.6 и13.7 не начаты.**
+
+## 20. Stage13.6 — typed conversions и nonordinary consumers
+
+### 20.1 Baseline / scope
+
+Baseline `fa9fd13d55d5be318065d0f4e9b18c1b7ca4e53d` повторно проверен после infrastructure failure: shell/Git восстановлены, четыре Stage13.6 drafts найдены, сохранены и пересмотрены. Коммит13.5F заново собран и протестирован отдельно от drafts: **16496 checks**, SDK9.0.320, Release Workflow **0 errors/0 warnings**. Generated Mods directory существовал ранее и не включается. Переустановка зависимостей не нужна.
+
+Это delta поверх13.5F. `PactMagicMulticasterContext`, invocation/Adept/Arcanum/Secrets/third-caster/class progression engines не переписаны. В существующий `PactMagicResourcePlan.CastingLedger` добавлена только resource-operation claim: одна logical identity не может одновременно стать ordinary cast и conversion/consumer; allocation/dispatch/spend semantics прежние. **MixedGameplayReady=false**, UI/admission gates и user Settings.xml не изменены. Реальные уровни/история/HP/PB, cap20/class12/classes3 и shared resource index20 сохранены.
+
+Полный source inventory, source-specific mutation order, resource/recharge/identity tables и manual checklist: [SpellResourceConsumersAudit.md](SpellResourceConsumersAudit.md). Raw native IL/game assemblies не коммитятся.
+
+### 20.2 Architecture delta
+
+- `SpellResourceOperationPlan`: одна facade на **тот же** CastingLedger/Standard Budget/Pact Budget; immutable Source/Proof/Request/Receipt, operation-bound native outcome proofs, source-rule fingerprints, actual repertoire/item/counter identities, effective source level и fresh eligibility proof. Native counters не создают native resource pools.
+- Explicit domains: ordinary slots, Spell Points, Pact, Arcanum (conversion запрещена), **отдельные Sorcery Points**, class/invocation/free uses, item charges/stored uses/function counters/item quantity.
+- Preflight всех затрат до mutation, включая power+slot или power+Sorcery. Exactly-once managed commit, stale/conflicting/cancel/rule-change diagnostics, preserved receipts/rest debt, guarded owner expansion; no native rollback/respec/serialization.
+- `SpellResourceConsumerCatalog`: точные conversion/smite/recovery/trade/free/SSI/native power/item/Sorcery source profiles. Native `DescribeRecovery`, `DescribeDevice`, `DescribeStoredCreation` читают actual shapes; не угадывают owner по выбранному классу, общему списку или null repertoire.
+- Existing Standard Budget расширен для временной **slot capacity** (раньше temporary credits были только SP), expiry на long rest, exact circle/count grant identities и authoritative recovery preview. Created SP credit сохраняет native bonus overflow, но не открывает higher class spell access/resource circles.
+- `SpellResourceOperationsContext`: девять native guards за existing OFF gate; никаких new settings/binder/автоматических imports. Native commit остаётся `PendingAtomicJournal`.
+- Bound Standard recovery/AddPoints больше не генерируют новый Guid на retry. Additional-slot conversion требует funding/lifecycle journal перед credit/removal. Gate OFF сохраняет legacy path.
+
+### 20.3 Native findings
+
+Flexible Casting input = explicitly authorized ordinary slot/SP **или Pact**, согласно установленной UB Shift/preference/exhaustion policy. Pact eligibility не выведена из tabletop. Native circle и UI circle фиксируются отдельно: при legacy policy возможна lossy Pact5→Sorcery1, **только explicit verified permission**. Для normal spell/Smite effect-circle mismatch запрещён. Arcanum нельзя преобразовать в Sorcery или shared ninth slot.
+
+Sorcery→slots costs из native cctor **2/3/5/6/7** для1–5; create conditions UntilLongRest; SP mode converts их в bonus points по actual table без native capacity clamp. Sorcery gain отдельно ограничен собственным запасом. Native Sorcery spending также имеет healing/events, поэтому managed receipt не означает safe native rollback.
+
+Legacy Divine Smite использует actual installed dice/weapon/target restrictions;2024 spell variant остаётся в existing owned-spell path. Eldritch Smite сохраняет **Warlock/ClassHolder/Pact-only**. Arcane/Natural/SpellMaster recovery восстанавливают ordinary resource only и реальное power-use ограничение. Cunning/Master сохраняют отдельные Pact original-level formulas. Original hero owner у Druid forms не заменяется новым pool.
+
+Детальный audit исправил опасные упрощения: Artillerist RepayUse возвращает **один** use каждому подходящему Activate power, не full refill; Alchemy callback не clamp, но native CanUsePower запрещает превышение used debt; Haunted Soul Recharge требует **4 Sorcery Points**, а не очередного class-use pool. Wild Resurgence и Slay the Enemies требуют отдельного initiating-power debit.
+
+Free Mark не расходует стандарт/Pact/SP; CastNoCost child не повторяет grant. SSI charges6/cost1/rechargeNone принадлежат item GUID и используют native summoner DC/ability. Зарядившийся предмет не становится дополнительным кастером. Device **Usage**, не Function.ParentUsage, выбирает stack/charges/function-use route; все6 найденных shapes имеют adapters. Native Dawn/LongRest recharge rolls и cooldown expiry — explicit proven events, не free full refill.
+
+### 20.4 M06 acceptance
+
+| Criterion | Backend | Native readiness |
+|---|---|---|
+|M06-01 Independent budgets |**PASS_BACKEND** |W12/Wizard8 =11/73; W12/Inventor8 =6/32, Pact4×5/four separate Arcana. No new standard pool. Overall mixed activation OFF |
+|M06-02 Selection/debit |**PASS_BACKEND** |Previous source/Shift/preference/exhaustion/reaction/upcast/ability/DC suites retained; explicit nonordinary circles/receipts. Publication BLOCKED_PENDING_NATIVE_JOURNAL |
+|M06-03 Recovery |**PASS_BACKEND** |Domain rests, native activation-use limits, Cunning/Master, authoritative preview, no retry-generated GUID. Native GUI/source binding BLOCKED_PENDING_NATIVE_JOURNAL |
+|M06-04 Arcanum |**PASS_BACKEND** |Exact6–9 grants/selected/used, no conversion/upcast/shared debit; persistence BLOCKED_PENDING_NATIVE_JOURNAL |
+|M06-05 Invocation integrity |**PASS_BACKEND** |All previous Stage6/6.1/13.5F event, Boon/Tome/Book/Surge/Adept/prerequisite/Infusion-isolation regressions retained; atomic native grants BLOCKED_PENDING_NATIVE_JOURNAL |
+|M06-06 Conversion/consumer delta |**PASS_BACKEND** |Tested adapters for both conversions, Smite, recovery/trades,15 SpellSlots-form definitions,11 SorceryPoints powers, all observed direct Sorcery families,6 device shapes and generated SSI inventory. Native activation BLOCKED_PENDING_NATIVE_JOURNAL |
+
+Backend acceptance — только resource-domain arithmetic/planning идентифицированных installed families с verified source proofs. Ни один известный legitimate consumer не скрыт под ordinary spell fallback или переименован out-of-scope ради PASS. Unknown/changed source graphs, wrong/missing native ownership, ambiguous pool identities/activation costs, capacity decreases/respec и unverified native events отклоняются явно. Не доказаны Unity activation, combat, native effects/conditions/GUI/rest/inventory/save-load/Harmony execution.
+
+### 20.5 Native journal dependencies (не реализованы)
+
+Действующие guards не заменяют13.7: нужен ранний source/action/effect GUID, exact original-hero binding, current native predicates/costs, atomic multi-domain debit + native effect publication, invocation used flags, native Sorcery healing/events, temporary condition funding/removal/expiry и slot/UI projection, recovery prompt provenance, power/item/overcharge counters, inventory destruction/charges/dawn rolls/clock receipts. Late finished callbacks (Mind Sculpt/Supreme Will/Artillerist/etc.) нельзя считать rollback-safe после damage/item/power publication.
+
+Требуются durable state, save/load rebind, rule snapshot validation, source-scoped feat/invocation/spell/choice grants, cancellation/interruption rollback и explicit respec cleanup. `RefreshOwner` — managed resource expansion с debt preservation, **не** save import или migration. Native UI must still reject unsupported mixed admission; no release activation. Подробная передача и in-game checklist — в audit document. Stage13.7/13.8 не начаты.
+
+### 20.6 Validation
+
+Финальный полный прогон: **17603 checks passed** = **16496 baseline** + **1107 новых** (**895 executed production-model behavior checks**, **212 compiled/definition audits**). SDK **9.0.320**, Release Workflow **0 errors /0 warnings**; полный test project и `git diff --check` проходят. Previous16496 tests сохранены. Ни Unity/native effects/combat/GUI, ни save-load/respec не выполнялись. Полный список11 изменённых файлов и команды — в audit document.
+
+Дополнение к20.3: source audit также охватывает **FeatMetamagicAdept** и **DomainOrder EmbodimentOfLaw**. Метамагия/Seeking/Transmuted могут иметь настоящего non-Sorcerer feat owner; существующий native Sorcery attribute сохраняется, не добавляются классы/slots/repertoires. Adept Bonus2 в actual builder использует AddHalfProficiencyBonus; Domain Order ForceIfBetter1 — UI minimum, отдельные Embodiment uses действительно WIS/LongRest, option cost0. Новый typed adapter учитывает native power use. Native ownership/option predicates обязательны, gameplay по-прежнему OFF.
+
+Pure `ResolveFlexibleInput` отдельно проверяет actual native conversion source policy (оба режима, все source/Shift/preference combinations), не создавая фиктивный known spell. Proof связывает request с теми же domain и двумя circle; source-policy change требует fresh proof. Native UI timing всё ещё13.7.

@@ -164,11 +164,26 @@ internal sealed class PactMagicResourcePlan
     internal sealed class CastingLedger(StandardCasterResourcePlan.Budget standard, Budget pact)
     {
         private readonly Dictionary<string, (Cast Cast, Decision Decision, bool Refunded)> receipts = new(StringComparer.Ordinal);
+        // Resource-only source claims share the existing dispatch owner. This is not a native
+        // effect/persistence journal: it only rejects treating one logical operation as both a
+        // conversion/consumer and an ordinary cast (including a free-use consumer).
+        private readonly Dictionary<string,string> consumerClaims = new(StringComparer.Ordinal);
+        internal bool CanClaimConsumer(string operation,string fingerprint)
+        {
+            Id(operation);
+            return !receipts.ContainsKey(operation) && (!consumerClaims.TryGetValue(operation,out var old) || old==fingerprint);
+        }
+        internal void ClaimConsumer(string operation,string fingerprint)
+        {
+            if(!CanClaimConsumer(operation,fingerprint))throw new InvalidOperationException("Conflicting spell/consumer operation identity.");
+            consumerClaims[operation]=fingerprint;
+        }
         internal StandardCasterResourcePlan.Budget Standard { get; } = standard ?? throw new ArgumentNullException(nameof(standard));
         internal Budget Pact { get; } = pact ?? throw new ArgumentNullException(nameof(pact));
         internal Decision Resolve(Cast cast, bool preferPact, bool shift)
         {
             Id(cast.Operation);
+            if(consumerClaims.ContainsKey(cast.Operation))return new Decision(cast.Requested,cast.Circle,Failure.ConflictingAction);
             if (receipts.TryGetValue(cast.Operation, out var receipt)) return cast.Same(receipt.Cast) && !receipt.Refunded
                 ? receipt.Decision : new Decision(cast.Requested, cast.Circle, Failure.ConflictingAction);
             if (!cast.Authorized || string.IsNullOrWhiteSpace(cast.Owner) || string.IsNullOrWhiteSpace(cast.Feature) || string.IsNullOrWhiteSpace(cast.Spell) || string.IsNullOrWhiteSpace(cast.Ability))

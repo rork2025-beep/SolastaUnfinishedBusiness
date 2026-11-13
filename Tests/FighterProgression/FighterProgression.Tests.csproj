@@ -42,4 +42,6 @@
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/EldritchInvocationSourcesPlan.cs" Link="EldritchInvocationSourcesPlan.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/AuxiliarySpellSourceGraphPlan.cs" Link="AuxiliarySpellSourceGraphPlan.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/EldritchInvocationCatalog.cs" Link="EldritchInvocationCatalog.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/SpellResourceOperationPlan.cs" Link="SpellResourceOperationPlan.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/SpellResourceConsumerCatalog.cs" Link="SpellResourceConsumerCatalog.cs" /></ItemGroup>
 </Project>

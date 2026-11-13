@@ -108,7 +108,8 @@ internal sealed class StandardCasterResourcePlan
         private int epoch;
         private readonly Dictionary<string, Receipt> spent = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> recoveryIds = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, int> temporaryIds = new(StringComparer.Ordinal);
+        private readonly int[] temporarySlots = new int[9];
+        private readonly Dictionary<string, (int Circle, int Count)> temporaryIds = new(StringComparer.Ordinal);
         private readonly HashSet<string> restIds = new(StringComparer.Ordinal);
         private int usedPoints;
         private int bonusPoints;
@@ -124,6 +125,7 @@ internal sealed class StandardCasterResourcePlan
             if (allocation == null || allocation.RegistryVersion != Current.RegistryVersion || allocation.Mode != Current.Mode)
                 throw new InvalidOperationException("Resource rules/mode changed: a new validated session is required.");
             // Recalculate capacities without refilling resources or deleting unavailable-circle debt.
+            for(var c=0;c<9;c++)_=checked(allocation.Slots[c]+temporarySlots[c]);
             Current = allocation;
         }
         internal bool CanSpend(int circle)
@@ -131,8 +133,8 @@ internal sealed class StandardCasterResourcePlan
             Circle(circle);
             if (circle == 0) return true;
             var i = circle - 1;
-            return Current.Slots[i] > 0 && (Current.Mode == ResourceMode.Slots
-                ? usedSlots[i] < Current.Slots[i]
+            return (Current.Slots[i] > 0 || Current.Mode == ResourceMode.Slots && temporarySlots[i] > 0) && (Current.Mode == ResourceMode.Slots
+                ? usedSlots[i] < Current.Slots[i] + temporarySlots[i]
                 : RemainingPoints >= tables.Cost(circle) && (circle < 6 || !highCircleUsed[i]));
         }
         internal bool Spend(string operationId, int circle)
@@ -182,20 +184,44 @@ internal sealed class StandardCasterResourcePlan
             Circle(circle);
             if (circle == 0) return 0;
             return Current.Mode == ResourceMode.SpellPoints ? (CanSpend(circle) ? 1 : 0)
-                : Math.Max(0, Current.Slots[circle - 1] - usedSlots[circle - 1]);
+                : Math.Max(0, Current.Slots[circle - 1] + temporarySlots[circle - 1] - usedSlots[circle - 1]);
         }
         internal bool HighCircleSpent(int circle) { Circle(circle); return circle >= 6 && highCircleUsed[circle - 1]; }
+        internal int TemporarySlots(int circle) { Circle(circle); return circle == 0 ? 0 : temporarySlots[circle - 1]; }
         internal bool GrantTemporarySlots(string sourceId, int circle, int count)
         {
             Id(sourceId); Circle(circle);
-            if (circle == 0 || count < 0 || Current.Mode != ResourceMode.SpellPoints) throw new ArgumentException("Expected temporary SP slot credit.");
+            if (circle == 0 || count < 0) throw new ArgumentException("Expected temporary slot/point credit.");
             var value = checked(tables.Cost(circle) * count);
             if (temporaryIds.TryGetValue(sourceId, out var previous))
             {
-                if (previous != value) throw new InvalidOperationException("Conflicting temporary grant identity.");
+                if (previous.Circle != circle || previous.Count != count) throw new InvalidOperationException("Conflicting temporary grant identity.");
                 return false;
             }
-            bonusPoints = checked(bonusPoints + value); temporaryIds.Add(sourceId, value); return true;
+            if (Current.Mode == ResourceMode.SpellPoints) bonusPoints = checked(bonusPoints + value);
+            else
+            {
+                _ = checked(Current.Slots[circle - 1] + temporarySlots[circle - 1] + count);
+                temporarySlots[circle - 1] = checked(temporarySlots[circle - 1] + count);
+            }
+            temporaryIds.Add(sourceId, (circle, count)); return true;
+        }
+        // Preview uses the same authoritative debt/capacity as Recover, including bonus credits
+        // and capacity decreases. RemainingPoints alone cannot reveal the recoverable debt.
+        internal int PreviewRecovery(IEnumerable<KeyValuePair<int, int>> slots)
+        {
+            var values = slots?.ToArray() ?? throw new ArgumentNullException(nameof(slots));
+            foreach (var value in values)
+            {
+                Circle(value.Key);
+                if (value.Key == 0 || value.Value < 0) throw new ArgumentException("Invalid recovery.");
+            }
+            if (Current.Mode == ResourceMode.SpellPoints)
+            {
+                var amount = values.Aggregate(0, (sum, x) => checked(sum + checked(tables.Cost(x.Key) * x.Value)));
+                return Math.Max(0, Current.PointMaximum - Math.Max(0, usedPoints - amount)) - Math.Max(0, Current.PointMaximum - usedPoints);
+            }
+            return values.Sum(x => Math.Max(0, Current.Slots[x.Key - 1] + temporarySlots[x.Key - 1] - Math.Max(0, usedSlots[x.Key - 1] - x.Value)) - RemainingSlots(x.Key));
         }
         internal void Recover(string operationId, IEnumerable<KeyValuePair<int, int>> slots)
         {
@@ -233,7 +259,7 @@ internal sealed class StandardCasterResourcePlan
         {
             Id(operationId);
             if (simulate || !restIds.Add(operationId) || !longRest) return;
-            Array.Clear(usedSlots, 0, usedSlots.Length); Array.Clear(highCircleUsed, 0, highCircleUsed.Length);
+            Array.Clear(usedSlots, 0, usedSlots.Length); Array.Clear(highCircleUsed, 0, highCircleUsed.Length); Array.Clear(temporarySlots, 0, temporarySlots.Length);
             usedPoints = 0; bonusPoints = 0; epoch++;
             // Keep operation/grant receipts: callbacks from an earlier action/removed condition may
             // arrive after rest. They must not debit/refill the new budget again.
