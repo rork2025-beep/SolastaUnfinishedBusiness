@@ -1420,3 +1420,77 @@ Warlock/Pact/paid-invocation/Bard Secrets/third-caster engines, class caps и se
 8. Gate OFF сравнить с обычным native leveling/casting. Native feats/styles/invocations, save/load/respec/rollback здесь **не проверены**.
 
 **Остановка после13.5E-2;13.6/13.7 не начаты.**
+
+## 19. Stage13.5F — Eldritch Adept coverage и закрытие M05-05 backend
+
+Baseline повторно подтверждён на `7be760f2bc144c3dd31d1f0c40262fcf4f0fdcd3`: SDK9.0.320, **13350 checks passed**, Release Workflow0 errors/0 warnings. Feature branch, tracked clean; pre-existing generated Mods output не коммитится. Прочитаны матрицы16–18, actual source registry, invocation/pact/auxiliary plans, UI/transaction validators и tests13.5E-1/E-2.
+
+### 19.1 Exact coverage и evidence
+
+Полный per-definition audit: [AuxiliarySpellSourcesRegistry.md, Stage13.5F](AuxiliarySpellSourcesRegistry.md#stage135f--полный-eldritch-adept-candidate-audit). **68 standard definitions =63 base +5 WithPrerequisites**; custom pools не входят в native Adept UI. InvocationStasis явно disabled для нового выбора,67 остальных — потенциально legal при native prerequisites/visibility/configuration. Actual capture не включает hidden entries автоматически.
+
+Legacy typed counts: Passive3, Feature28, Power10, Choice2, AtWillSpell11, LimitedSpell8, PaidSpell6;2024 OneWithShadows меняет feature на power. Snapshot resources/grants сверены с builders/registration и actual compiled ABI. Это exhaustive available installed-source audit, **не выполнение Unity DB/casts**; runtime capture повторяет чтение final definitions, fail-closed при изменении shape/unknown validator.
+
+`ArmorOfShadows` закрыт как точный native at-will route с verified invocation-access repertoire. Остальные legitimate at-will/limited/power/feature/choice definitions не остались на blanket Unsupported. Для non-Warlock сохраняются actual level/pact/known-spell constraints; отсутствие нужного native repertoire/pool не создаёт Warlock capabilities. Native constructor действительно выбирает existing unique-slot repertoire; selected class/общий spell list не определяют владельца.
+
+Production changes:
+
+- `EldritchInvocationCatalog` — audited registered IDs/graph shapes/validator rules. Не классифицирует похожие названия best-effort. Final required level/pact/known spell, feature IDs и power data берутся из actual source.
+- `EldritchInvocationSourcesContext` — typed descriptors из native DB после switches; пять известных delegate bindings, raw power cost/uses/recharge/action/ability, ClassHolder/trigger. Actual hidden/disabled/custom membership фиксируется как acquisition availability, не как удаление confirmed native features.
+- `EldritchInvocationSourcesPlan` — distinct kinds и resource domains, actual-Warlock/proven repertoire/validator checks, one effective grant per invocation при независимых claims. NativePowerProof проверяет реальную принадлежность power/feature/pool/available uses; не создаёт новый pool.
+- Существующий PaidLedger использует **тот же coordinator** для paid six, typed free branches для11 at-will/8 limited. Не суммирует SP, не преобразует powers в spells, не обнуляет debt при refresh/retraining. NativeRoute — только checked plan, Commit остаётся blocked.
+- Adept Selection включает Source-local Auxiliary Selection для Tome/Book, independent choice origin/budgets; known duplicate origin не даёт второй effective grant или N choices. Fresh owner revision инвалидирует pending choice. Confirmed additional origins требуют отдельного exact acquisition proof.
+- `PrepareRemoval`/`BeginReplacement` проверяют post-removal claims и prerequisites до публикации, поддерживают nested choice selection; actual native cleanup не реализуется. `ReplaceAdept` — convenience managed path, не respec API.
+
+### 19.2 Финальная M05 acceptance
+
+| Criterion | Backend | Native readiness |
+|---|---|---|
+|M05-01 Legacy Secrets |**PASS** |Прежние event/college/ownership suites сохранены; atomic publication ждёт13.7 |
+|M05-02 Bard2024 expanded lists |**PASS** |Own-level/list gates и regressions сохранены; runtime activation не включён |
+|M05-03 Secrets transactions/origins |**PASS** |Source-local chronology/cancel/repeat/stale regressions сохранены; durable native journal ещё нет |
+|M05-04 Third-caster subclasses |**PASS** |Все4 registered profiles и guards сохранены; compressed Fighter magic не включается |
+|M05-05 Auxiliary source coverage |**PASS — backend only** |Все identified installed candidates имеют tested typed adapter; disabled/custom/unknown/invalid-owner cases имеют конкретную причину отказа. Ни один legal registered option не исключён ради PASS. Native power/spell/choice publication и costs/conditions требуют13.7 |
+|M05-06 Early unknown-source validation |**PASS** |Существующий early feat/invocation/root preflight и fail-closed guards сохранены; unknown/malformed/changed descriptors не проходят |
+
+**Stage13.5 можно принять как завершённый backend этап.** Это не native runtime readiness и не разрешение mixed-caster gameplay. M05-05 PARTIAL из исторического §18 заменён новым PASS только после audited coverage/tests, а не только потому, что build прошёл. MixedGameplayReady=false; class12/total20/classes3, actual HP/PB/history, shared cap20, independent repertoire и Pact domains сохранены. Новых public settings нет.
+
+### 19.3 Remaining Stage13.7 dependencies
+
+1. Перенести source/acquisition claims и exact additional-origin evidence в durable native journal; не восстанавливать происхождение из selected class или merged native tag.
+2. До native TrainFeat/TrainInvocation/grant/finalize связать choices с original source, revalidate текущие visibility/disabled/rules и fresh owner state. Boot-time descriptor не заменяет live candidate validation после изменения настроек.
+3. Для paid/free spell activation связать action/effect GUID, actual invocation repertoire, cost/used flags и native side effects атомарно. Native Consume sets used before debit; existing four guards сохранены.
+4. Для powers/features связывать NativePowerProof с текущим usable-power owner/pool/cost/modifiers, target/action validators, reactions, conditions/companions/special-feature counters. NativeRoute.Commit намеренно запрещён. Eldritch Smite не становится ordinary spell или free SP conversion.
+5. Сохранить native resource debt через repeated grants/rests/refresh, feat removal/replacement; rollback side effects только на доказанной границе. Fresh post-removal prerequisites нужны до удаления native features. Здесь только pure prepared plans.
+6. Confirmed choices, native inventories/conditions, save-load/respec и atomic rollback требуют Unity testing и13.7. Никаких automatic migrations, settings overwrite или native respec implementation здесь нет.
+
+### 19.4 Validation / изменённые файлы
+
+Финальный полный прогон: **16496 checks passed** = **13350 baseline** + **3146 новых** (**3134 executed production behavior checks**, **12 installed-definition/compiled audits**). SDK **9.0.320**. Release Workflow: **0 errors /0 warnings**. Полная команда `dotnet run --project Tests/FighterProgression/FighterProgression.Tests.csproj` проходит; `git diff --check` чистый. Зависимости не переустанавливались.
+
+Executable checks проходят по всем68 source profiles для2014/2024, class/feat origins, NativePower/Feature/Choice routes, true/false prerequisites, hidden/disabled acquisition vs confirmed ownership, Native Hex/Devouring rules, additional-origin dedup, removal/replacement/owner refresh, stale/invalid selection, at-will/limited/paid spending, rest/cancel и choice budgets. Slot/SP tests используют compiled native tables и existing coordinator;13.5E-1 paid exhaustion/Warlock-only/Paladin/Sorcerer tests выполнены без изменения assertions. Compiled audits отдельно подтверждают пять validator delegates, ClassHolder.Warlock, native unique-slot invocation constructor и production classifier/choice bindings. Это не запуск native casts/powers/Harmony, rests, GUI, respec или save-load в Unity.
+
+Изменения:
+
+- `SolastaUnfinishedBusiness/Models/EldritchInvocationCatalog.cs` — полный source shape catalog и общий classifier production/tests.
+- `SolastaUnfinishedBusiness/Models/EldritchInvocationSourcesPlan.cs` — kinds, prerequisites, resource routes, effective grants, ownership/replacement/choice plans.
+- `SolastaUnfinishedBusiness/Models/EldritchInvocationSourcesContext.cs` — actual native descriptor capture, прежние journal guards.
+- `Tests/FighterProgression/EldritchAdeptCoverageTests.cs` — exhaustive option/owner/activation/resource/choice cases и отдельные native/compiled audits.
+- `Tests/FighterProgression/FighterProgression.Tests.csproj`, `Program.cs` — model link и runner.
+- `Documentation/AuxiliarySpellSourcesRegistry.md`, `Documentation/MulticasterIntegrationPlan.md` — exhaustive matrix и новая acceptance.
+
+Все предыдущие tests13.5E-1/E-2/Bard/Pact/third-caster/class suites сохранены. Никакие game assemblies, generated DLLs, settings или saves не включаются. Commit/push SHA — в итоговом сообщении.
+
+### 19.5 Manual acceptance после native journal
+
+Только новые heroes/отдельные saves после готовности нужных activation stages:
+
+1. ArmorOfShadows: настоящий Warlock repertoire/CHA/circle, отсутствие SP/Pact debit; обе системы ресурсов пусты. Owner без invocation access должен получить diagnostic до grant.
+2. Каждая включённая standard invocation: actual RequiredLevel/pact/known spell/custom validator; сравнить2014/2024 levels, visibility и alternate OneWithShadows. Hidden Stasis нельзя выбрать заново; confirmed legacy feature не исчезает из-за UI visibility.
+3. Все paid six: source/circle/Shift, exhausted budgets, once-per-long-rest use, short/long/repeated rest, action repeat/conflict/cancel. Никакого double debit или free paid cast.
+4. Native powers/features: реальные actions/reactions, target validators, CHA/actual class scaling, charges/pool/counters, companions и condition ownership; EldritchSmite native slot receipt. Ни нового repertoire, ни fake spell cost.
+5. Tome/Book:3 cantrips/2 rituals, exact lists/tags, no ordinary paid ritual conversion; pending Back/Cancel/Reset, повтор finalize, второй legitimate origin не создаёт новый choice budget.
+6. Feat/class origins: removal одной claim оставляет другую; fresh post-state проверяет surviving pact/Hex dependencies; A→B→A не refills resource debt. Native cleanup/save-load/respec не считать подтверждёнными до фактических tests.
+7. Повторить Bard Secrets, third-caster, auxiliary variants/shared budgets и обычный Warlock с mixed gate OFF. Не снимать gate на основании Cloud compilation/tests.
+
+**Остановка после13.5F;13.6 и13.7 не начаты.**
