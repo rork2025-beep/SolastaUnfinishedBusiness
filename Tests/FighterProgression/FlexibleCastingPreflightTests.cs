@@ -16,11 +16,11 @@ internal static class FlexibleCastingPreflightTests
     private static readonly int[] Full={1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,9,9};
     private static readonly int[] Costs={2,3,5,6,7};
     private static IEnumerable<TypeDefinition> Types(TypeDefinition t)=>new[]{t}.Concat(t.NestedTypes.SelectMany(Types));
-    private sealed class Fixture
+    internal sealed class Fixture
     {
         internal readonly P.CastingLedger Resources;internal readonly O.Counter Sorcery;internal readonly F Model;
         internal readonly F.Authority Authority;internal string Rules="rules1",Casting="CastSpellSorcerer",Owner="17",Repertoire="17/CastSpellSorcerer";
-        internal int Actual=8,Effective=11,NativeSorcery,NativePowerUses=1;internal bool Eligible=true,Preference;
+        internal int Actual=8,Effective=11,NativeSorcery,NativePowerUses=1,NativeRefunds=0;internal bool Eligible=true,Preference;
         internal string[] Conditions={"original-condition"};internal int[] NativeCosts=Costs.ToArray();
         internal Fixture(S.ResourceMode mode,string other,bool create=false,int? sorcery=null)
         {
@@ -42,7 +42,7 @@ internal static class FlexibleCastingPreflightTests
                 Resources.Standard.Current.Mode==S.ResourceMode.SpellPoints?1:0,Resources.Standard.Current.PointMaximum,Resources.Standard.RemainingPoints,NativeCosts,Conditions.Concat(new[]{"powerUses:"+NativePowerUses}),Preference);
         }
         internal string Balances()=>Resources.Standard.RemainingPoints+"/"+string.Join(",",Enumerable.Range(1,9).Select(c=>Resources.Standard.RemainingSlots(c)+":"+Resources.Standard.TemporarySlots(c)+":"+Resources.Standard.HighCircleSpent(c)))+
-            "/"+Resources.Pact.Remaining+"/"+Sorcery.Remaining+"/"+NativeSorcery+"/"+NativePowerUses+"/"+string.Join(",",Conditions)+"/"+string.Join(",",Enumerable.Range(6,4).Select(Resources.Pact.ArcanumUsed));
+            "/"+Resources.Pact.Remaining+"/"+Sorcery.Remaining+"/"+NativeSorcery+"/"+NativePowerUses+"/"+NativeRefunds+"/"+string.Join(",",Conditions)+"/"+string.Join(",",Enumerable.Range(6,4).Select(Resources.Pact.ArcanumUsed));
     }
     internal static void Run(Action<bool,string> check,AssemblyDefinition game,AssemblyDefinition mod)
     {
@@ -109,6 +109,7 @@ internal static class FlexibleCastingPreflightTests
             }
         }
         Finalization(B);Bindings(A,game,types);
+        FlexibleCastingInvocationTests.Run(check,game,types);
         Console.WriteLine($"Stage13.7A: {behavior} executed preflight/model checks; {metadata} compiled/definition audits; no Unity execution.");
     }
     private static void Finalization(Action<bool,string> b)
@@ -124,7 +125,11 @@ internal static class FlexibleCastingPreflightTests
         NativeGrantIfAllowed(false,true,true,tx);b(grants==1,"gate OFF preserves ordinary single-caster finalization path");
         NativeGrantIfAllowed(false,false,true,null);b(grants==2,"gate OFF does not inspect missing mixed drafts");
         b(SorcererFinalizePreflight.Inspect(true,true,false,null)==SorcererFinalizePreflight.Result.PassThrough,"narrow safeguard does not reimplement other-class finalization");
-        tx.Cancel();b(SorcererFinalizePreflight.Inspect(true,true,true,tx)==SorcererFinalizePreflight.Result.IncompleteLearning,"cancelled Sorcerer draft rejected without publication");
+        tx.Cancel();b(!SorcererFinalizePreflight.IsSorcererDraft("Wizard","Wizard",true,new[]{tx}),"later Wizard draft is not a stale Sorcerer draft");
+        b(!SorcererFinalizePreflight.IsSorcererDraft("Wizard","Sorcerer",true,new[]{tx}),"current Wizard selection wins over old Sorcerer history");
+        b(!SorcererFinalizePreflight.IsSorcererDraft(null,"Wizard",true,new[]{tx}),"known current assigned Wizard ignores closed Sorcerer claim");
+        b(SorcererFinalizePreflight.IsSorcererDraft("Sorcerer","Wizard",true,Array.Empty<R.Transaction>()),"Sorcerer advancement without transaction is still guarded");
+        b(SorcererFinalizePreflight.IsSorcererDraft(null,null,true,Array.Empty<R.Transaction>()),"missing current-class evidence stays fail closed");b(SorcererFinalizePreflight.Inspect(true,true,true,tx)==SorcererFinalizePreflight.Result.IncompleteLearning,"cancelled Sorcerer draft rejected without publication");
     }
     private static void Bindings(Action<bool,string> a,AssemblyDefinition game,TypeDefinition[] types)
     {
@@ -154,10 +159,10 @@ internal static class FlexibleCastingPreflightTests
         var names=finalizer.Body.Instructions.Where(i=>i.Operand is MethodReference).Select(i=>((MethodReference)i.Operand).Name).ToArray();
         a(names[0]=="ValidateSorcererFinalizeEntry"&&Array.IndexOf(names,"ValidateSorcererFinalizeEntry")<Array.IndexOf(names,"GrantCustomFeaturesFromFeats"),"direct native finalizer checks Sorcerer draft before feature grants");
         var sourcePrefix=context.NestedTypes.Single(t=>t.Name=="SourceScopePatch").Methods.Single(m=>m.Name=="Prefix");
-        a(sourcePrefix.Body.Instructions.Any(i=>i.Operand is MethodReference r&&r.Name=="RegisteredFor"),"native source requires actual registered effect identity, not persistent-power membership or a guessed GUID");
+        a(sourcePrefix.Body.Instructions.Any(i=>i.Operand is MethodReference r&&r.Name=="RegisteredFor"),"native source requires issued registered/transient authority, not persistent-power membership or a guessed GUID");
         var campaign=game.MainModule.Types.Single(t=>t.Name=="GameCampaignCharacter").Methods.Single(m=>m.Name=="UsePower");
         var cc=campaign.Body.Instructions.Where(i=>i.Operand is MethodReference).Select(i=>(MethodReference)i.Operand).ToArray();
-        a(cc.Any(r=>r.Name=="InstantiateEffectPower")&&cc.Any(r=>r.Name=="ApplyEffectForms")&&!cc.Any(r=>r.Name.Contains("Register")||r.Name.Contains("Guid")),"campaign route has no proven source GUID registration before ApplyEffectForms (blocked, not runtime-ready)");
+        a(cc.Any(r=>r.Name=="InstantiateEffectPower")&&cc.Any(r=>r.Name=="ApplyEffectForms")&&!cc.Any(r=>r.Name.Contains("Register")||r.Name.Contains("Guid")),"campaign source has no registry proof from constructor alone; exact transient entry adapter required");
         var rpc=game.MainModule.Types.Single(t=>t.Name=="NetworkingManager").Methods.Single(m=>m.Name=="CreateSpellSlotRPC");
         a(rpc.Parameters.Count==4&&rpc.Parameters.Last().ParameterType.FullName=="System.String","network payload is tick/hero/level/feature, no effect or unique conversion identity");
         var tick=game.MainModule.Types.Single(t=>t.Name=="NetworkTick").Methods.Single(m=>m.Name=="get_CommandTick");

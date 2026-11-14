@@ -9,8 +9,10 @@ namespace SolastaUnfinishedBusiness.Models;
 // 13.7A: ephemeral pre-dispatch identity and proof, not a native spend/persistence journal.
 internal sealed class FlexibleCastingPreflightPlan
 {
-    internal sealed class Authority(string hero, string effect, string repertoire, bool createSlot, bool ownedEffect)
+    internal enum SourceProofKind { RegisteredEffect, TrustedCampaignInvocation }
+    internal sealed class Authority(string hero, string effect, string repertoire, bool createSlot, bool ownedEffect,SourceProofKind sourceKind=SourceProofKind.RegisteredEffect)
     {
+        internal SourceProofKind SourceKind { get; }=sourceKind;
         internal string Hero { get; } = hero;
         internal string Effect { get; } = effect;
         internal string Repertoire { get; } = repertoire;

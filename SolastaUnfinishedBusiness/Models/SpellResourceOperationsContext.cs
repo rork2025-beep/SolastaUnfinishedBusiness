@@ -74,6 +74,7 @@ internal static class SpellResourceOperationsContext
         internal static void Prefix(RulesetCharacter __0, RulesetUsablePower __1)
         {
             if(!StandardMulticasterResourcesContext.RuntimeEnabled)return;
+            if(FlexibleCastingPreflightContext.AllowCampaignSourceConstructor(__0,__1))return;
             RequireNativeJournal(__0, "power-preflight:" + __1?.PowerDefinition?.Name);
         }
     }

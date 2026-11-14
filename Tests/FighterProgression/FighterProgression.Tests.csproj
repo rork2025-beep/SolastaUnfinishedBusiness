@@ -48,4 +48,5 @@
     <Compile Include="../../SolastaUnfinishedBusiness/Models/FlexibleCastingPreflightPlan.cs" Link="FlexibleCastingPreflightPlan.cs" />
     <Compile Include="../../SolastaUnfinishedBusiness/Models/SorcererFinalizePreflight.cs" Link="SorcererFinalizePreflight.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/FlexibleCastingInvocationPlan.cs" Link="FlexibleCastingInvocationPlan.cs" /></ItemGroup>
 </Project>

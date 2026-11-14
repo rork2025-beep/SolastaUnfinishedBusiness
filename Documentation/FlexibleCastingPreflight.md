@@ -1,3 +1,5 @@
+> **Текущее состояние — Stage 13.7A.2:** см. раздел в конце документа. Есть typed authority для registered и проверенного base campaign transient effect, явный локальный identity-only envelope и fail-closed receiver. Native network/ordinary action completion остаются blocked; **Stage 13.7A not ready**. Описание 13.7A ниже сохранено как история baseline. В частности, прежний cached proof после termination заменён строгой проверкой lifetime и актуального registry membership.
+
 # Stage13.7A — native identity / Flexible Casting preflight
 
 ## Baseline и область
@@ -121,3 +123,111 @@ Regression failure during development was the calculator isolation assertion: fi
 - `Documentation/MulticasterIntegrationPlan.md`
 
 No generated/proprietary binaries, settings, saves, worktree or release changes. Commit/push to feature branch only, SHA/result in final report.
+
+## Stage 13.7A.2 — source identity и command transport
+
+### Baseline / результат
+
+Работа начата с `0ee69c803b7d4937ddbf42c784087dbf8eb9ec68`, branch `feature/progression-20-to-12`. Tracked tree был чист; существующий untracked `SolastaFiles/Mods/` сохранён. SDK **9.0.320**, baseline build **0 errors / 0 warnings**, **18 196 checks passed**, diff check clean. Зависимости повторно не устанавливались. Ранее сообщённые 17 603 относятся к Stage13.6, не к starting commit13.7A.
+
+**Stage 13.7A not ready:** отсутствует безопасный in-band native network authority transport и атомарный native journal. Новый код — bounded process-local preflight, не разрешение исполнять conversion. MixedGameplayReady=false, public switch отсутствует, CommitNative неизменно PendingAtomicJournal. Save/load, Respec, native commit и mixed gameplay disabled/unverified.
+
+### Установленный native порядок (Cecil / definitions, не Unity)
+
+| Route | Сигнатуры / точный порядок | Registry / lifetime |
+|---|---|---|
+| Ordinary location UI | `CharacterActionPanel.PowerEngaged(RulesetUsablePower)` → `IRulesetImplementationService.InstantiateEffectPower(RulesetCharacter,RulesetUsablePower,bool)` → `CharacterActionParams.RulesetEffect` → `ExecuteEffectOfAction` / command/action queue | Setter RulesetEffect только сохраняет reference; не регистрирует. Location override вызывает `HandleEffectRegistration(effect,delay)` |
+| Location registration | `RulesetImplementationManagerLocation.HandleEffectRegistration(RulesetEffect,bool)` | Записывает DelayEnvironmentRegistration. При false: `effect.Register(true)` → entity service GenerateGuid/RegisterEntity и RegisterPersonalEffect. При true регистрация отложена |
+| Action start | `GameLocationActionManager.StartNextActionFromCurrentQueue` → `CharacterActionParams.SignalActionStarting()` → ExecuteActionAsync | SignalActionStarting регистрирует effect с delay=true и guid=0, кроме исключённого native action parameter. Сам факт constructor/UsablePower/ненулевого поля proof не заменяет |
+| Ordinary effect application | `CharacterActionMagicEffect.ExecuteImpl` → power effect forms → ApplySpellSlotsForm → UB ShowFlexibleCasting | Capture prefix принимает только actual TryGetEntity GUID→**тот же object**, принадлежащий actor/original hero и actual usable power. Existing13.6 action guard по-прежнему не пропускает native power action к effects. Полный ordinary GUI flow не разблокирован |
+| Base campaign | `GameCampaignCharacter.UsePower(RulesetUsablePower)` → base InstantiateEffectPower → FillSource/FillFromActiveEffect → ApplyEffectForms → **RulesetCharacter.UsePower** | Base factory только создаёт RulesetEffectPower, без Register/GenerateGuid. RulesetEntity ctor создаёт attribute dictionary; RegisterAttributes — не registry proof. Campaign method сам не вызывает Terminate. Поэтому нужен отдельный transient authority |
+| Constructor resource safety | `RulesetEffectPower(RulesetCharacter,RulesetUsablePower,RulesetItemDevice,RulesetDeviceFunction)` | Сохраняет userId/usablePower/sourceDefinition/remaining duration. ForceSpentPoints имеет отдельные ветви recharge8/11/14; AtWill их обходит (проверено IL). Допускается только exact registered Flexible power с AtWill, Instantaneous, единственной нужной CreateSpellSlot/CreateSorceryPoints form. Source effect construction не означает resource commit |
+| Termination | `CharacterActionUsePower.PersistantEffectAction()` | Для instantaneous/nonongoing effect вызывает Terminate(false), а не AddActivePower. Terminate ставит Terminated=true, ClearCasterInfo, TerminateEffect, Unregister. После этого proof отклоняется; PowersUsedByMe не используется как authority |
+| Modal callback | ShowFlexibleCasting(originalHero,actualSorcererRepertoire,create) → OnConvertCb | Prefix выполняется до скрытия native buttons, AutoHide, dispatch и spending; читает Shift в этот момент. Старый UB postfix не выдаёт более раннюю Shift identity |
+| Native local | `IMagicCommandService.CreateSpellSlot/CreateSorceryPoints(RulesetCharacter,int,RulesetSpellRepertoire)` → LocalCommandManager → RulesetCharacter.Create* | Нет effect/invocation/command ID; остаётся blocked, даже если owner/level совпали с pending modal |
+| Native network | NetworkingManager.Create* → Create*RPC(long tick,ulong hero,int circle,string castingFeature) → Create*Async → local Create* | Нет trusted invocation ID/source reference/authority acknowledgement. Tick — MaxTick+send buffer, не уникальный allocation. Effect payload в другом ExecuteActionRPC не связывает поздний Create*RPC с конкретной conversion. Нельзя восстановить proof по timing/hero/circle/feature |
+
+Base campaign adapter дополнительно требует **exact service implementation type RulesetImplementationManager**, LocalCommandManager и ActivePlayerController.IsCharacterControlled(originalHero). Location override / неизвестный derived service / сетевой campaign отклоняются **до constructor**: их отдельные registration/execution seams не подменяются base proof. Зарегистрированный GUID-путь сохранён отдельно для пригодного actual action source.
+
+### Создание authority и транспорт
+
+1. Prefix `FlexibleCastingCampaignPatches.EntryPatch` стоит на exact `GameCampaignCharacter.UsePower`. Проверяет original hero reference (не подменённый/transformed actor), usable power membership, actual Sorcerer repertoire, native feature authority, definition и безопасную shape.
+2. Только здесь `FlexibleCastingInvocationPlan.BeginCampaign` вызывает injected issuer; production issuer — Guid.NewGuid. `campaign:<nonce>` создаётся **один раз на power-use entry**. Zero/reused ID отклоняется. Повтор modal callback / command receive **не создаёт ID**.
+3. Синхронный CampaignEntry scope разрешает ровно один constructor для exact actor+usable reference. Factory postfix привязывает exact result object, SourceGuid, actual power definition, no item origin, !Terminated. Missing/ambiguous result отклоняется. Помимо definition проверяется final effect description после native constructor / UB modifiers: только одна соответствующая conversion form, никаких других effects. Scope не является command transport и снимается finally даже при ошибке UI cleanup.
+4. Для зарегистрированного effect authority вида `registered:<hero>:<effectGuid>` выдаётся только после actual entity registry lookup с reference equality. Повтор exact proof возвращает authority, чужой reference с тем же GUID отклоняется. Lifetime lambda перепроверяет !Terminated и current TryGetEntity reference при каждом использовании.
+5. ApplySpellSlotsForm scope переносит **выданный source authority** в точный ShowFlexibleCasting вызов. Registry привязывает exact modal instance. Другая живая invocation не может перезаписать modal. Смена hero/repertoire/power/direction/source GUID или потеря usable power отклоняется.
+6. Source authority различает RegisteredEffect / TrustedCampaignInvocation. Preflight command ID детерминирован из **выданной invocation**, original hero и направления. Prepare использует существующие FlexibleCastingPreflightPlan → SpellResourceOperationPlan.Prepare и тот же Standard/Pact ledger. Sorcery snapshot остаётся отдельным counter; новый resource budget не создаётся.
+7. OnConvertCb создаёт immutable typed Envelope: command ID, invocation ID, hero/repertoire ID, source kind, registered native GUID (null для transient), definition, direction, UI circle, actual input circle, input/output domains, effective cost, immutable request fingerprint. FundingIdentity temporary slot остаётся в привязанном ticket того же operation; condition не создаётся.
+8. Вызывается явный **`ReceiveLocalCommand(Envelope)`** — новый mod-local identity-only seam. Receiver ищет issued origin по invocation ID, не по hero/level/latest effect. Затем registry проверяет все поля структурно, exact owner/effect/repertoire references, current ticket, live state, rules/cost/resources. Envelope может быть скопирован или доставлен позже внутри того же процесса, но proof заново валидируется.
+9. Acknowledgement имеет `PreflightValidatedPendingAtomicJournal`, NativeCompleted=false, ParentCompleted=false. Это **не** acknowledgement native spending или completed parent. В prefix BlockNativeCommit повторно валидирует ticket и вызывает существующий всегда блокирующий native boundary. CommitManaged не вызывается.
+10. Narrow campaign transpiler заменяет единственный native parent UsePower call на HoldOrUseCampaignPower: только для проверенной gated Flexible invocation родитель удерживается без Consume/PowerActivated/refund. Для gate OFF/другого power вызов actor.UsePower сохраняется. Если exact modal не был открыт, finalizer закрывает authority и возвращает structured rejection. Другие action parents не разблокированы.
+
+Ни serialized native protocol, ни Photon RPC handler не добавлены. Нового сетевого транспорта **нет**. Вызов ReceiveLocalCommand при NetworkingManager и model Receive(network:true) отклоняются PendingAtomicJournal; неизвестные legacy local Create* также blocked. In-process deferred delivery проверена моделью очереди, не реальным native coroutine/network transport.
+
+### Повторы, отмена, rejection
+
+- Один source разрешает максимум один conversion intent. Identical Prepare возвращает тот же envelope; duplicate receive — тот же acknowledgement **после** live revalidation. Conflicting fields/Shift/circle/cost/direction не создают заменяющий ID.
+- Две одновременные invocation одного hero на одном circle получают разные IDs; exact modal overwrite запрещён. Существующий one-pending-operation-per-hero guard сохранён: вторая подготовка blocked до отмены первой, без повреждения первой. Это ограничение preflight, не одновременный native commit.
+- Cancel/Rejected/Expired — terminal; поздние delivery/retry отклоняются. Expired exact effect закрывает ticket. Изменение rules/cost/Sorcery/Standard/Pact/conditions/power uses закрывает stale ticket до ack.
+- Поддельный/неизвестный packet не отменяет чужой легитимный ticket. Native UI failure закрывает только свой source/modal. Повтор terminal close idempotent.
+- Rejection/Cancel скрывает собственный modal через Hide(true), не OnCancelCb. Native OnCancelCb содержит RefundActionUse и **не вызывается**. OnBeginHide/OnEndHide проверены как UI cleanup без прямых resource/refund calls; их реальный Unity lifecycle не выполнялся. Pending success оставляет modal явно незавершённым и пишет PendingAtomicJournal; native Convert callback не выполняется.
+- Не выполняются native debit, Sorcery gain, temporary AdditionalSpellSlot publication, healing, recovery, PowerActivated, parent success или refund. Нет global inventory/resource rollback, save migration, нового публичного setting или native durable journal.
+- Registry/tombstones существуют только в памяти процесса. Они не сериализуются; состояние после restart/save-load не поддерживается. Конкурентный multi-threaded dispatcher не реализован: native Unity UI/local entry ожидает main thread; сетевой receiver недоступен.
+
+### Narrow finalization regression
+
+В baseline predicate учитывал **любую**, включая cancelled/closed, Sorcerer transaction. Executed regression сначала воспроизвела ошибку: последующий выбранный Wizard считался incomplete Sorcerer draft. Predicate извлечён в production SorcererFinalizePreflight.IsSorcererDraft и исправлен: explicit selected class определяет текущий draft; закрытая историческая Sorcerer claim не перебивает новый Wizard. При отсутствии selected используются active Sorcerer transaction / текущий assigned class; отсутствие достоверного current class остаётся fail-closed.
+
+Incomplete текущий Sorcerer по-прежнему rejected до grants, complete — PendingAtomicJournal; gate-OFF single-caster не меняется. Общий ValidateBeforeFinalize не изменён: stale/cancelled transactions и native atomic finalization остаются blocked. Исправление не разрешает Wizard/другой multiclass draft обходить общий journal.
+
+### Route-by-route readiness
+
+| Route | Реализация / evidence | Статус |
+|---|---|---|
+| Registered source → exact modal → explicit local envelope | Production registry/preflight executable tests; actual GUID capture/lifetime receiver compiled audits | Implemented/tested model; Unity unverified. Ordinary native action ещё blocked13.6 guard |
+| Trusted transient base campaign | Entry ID → one exact factory result → modal; constructor shape / parent hold transpiler and signatures inspected | Implemented/tested model; native bindings inspected; Unity unverified |
+| Campaign location override / unknown source | Exact implementation prerequisite rejects before source creation | Blocked with evidence; не guessed base proof |
+| Local identity-only receiver | Explicit envelope fields, references, ticket/current-state revalidation; preflight-only ack | Implemented/tested production model, native bridge compiled; Unity unverified |
+| Native legacy local command | 3args не содержат invocation identity | Blocked PendingAtomicJournal |
+| Delayed in-process envelope | Copy/queue/revalidate/idempotent ack | Executed model only; real native scheduler unverified |
+| Delayed/network RPC | Existing RPC no source authority; no authenticated cross-process issued-source mapping | Explicitly blocked; rejection tested |
+| Retry / conflict / duplicate / Cancel / late delivery / expired source | Production registry + existing operation plans, resource/counter/condition snapshots on rejected paths | Implemented/tested model; modal/parent lifecycle unverified Unity |
+| Sorcerer finalization versus next Wizard level | Production current-draft predicate regression + direct early guard compiled binding | Implemented/tested model; native grants still blocked |
+| Native commit / save-load / Respec / mixed gameplay | CommitNative PendingAtomicJournal; no binder/public gate/journal | Disabled/unverified; not ready |
+
+### Проверки и оставшиеся13.7B dependencies
+
+Executed production-model tests используют installed compiled slot/Spell Points/Pact tables и native-state scalar fixtures, не game objects. Снимки включают Standard/Pact/Sorcery, temporary slots/high-circle counts, Arcanum, native Sorcery/power/refund counters и condition identities. Это доказывает отсутствие изменений **в модели** при каждом rejected preflight/transport; не доказывает реальную Unity inventory/conditions/actions/network.
+
+Cecil/definition audits отдельно проверяют native factory/registration/termination order, AtWill constructor branch, patch positional ABI, local receiver signature, отсутствие spend/grant/refund/CommitManaged calls в identity adapter, network payload и gate-OFF branches. Harmony patches, transpiler и Gui.Hide фактически в Unity не исполнялись.
+
+Остаётся: безопасный authoritative authenticated network command envelope и source ownership sync; native action/modal lifecycle и controller checks в Unity; atomic spend+Sorcery callbacks/healing+temporary condition funding journal; родительский action commit/cancellation coordination; durable replay/cancel и save/load/Respec. Нельзя заменять это post-spend hooks, guessed execution tags, Tick или refunds. Никакая часть13.8 не начата.
+
+Изменённые файлы:
+
+- Models/FlexibleCastingInvocationPlan.cs (новый authority/transport registry).
+- Models/FlexibleCastingCampaignPatches.cs (новый exact campaign boundary и source binding).
+- Models/FlexibleCastingPreflightContext.cs (issued source/modal/local receiver).
+- Models/FlexibleCastingPreflightPlan.cs (явный proof kind).
+- Models/SpellResourceOperationsContext.cs (единственное узкое разрешение source constructor, без spend).
+- Models/SorcererFinalizePreflight.cs и Models/MultipleSpellRepertoiresContext.cs (narrow current-draft fix).
+- Tests/FighterProgression/FlexibleCastingInvocationTests.cs (новые executed tests и отдельно binding audits).
+- Tests/FighterProgression/FlexibleCastingPreflightTests.cs и FighterProgression.Tests.csproj (fixtures, regression, runner link).
+- Documentation/FlexibleCastingPreflight.md.
+
+Финальный прогон (SDK9.0.320, указанные DOTNET_ROOT/PATH/NUGET_PACKAGES/SolastaInstallDir):
+
+```sh
+dotnet build SolastaUnfinishedBusiness.sln --no-restore -c "Release Workflow" -m:2
+# exit0: 0 errors, 0 warnings
+dotnet run --project Tests/FighterProgression/FighterProgression.Tests.csproj
+# exit0: 19373 checks passed
+git diff --check
+# exit0, no output
+```
+
+Baseline **18 196** → final **19 373**, прирост **1 177**: **1 139** новых executed identity/transport production-model checks, **33** новых compiled/definition audits и **5** additional current-draft regressions в прежнем13.7A suite. Старый13.7A suite теперь570 executed +28 compiled checks. Полный runner сохраняет все предыдущие class, spell learning, Pact/Arcanum/invocation, Secrets, auxiliary и third-caster suites. Baseline failures отсутствовали. Отдельная новая regression до исправления воспроизвела stale Sorcerer draft ошибку; после исправления весь runner проходит.
+
+**Оставшиеся Unity сценарии (не выполнялись):** gate-OFF ordinary single-caster Flexible Casting в обоих направлениях; actual base campaign factory/controller authority; registered location action и termination до выбора; точное modal ownership при двух попытках одного героя; parent/action state при PendingAtomicJournal, Hide/Cancel без refund; потеря source/repertoire/settings перед delayed local receiver; network refusal без source mint/spend. Для этих сценариев нужен отдельный контролируемый internal binder/test harness, не public setting. Native conversion commit, actual temporary-slot lifecycle, healing callbacks, durable save/load и Respec в этом slice не разрешены и не проверены.
+
+Итог: **Stage 13.7A not ready**. Native network authority seam отсутствует; ordinary native action остаётся под journal guard, а actual Harmony/GUI/control/lifetime execution требует Unity evidence. Stage13.7B/13.8, native resource commit и persistence не реализованы.

@@ -411,7 +411,7 @@ internal static partial class MultipleSpellRepertoiresContext
     {
         if(!RuntimeEnabled||!Sessions.TryGetValue(hero,out var session))return true;
         var selected=LevelUpHelper.GetSelectedClass(hero)?.Name;
-        if(selected!="Sorcerer" && hero.ClassesHistory.LastOrDefault()?.Name!="Sorcerer" && !session.Transactions.Values.Any(t=>t.ClassId=="Sorcerer") && !(selected==null&&hero.ClassesAndLevels.Keys.Any(c=>c.Name=="Sorcerer")))return true;
+        if(!SorcererFinalizePreflight.IsSorcererDraft(selected,hero.ClassesHistory.LastOrDefault()?.Name,hero.ClassesAndLevels.Keys.Any(c=>c.Name=="Sorcerer"),session.Transactions.Values))return true;
         var drafts=session.Transactions.Values.Where(t=>t.ClassId=="Sorcerer"&&!t.IsClosed).ToArray();
         var decision=SorcererFinalizePreflight.Inspect(true,true,true,drafts.Length==1?drafts[0]:null);
         if(decision==SorcererFinalizePreflight.Result.PassThrough)return true;
