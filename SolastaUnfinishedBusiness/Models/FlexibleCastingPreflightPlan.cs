@@ -64,6 +64,7 @@ internal sealed class FlexibleCastingPreflightPlan
     private readonly S.Tables tables;
     private readonly Dictionary<string,Ticket> tickets=new(StringComparer.Ordinal);
     private readonly Dictionary<string,string> attempts=new(StringComparer.Ordinal);
+    private readonly HashSet<string> nativeFinished=new(StringComparer.Ordinal);
     private readonly HashSet<string> cancelled=new(StringComparer.Ordinal);
     internal FlexibleCastingPreflightPlan(string hero,string rules,O operations,O.Counter sorcery,S.Tables tables)
     {this.hero=hero;this.rules=rules;this.operations=operations;this.sorcery=sorcery;this.tables=tables;}
@@ -90,7 +91,7 @@ internal sealed class FlexibleCastingPreflightPlan
     internal Ticket Prepare(Authority authority,Choice choice,Live live)
     {
         Validate(authority,live);
-        if(cancelled.Contains(authority.Command))throw new O.Rejection(O.Code.StaleOperation,"Cancelled conversion command");
+        if(cancelled.Contains(authority.Command)||nativeFinished.Contains(authority.Command))throw new O.Rejection(O.Code.StaleOperation,"Cancelled conversion command");
         if(attempts.TryGetValue(authority.Command,out var intent)&&intent!=choice.Signature)throw new O.Rejection(O.Code.ConflictingOperation,"Command retry changed its original selection");
         attempts[authority.Command]=choice.Signature;
         if(tickets.TryGetValue(authority.Command,out var old))
@@ -98,7 +99,7 @@ internal sealed class FlexibleCastingPreflightPlan
             if(old.Choice.Signature!=choice.Signature||old.Authority.Repertoire!=authority.Repertoire||old.Authority.Effect!=authority.Effect)throw new O.Rejection(O.Code.ConflictingOperation,"Conversion identity reused with different contents");
             Revalidate(old,live);return old;
         }
-        if(tickets.Any(t=>!cancelled.Contains(t.Key)))throw new O.Rejection(O.Code.PendingAtomicJournal,"Cancel the pending conversion before opening another command");
+        if(tickets.Any(t=>!cancelled.Contains(t.Key)&&!nativeFinished.Contains(t.Key)))throw new O.Rejection(O.Code.PendingAtomicJournal,"Cancel the pending conversion before opening another command");
         if(choice.CreateSlot!=authority.CreateSlot)throw new O.Rejection(O.Code.ConflictingOperation,"Wrong conversion direction");
         if(choice.NativeCircle is <1 or >5)throw new O.Rejection(O.Code.InvalidCircle,"Native Flexible Casting modal exposes circles1..5");
         if(choice.PreferPact!=live.PreferPact)throw new O.Rejection(O.Code.RuleChanged,"Source selection differs from current native priority");
@@ -123,13 +124,14 @@ internal sealed class FlexibleCastingPreflightPlan
     internal void Revalidate(Ticket ticket,Live live)
     {
         Validate(ticket.Authority,live);
-        if(!tickets.TryGetValue(ticket.Request.Operation,out var own)||!ReferenceEquals(ticket,own)||cancelled.Contains(ticket.Request.Operation))throw new O.Rejection(O.Code.StaleOperation,"Missing/cancelled preflight ticket");
+        if(!tickets.TryGetValue(ticket.Request.Operation,out var own)||!ReferenceEquals(ticket,own)||cancelled.Contains(ticket.Request.Operation)||nativeFinished.Contains(ticket.Request.Operation))throw new O.Rejection(O.Code.StaleOperation,"Missing/cancelled preflight ticket");
         if(live.Signature!=ticket.NativeSignature||operations.State!=ticket.Request.ExpectedState)throw new O.Rejection(O.Code.StaleOperation,"Preflight proof/resources/conditions changed before dispatch");
         operations.Prepare(ticket.Request); // same immutable request, never CommitManaged
     }
     internal void Cancel(Authority authority)
     {
         if(authority.Hero!=hero)throw new O.Rejection(O.Code.WrongOwner,"Cancel owner");
+        if(nativeFinished.Contains(authority.Command))throw new O.Rejection(O.Code.PendingAtomicJournal,"Committed native command cannot be cancelled/refunded");
         if(tickets.ContainsKey(authority.Command))operations.Cancel(authority.Command);
         cancelled.Add(authority.Command);
     }
@@ -142,6 +144,12 @@ internal sealed class FlexibleCastingPreflightPlan
         if(!tickets.TryGetValue(ticket.Request.Operation,out var own)||!ReferenceEquals(own,ticket)||receipt.Operation!=ticket.Request.Operation||
             operations.State!=receipt.After||live.Signature!=expectedProjection)
             throw new O.Rejection(O.Code.StaleOperation,"Managed receipt/projection changed; never perform another debit");
+    }
+    internal void CompleteNativeTicket(Ticket ticket,O.Receipt receipt)
+    {
+        if(!tickets.TryGetValue(ticket.Request.Operation,out var own)||!ReferenceEquals(own,ticket)||receipt.Operation!=ticket.Request.Operation||operations.State!=receipt.After)
+            throw new O.Rejection(O.Code.StaleOperation,"Native resource receipt does not match its issued ticket");
+        nativeFinished.Add(ticket.Request.Operation); // retire active reservation, retain immutable receipt/identity
     }
     internal void BlockNativeCommit(Ticket ticket,Live live)
     {Revalidate(ticket,live);operations.CommitNative(ticket.Request);}

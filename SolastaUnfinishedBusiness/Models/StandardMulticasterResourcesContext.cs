@@ -17,7 +17,7 @@ internal static class StandardMulticasterResourcesContext
     private static ResourcePlan.Tables tables;
     private static readonly ResourcePlan.OwnerStore<RulesetCharacter> Owners = new(ResolveOwner);
     private static readonly ConditionalWeakTable<RulesetCharacterHero, Binding> Bindings = new();
-    private sealed class Binding(CompressedMulticasterProgressionPlan.Result progression, ResourcePlan.Budget budget)
+    internal sealed class Binding(CompressedMulticasterProgressionPlan.Result progression, ResourcePlan.Budget budget)
     {
         internal CompressedMulticasterProgressionPlan.Result Progression = progression;
         internal readonly ResourcePlan.Budget Budget = budget;
@@ -286,6 +286,71 @@ internal static class StandardMulticasterResourcesContext
             }
         }
         finally { b.Projecting = false; }
+    }
+    // Narrow callback-free projection packet for the native Flexible Casting transaction.
+    internal sealed class FlexibleSlotViews
+    {
+        private sealed class View(RulesetSpellRepertoire rep)
+        {
+            internal readonly RulesetSpellRepertoire Rep=rep;
+            internal readonly Dictionary<int,int> BeforeCaps=rep.spellsSlotCapacities,BeforeUsed=rep.usedSpellsSlots;
+            internal readonly Dictionary<int,int> Caps=new(rep.spellsSlotCapacities),Used=new(rep.usedSpellsSlots);
+            internal void Stage(int level){Used.TryGetValue(level,out var n);Used[level]=checked(n+1);}
+            internal void Write(){Rep.spellsSlotCapacities=Caps;Rep.usedSpellsSlots=Used;}
+        }
+        private readonly RulesetCharacterHero hero;
+        private readonly View[] views;
+        private readonly FlexibleCastingSlotToSorceryPlan.Draft draft;
+        private readonly ResourcePlan.Budget budget;
+        private readonly Binding binding;
+        private bool ownsProjectionGuard;
+        private readonly int remaining;
+        internal readonly RulesetSpellRepertoire[] Repertoires;
+        internal FlexibleSlotViews(RulesetCharacterHero owner,Binding bound,FlexibleCastingSlotToSorceryPlan.Draft operation)
+        {
+            hero=owner;binding=bound;budget=bound.Budget;draft=operation;remaining=budget.RemainingSlots(draft.SlotCircle);
+            Repertoires=hero.SpellRepertoires.Where(StandardRepertoire).ToArray();
+            views=Repertoires.Select(r=>new View(r)).ToArray();
+            Validate();foreach(var view in views)view.Stage(draft.SlotCircle);
+        }
+        internal void Validate()
+        {
+            if(binding.Projecting||!hero.SpellRepertoires.Where(StandardRepertoire).SequenceEqual(Repertoires)||remaining!=budget.RemainingSlots(draft.SlotCircle))
+                throw new InvalidOperationException("Flexible Casting repertoire owner/list/budget changed before publication.");
+            foreach(var view in views)
+            {
+                if(view.Rep.GetCaster()?.GetOriginalHero()!=hero||!ReferenceEquals(view.Rep.spellsSlotCapacities,view.BeforeCaps)||!ReferenceEquals(view.Rep.usedSpellsSlots,view.BeforeUsed))
+                    throw new InvalidOperationException("Flexible Casting projection references changed.");
+                for(var c=1;c<=9;c++)
+                {
+                    view.BeforeCaps.TryGetValue(c,out var cap);view.BeforeUsed.TryGetValue(c,out var used);
+                    if(cap!=draft.Before.Capacities[c-1]||used!=draft.Before.Used[c-1])throw new InvalidOperationException("Divergent standard repertoire view before Flexible Casting.");
+                }
+                view.BeforeUsed.TryGetValue(SharedSpellsContext.PactMagicSlotsTab,out var pactUsed);
+                if(pactUsed!=draft.Before.PactUsed)throw new InvalidOperationException("Divergent Pact sentinel view.");
+            }
+        }
+        internal void ApplyFields(){binding.Projecting=true;ownsProjectionGuard=true;for(var i=0;i<views.Length;i++)views[i].Write();}
+        internal void Release(){if(ownsProjectionGuard){binding.Projecting=false;ownsProjectionGuard=false;}}
+        internal void AssertCoherent()
+        {
+            if(budget.RemainingSlots(draft.SlotCircle)!=remaining-1)throw new InvalidOperationException("Flexible Casting standard debit mismatch.");
+            foreach(var view in views)
+            {
+                if(!ReferenceEquals(view.Rep.spellsSlotCapacities,view.Caps)||!ReferenceEquals(view.Rep.usedSpellsSlots,view.Used))throw new InvalidOperationException("Unpublished view.");
+                for(var c=1;c<=9;c++)
+                {
+                    view.Used.TryGetValue(c,out var used);
+                    if(used!=draft.After.Used[c-1])throw new InvalidOperationException("Incoherent Flexible Casting view.");
+                }
+            }
+        }
+    }
+    internal static FlexibleSlotViews PrepareFlexibleSlotViews(RulesetCharacterHero hero,FlexibleCastingSlotToSorceryPlan.Draft draft)
+    {
+        if(!TryBinding(hero,out var binding)||binding.Budget.Current.Mode!=ResourcePlan.ResourceMode.Slots)
+            throw new InvalidOperationException("Flexible Casting native commit requires the bound standard-slot owner.");
+        return new FlexibleSlotViews(hero,binding,draft);
     }
     internal static bool SuppressNativeRestoration(RulesetCharacter actor) => TryBinding(actor, out _);
     internal static void FinishRest(RulesetCharacter actor, RestType restType, bool simulate)

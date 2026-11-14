@@ -10,7 +10,7 @@ using O = SolastaUnfinishedBusiness.Models.SpellResourceOperationPlan;
 
 namespace SolastaUnfinishedBusiness.Models;
 
-// Identity-only local envelope; no native commit, network transport, save binder or public switch.
+// Gated single-player native standard-slot commit; no network, save binder or public switch.
 internal static partial class FlexibleCastingPreflightContext
 {
     private sealed class Origin(RulesetCharacterHero hero,RulesetEffectPower effect,RulesetSpellRepertoire repertoire,V.Authority source)
@@ -18,6 +18,7 @@ internal static partial class FlexibleCastingPreflightContext
         internal readonly RulesetCharacterHero Hero=hero;
         internal readonly RulesetEffectPower Effect=effect;
         internal readonly ulong SourceGuid=effect.SourceGuid;
+        internal NativeHost Native;
         internal readonly RulesetSpellRepertoire Repertoire=repertoire;
         internal readonly V.Authority Source=source;
         internal readonly F.Authority Authority=source.Preflight(RepertoireId(hero,repertoire));
@@ -161,13 +162,18 @@ internal static partial class FlexibleCastingPreflightContext
                 var session=SessionFor(source);
                 var choice=new F.Choice(__instance.selectedSlotLevel,__instance.createSlotMode,Global.IsShiftPressed,Main.Settings.AlwaysSpendPactSlotsFirst);
                 var command=Invocations.Prepare(source.Source,Evidence(source),source.Effect,__instance,session.Plan,choice,Read(source));
-                ReceiveLocalCommand(command); // explicit in-band ID, not thread-local/hero-level correlation
-                try {BlockNativeCommit(command);}
+                var acknowledgement=ReceiveLocalCommand(command); // explicit in-band ID, never thread-local correlation
+                if(!acknowledgement.NativeCompleted)try {BlockNativeCommit(command);}
                 catch(O.Rejection ex) when(ex.Diagnostic==O.Code.PendingAtomicJournal)
                 {Main.Error("Flexible Casting identity preflight acknowledged; PendingAtomicJournal. Native resources and parent action remain unchanged.");}
             }
-            catch(Exception)
-            {RejectAndClose(source,__instance,V.Status.Rejected);throw;}
+            catch(Exception error)
+            {
+                if(Invocations.NativeCommits.TryReceipt(source.Authority.Command,out var receipt)&&(receipt.Committed||receipt.Indeterminate))
+                    Main.Error("Flexible Casting native journal requires inspection; no cancellation/refund attempted: "+error);
+                else RejectAndClose(source,__instance,V.Status.Rejected);
+                throw;
+            }
             return false; // no native button/delegate changes, transport, spend or publication
 
         }
@@ -190,8 +196,14 @@ internal static partial class FlexibleCastingPreflightContext
     {
         if(!StandardMulticasterResourcesContext.RuntimeEnabled)throw new O.Rejection(O.Code.Ineligible,"Preflight gate closed");
         if(command==null||string.IsNullOrWhiteSpace(command.Invocation)||!Origins.TryGetValue(command.Invocation,out var source))throw new O.Rejection(O.Code.MissingIdentity,"Unknown native invocation envelope");
-        if(ServiceRepository.GetService<IMagicCommandService>() is not LocalCommandManager)
-            throw new O.Rejection(O.Code.PendingAtomicJournal,"Network command transport has no authenticated authority mapping");
+        RequireLocalSinglePlayer();
+        if(!command.Create&&command.Input==O.Domain.StandardSlots)
+        {
+            if(source.Source.Modal is not FlexibleCastingModal modal)throw new O.Rejection(O.Code.MissingIdentity,"Exact modal binding missing");
+            source.Native??=new NativeHost(source,modal);
+            var receipt=Invocations.NativeCommits.Execute(command,source.Native);
+            return new V.Acknowledgement(command.Command,command.Invocation,receipt);
+        }
         return Invocations.Receive(command,Evidence(source),source.Effect,Read(source));
     }
     private static void BlockNativeCommit(V.Envelope command)

@@ -1,8 +1,10 @@
-> **Текущее состояние — Stage13.7B.1 revised:** реализованы single-direction transaction proposal, source/ticket revalidation и existing-ledger managed arithmetic; **native commit остаётся blocked**. См. последний раздел. MixedGameplayReady=false; Unity validation pending. Предыдущие разделы13.7A/A.2 сохранены как baseline/history.
+> **Текущее состояние — Stage13.7B.2:** dedicated single-player **campaign** standard-slot→Sorcery native commit реализован за закрытым gate. Production executor проверяется с fake native field ports; настоящий Unity field host скомпилирован и отдельно проаудирован, но **в Unity не исполнялся**. MixedGameplayReady=false, public activation отсутствует; feature не playable. См. последний раздел.
+
+> **Архивная запись — Stage13.7B.1 revised:** реализованы single-direction transaction proposal, source/ticket revalidation и existing-ledger managed arithmetic; **native commit остаётся blocked**. См. последний раздел. MixedGameplayReady=false; Unity validation pending. Предыдущие разделы13.7A/A.2 сохранены как baseline/history.
 
 > **Архивная запись — Stage 13.7A.2:** см. раздел в конце документа. Есть typed authority для registered и проверенного base campaign transient effect, явный локальный identity-only envelope и fail-closed receiver. Native network/ordinary action completion остаются blocked; **Stage 13.7A not ready**. Описание 13.7A ниже сохранено как история baseline. В частности, прежний cached proof после termination заменён строгой проверкой lifetime и актуального registry membership.
 
-# Stage13.7A — native identity / Flexible Casting preflight
+# Flexible Casting — source identity, preflight и native commit
 
 ## Baseline и область
 
@@ -323,3 +325,115 @@ git diff --check
 Baseline **19 373** → final **20 785** (+**1 412**): **1 394 executed production-model checks**, отдельно **16 Cecil/definition audits** и **2 executable native-order counterexample fixtures**. Последние два только иллюстрируют недостаточность native call order; они не production execution и не Unity. Все прежние class, repertoire, invocation, Secrets, auxiliary, shared-budget и resource suites сохранены. Отдельно проверены PendingAtomicJournal на post-managed expiry (guard confirmed debt) и terminal stale-proof regression. Финальный полный прогон проходит.
 
 **Итог по трём категориям:** code/model implemented and tested outside Unity; native transaction still blocked; Unity validation pending. Conversion не объявляется playable или runtime-complete. В disposable Solasta session не проверены actual debit/gain, callbacks/healing interactions, parent/UI, rest, persistent replay/save-load и Respec. Для native реализации нужен описанный callback/parent atomic boundary; текущий slice не включает её, reverse/SP/Pact/network или расширение mixed gameplay.
+
+## Stage13.7B.2 — single-player native standard-slot commit
+
+### Baseline / ограничения scope
+
+Starting HEAD `889d71634634208b8a6862df1de5380a9401829e`, branch `feature/progression-20-to-12`. До изменений tracked tree чистый; прежний untracked SolastaFiles/Mods сохранён. SDK9.0.320; baseline Release Workflow **0 errors / 0 warnings**, **20 785 checks passed**, diff check clean. Baseline failures отсутствовали; зависимости повторно не устанавливались.
+
+Теперь имеется **исполнитель**, не ещё один proposal: actual local receiver вызывает production FlexibleCastingNativeCommitPlan с NativeHost, который напрямую записывает original hero Sorcery counter и repertoire dictionaries. Этот путь не вызывает native CreateSorceryPoints, SpendSpellSlot, GainSorceryPoints, UsePower, Heal или RefundActionUse. Существующие raw/legacy/local/network guards не сняты.
+
+Границы: только StandardSlots→SorceryPoints, circle1–5, одна native Sorcerer repertoire original hero, quantity1/cost1, verified local transient **base campaign** source, held campaign parent. Pact может присутствовать у владельца, но не является input и его counters/sentinel/Arcanum не меняются. Spell Points, Arcanum input, reverse, network, обычный location CharacterAction parent, unknown/modified shared-pool source, save migration/Respec остаются blocked. Существующий no-host `FlexibleCastingSlotToSorceryPlan.CommitNative` и его historical NativeBoundaryAvailable=false сохраняются как **legacy blocked API**; новый dedicated field-host executor реализован отдельно и подключён к receiver.
+
+MixedGameplayReady=false; никакого public switch, native save import, общего multicaster admission или изменения классов/levels/history/HP/PB/prerequisites не добавлено. Ordinary gate-OFF callback возвращается до новой ветви. Actual Unity session не запускалась. Код не объявляется playable.
+
+### Native evidence и authority
+
+Native signatures/IL читаются отдельно от executed tests:
+
+- RulesetCharacter.usedSorceryPoints — raw Int32 field; UsedSorceryPoints setter только stfld, без callbacks. Remaining вычисляется из actual SorceryPoints attribute и used counter. Новый host берёт native maximum/remaining из прежнего Live proof.
+- RulesetSpellRepertoire.spellsSlotCapacities и usedSpellsSlots — dictionaries, присваивание ссылок не публикует observers. Ledger остаётся **тем же** bound StandardCasterResourcePlan.Budget; repertoire — view, не второе списание.
+- RepertoireRefreshedHandler.Invoke(repertoire); SorceryPointsAlteredHandler.Invoke(hero,remaining,null); PowerActivatedHandler.Invoke(hero,usablePower,0) — audited native ABIs.
+- AtWill branch RulesetCharacter.UsePower делает Consume(), Recharge(), PowerActivated(...,slotLevel0). Consume только remainingUses--; Recharge только remainingUses=MaxUses. Итоговое remainingUses можно заранее вычислить и записать без промежуточного observer. spentPoints не меняется. AccountUsedMagicAndPower/Heal в этой branch отсутствуют.
+- UB UsePower postfix UpdateUsageForPower — no-op для non-shared source; CountPowerUseInSpecialFeatures — no-op без marker. NativeHost **rejects** shared-pool source и этот marker, не имитирует неизвестные pool/counter side effects. Для original hero отсутствует substitute-form synchronization.
+- Verify main thread использует actual SynchronizationContext.Current type/assembly UnityEngine.UnitySynchronizationContext и installed private m_MainThreadID, сравнивая с Thread.CurrentThread.ManagedThreadId. Не запоминает первый попавшийся thread. Если context/field unavailable — отказ до mutation. Поле подтверждено в UnityEngine.CoreModule; фактическое reflection/read в Unity пока не выполнялось.
+
+Trusted campaign authority остаётся прежней13.7A.2: nonce один раз при exact GameCampaignCharacter.UsePower entry; exact constructor result/effect ref/original hero/usable power/definition/lifetime; exact modal; явный immutable local envelope. NativeHost дополнительно требует ended scope + ParentHeld, actual local controller ownership, exact base implementation, verified non-multiplayer state, actual original-hero Sorcerer repertoire и unmodified AtWill remaining==MaxUses. Registered action sources сохраняют preflight support, но не получают guessed parent completion: location actions по-прежнему blocked13.6 guard.
+
+### Исполнение и commit point
+
+1. `FlexibleCastingPreflightContext.ReceiveLocalCommand(Envelope)` при closed gate не выполняет новую ветвь. Для разрешённого gated Standard envelope выбирается **сохранённый exact Origin/NativeHost**, затем `Invocations.NativeCommits.Execute`. Другие inputs остаются на прежнем blocked маршруте. Нет hero+circle/latest-effect/tick correlation.
+2. Executor ставит in-process reentrancy guard **до** host/proof reads. Проверяются gate/main thread/local service и actual binding. Отдельно проверяются INetworkingService.IsMultiplayerGame=false и отсутствие multiplayer setup; unknown network state тоже rejected, даже при LocalCommandManager. Duplicate payload проверяется структурно и по owner/repertoire/effect/modal references. Committed exact duplicate возвращает historical receipt; **не повторяет spending, publication, parent, hide**. Изменение rules запрещает replay. Source termination после commit не разрешает новое действие, но не уничтожает historical receipt.
+3. Для новой команды прежний registry/ticket заново проверяет direction, definition, owner, circles/cost, available resource, rules/conditions/power state. ManagedCommitted receipt не является native permission. Только Prepared draft допускается к native execution.
+4. `PrepareFlexibleSlotViews` до mutation выбирает все original hero repertoires по тому же StandardRepertoire classifier, что existing projection; исключает independent auxiliary views. Проверяются actual owner, неизменный repertoire list, dictionary references и значения всех1–9 circles + Pact sentinel. Все views должны совпасть с validated Before. Заранее выделяются новые capacities/usage dictionaries; меняется только usage выбранного Standard circle на+1. Существующие остальные keys/Arcanum/bonus sources сохраняются.
+5. Заранее снимаются snapshots invocation lists native delegates в исходном порядке; создаются raw-field write packet, coherence checks, parent/modal callbacks. Перед writes повторно проверяются main thread/local ownership, source/ticket/rules/live balance, выбранный UI circle, **все** prepared field references/values. Никаких observers/yields между этим и field batch.
+6. `ApplyNativeBudget` вызывает проверенный existing operation facade ровно один раз: тот же authoritative Standard budget -1, тот же managed Sorcery snapshot +clampedGain, same operation receipt. Затем raw field batch присваивает original hero.usedSorceryPoints=max(0,beforeUsed-circle), все заранее подготовленные repertoire dictionaries и native AtWill remainingUses=prepared MaxUses. Второй SpendSpellSlot по view **никогда не вызывается**.
+7. AssertCoherent подтверждает expected single budget debit, native Sorcery и every view. Retire active ticket (с сохранением receipt), mark issued source NativeCommitted, record executor receipt.Committed=true. **Это practical commit point, до первого observer.** Receipt содержит тот же Envelope.Command/operation, owner/repertoire/effect/modal, resource receipt, parent/modal status и notification-failure count.
+8. Публикация после commit: repertoire listeners по каждому view; Sorcery listeners с final remaining и feature=null; explicit owned modal refresh, если его one-shot handler не был подписан; mark campaign parent finished; native PowerActivated listeners с usable power и0; owned modal Hide(true). У ordinary Convert callback подписка/AutoHide не выполнялась, поэтому NativeHost готовит нужный modal refresh явно. Parent AtWill resource final state уже staged; нет второго consume/spend.
+9. Каждый captured listener вызывается **один раз**; thrown listener логируется, остальные listeners/parent/modal продолжаются. Это преднамеренная exception policy: native multicast остановился бы на первом exception, здесь receipt фиксирует committed-with-notification-failures. Acknowledgement сообщает NativeCommitted / NativeCommittedWithNotificationFailures и отдельные ParentCompleted/ModalCompleted, не claimed rollback.
+10. `Binding.Projecting` устанавливается raw projection batch и удерживается на время всех notifications. Existing Refresh/PrepareRefresh guard не допускает recursive projection. В finally снимается только собственный guard; reentrant conversion от любого listener rejected. Отдельная последующая invocation может снова использовать modal и актуальный budget: old ticket перестаёт быть active, receipt/identity остаются.
+11. При Hide failure не повторяются debit/grant/parent/hide. Best-effort UI recovery отключает input/raycast **только всё ещё принадлежащего этому source modal**. Чужая перепривязка не затрагивается. Partial GUI destruction/navigation recovery не обещается без Unity.
+
+### Failure / replay policy
+
+| Момент | Результат |
+|---|---|
+| Gate/thread/network/owner/domain/source mismatch, stale ticket/rules, insufficient resource | Отказ до ledger/native mutation; нет success acknowledgement |
+| Preparation/reference validation/cancellation до writes | Данные ресурсов/views/parent не меняются; owned invocation закрывается, никаких refunds |
+| Reentrant call во время подготовки или любого notification | PendingAtomicJournal до новых mutation; outer conversion не повторяется |
+| Полный field batch + receipt coherent | Committed независимо от последующих notification exceptions |
+| Repertoire/Sorcery/modal-refresh/PowerActivated listener throws | Receipt и оба resources committed; логирование, оставшиеся listeners и UI completion once; no replay |
+| Hide/UI recovery failure | Committed-with-notification-failures; ParentCompleted/ModalCompleted отражают результат, никаких выдуманных success/refund |
+| Exact duplicate после commit / после effect termination | Возвращается тот же historical receipt, без повторных events или parent/UI действий |
+| Conflict same command ID / changed bindings / changed rules | Отказ без нового расхода и без замены receipt |
+| Cancel committed command | PendingAtomicJournal; no rollback/debt reset |
+| Unexpected interruption внутри raw write/receipt batch | Indeterminate, no refund/replay; require inspection/restart. Никакой гарантии для process termination, OOM, ThreadAbort или внешнего потока, меняющего game state |
+
+Practical guarantee основана на single Unity thread, заранее проверенных references/values и observer-free raw assignments. Прямые writes/методы промежуточного batch не вызывают callbacks. Существующий coordinator может выделять внутренние receipts/hash state; OOM между этими writes **не** считается recoverable failed transaction. Catch не используется для маскировки partial state как rolled back. При indeterminate active reservation остаётся блокирующей; persistence/crash recovery не реализована.
+
+### Coverage / evidence matrix
+
+| Route / механизм | Реализация | Evidence |
+|---|---|---|
+| Verified base campaign source → exact modal → standard native commit | Connected actual receiver + NativeHost + existing owner/ledger | Production executor executable tests с fake native fields; game host compiled/audited, Unity-unverified |
+| Raw original hero Sorcery + all relevant native views | Dedicated callback-free field batch, no second budget/view debit | Fake-port coherence observer tests; actual stfld/ABI audits |
+| Registered location source | Preflight retained; native parent unsupported | Explicit native reject + existing action guard; not enabled |
+| Native events / campaign parent / modal | Ordered once-only publication, committed notification-failure policy | Executed fake native port; actual delegate ABI/native AtWill/GUI IL inspected |
+| Second legitimate invocation / duplicate / cancellation | Active reservation retired, receipts retained, exact identity match | Executed production adapter tests |
+| Spell Points/Pact/Arcanum/reverse/network | No native execution | Executed rejection tests + unchanged legacy guards |
+| Ordinary gate OFF | Existing path unchanged, new receiver exits | Complete old regressions + compiled branch inspection |
+| Save/load, Respec, durable replay / real Harmony/UI path | Not implemented/validated | Unity pending; no save migration |
+
+Executable tests invoke the **same FlexibleCastingNativeCommitPlan.Execute** used by the real local receiver, with fake field/notification hosts. Они проверяют actual existing budget arithmetic и native-counter/view fixture writes, а не отдельный parallel transaction algorithm. Native Unity host, reflection access, Harmony patch ordering и actual GUI/parent callbacks **не исполняются** этими tests. Cecil audits не считаются Unity execution.
+
+### Проверки в disposable Solasta session (ещё не выполнены)
+
+Нужен будущий controlled internal new-hero binder/test harness; public gameplay gate не включается этим коммитом. Не менять existing user options автоматически, не использовать старые saves. Для standard-slot теста требуется отдельный test profile без Spell Points; unsupported profile должен дать отказ без расходов.
+
+- Original Sorcerer repertoire: записать capacities/used/remaining standard slots всех participating views, actual used/remaining Sorcery и maximum. Например circle3 +3, либо +1 при missing1; ровно один slot расходуется. Full cap — native clamp0, без overflow/heal.
+- Base campaign power use: exact source effect/nonce/modal; MainThreadID, held parent и local controller. Все repertoire/Sorcery listeners должны видеть оба ресурса и committed receipt согласованными.
+- Native PowerActivated(...,0), AtWill remaining final value, one modal refresh/hide и parent completion по одному разу. Нет UsePower/Consume extra usage, false refund или second view debit.
+- Повторить exact envelope, conflict envelope, late delivery, Cancel до commit, source termination, новый power-use после завершения. Проверить source/receipt IDs и отсутствие повторных effects/events.
+- Controlled throwing listener на каждом notification stage: ресурсы остаются committed, остальные notifications/parent/UI обрабатываются, duplicate не повторяет failed/successful listeners. UI hide failure — committed status и safe owned-input recovery, без вмешательства в другой modal.
+- Reject Spell Points, Pact, Arcanum, reverse, network, registered/location parent и wrong owner/repertoire/level/cost/rules; ресурсы неизменны. Gate OFF single-caster behavior сравнить с обычным UB.
+- Save/load, Respec, crash recovery и normal gameplay readiness не считать доказанными этим smoke test; это отдельные этапы.
+
+Изменённые файлы:
+
+- Models/FlexibleCastingNativeCommitPlan.cs — новый production executor/native journal/notification policy.
+- Models/FlexibleCastingNativeCommitContext.cs — новый actual Unity field/notification/main-thread host.
+- Models/StandardMulticasterResourcesContext.cs — callback-free prepared projection и scoped refresh guard.
+- Models/FlexibleCastingCampaignPatches.cs — exact held parent сохраняется до commit.
+- Models/FlexibleCastingInvocationPlan.cs — native source/receipt/ack lifecycle.
+- Models/FlexibleCastingPreflightContext.cs — actual local dispatch и success/error handling.
+- Models/FlexibleCastingPreflightPlan.cs — retire committed reservation без удаления debt/receipt.
+- Models/FlexibleCastingSlotToSorceryPlan.cs — native application/confirmation states; legacy unbound entry blocked.
+- Tests/FighterProgression/FlexibleCastingNativeCommitTests.cs — новые executor fake-port tests и отдельные native audits.
+- Tests/FighterProgression/FlexibleCastingPreflightTests.cs и FighterProgression.Tests.csproj — runner/source links.
+- Documentation/FlexibleCastingPreflight.md.
+
+Финальный полный прогон (SDK9.0.320):
+
+```sh
+dotnet build SolastaUnfinishedBusiness.sln --no-restore -c "Release Workflow" -m:2
+# exit0: 0 errors / 0 warnings
+dotnet run --project Tests/FighterProgression/FighterProgression.Tests.csproj
+# exit0: 21919 checks passed
+git diff --check
+# exit0: no output
+```
+
+Baseline **20 785** → final **21 919** (+**1 134**): **1 120 executed production commit-adapter checks with fake native field/notification ports**, отдельно **14 compiled/native signature audits**. Все прежние class, resource, spell-learning, Bard Secrets, Warlock invocation/Pact/Arcanum, auxiliary/third-caster и transaction regressions сохранены. Ни одна проверка не названа Unity execution.
+
+**Итог:** single-player campaign native path implemented and code-tested at the production executor boundary; actual Unity field host compiled/audited, Unity-unverified. Обязательна disposable in-game проверка real Harmony/source/controller/main-thread/GUI/resource пути до normal gameplay. MixedGameplayReady=false; public activation, location-action completion, reverse/SP/Pact/network, save/load/persistent replay/Respec не добавлены. Release/пакет мода не публиковались; proprietary assemblies, outputs, settings и saves не включаются в коммит.

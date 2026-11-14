@@ -13,9 +13,10 @@ internal static partial class FlexibleCastingPreflightContext
     private sealed class CampaignEntry(RulesetCharacterHero hero, RulesetUsablePower usable, V.Authority authority, CampaignEntry previous) : IDisposable
     {
         internal readonly RulesetCharacterHero Hero = hero; internal readonly RulesetUsablePower Usable = usable; internal readonly V.Authority Authority = authority;
-        internal bool FactoryStarted; internal bool Bound; internal bool ParentHeld;
-        public void Dispose() => campaign = previous;
+        internal bool FactoryStarted; internal bool Bound; internal bool ParentHeld; internal bool Ended; internal bool Finished;
+        public void Dispose(){Ended=true;campaign=previous;}
     }
+    private static readonly Dictionary<string,CampaignEntry> CampaignParents=new(StringComparer.Ordinal);
     [ThreadStatic] private static CampaignEntry campaign;
     private static bool Flexible(FeatureDefinitionPower p) => new[] { false, true }.Any(slot => p == Api.DatabaseHelper.GetDefinition<FeatureDefinitionPower>(SpellResourceConsumerCatalog.FlexibleCasting(slot).Definition));
     private static bool FlexibleShape(EffectDescription effect, bool create) =>
@@ -25,6 +26,7 @@ internal static partial class FlexibleCastingPreflightContext
     internal static bool BeginCampaign(GameCampaignCharacter owner, RulesetUsablePower power, out IDisposable state)
     {
         state = null; if (!StandardMulticasterResourcesContext.RuntimeEnabled || !Flexible(power?.PowerDefinition)) return true;
+        RequireLocalSinglePlayer(); // reject multiplayer/unknown network state before issuing source authority
         var hero = owner.RulesetCharacter.GetOriginalHero();
         if (hero == null || owner.RulesetCharacter != hero || !hero.UsablePowers.Contains(power) ||
             ServiceRepository.GetService<IMagicCommandService>() is not LocalCommandManager ||
@@ -37,7 +39,7 @@ internal static partial class FlexibleCastingPreflightContext
         if (definition.RechargeRate != RuleDefinitions.RechargeRate.AtWill || !FlexibleShape(definition.EffectDescription, create))
             throw new O.Rejection(O.Code.Ineligible, "Campaign source constructor/effect shape changed; no resource-capable source allowed");
         var authority = Invocations.BeginCampaign(Evidence(hero, definition, create)); // only ID mint point
-        var entry = new CampaignEntry(hero, power, authority, campaign); campaign = entry; state = entry; return true;
+        var entry = new CampaignEntry(hero, power, authority, campaign); CampaignParents.Add(authority.Id,entry); campaign = entry; state = entry; return true;
     }
     internal static bool AllowCampaignSourceConstructor(RulesetCharacter actor, RulesetUsablePower usable)
     {

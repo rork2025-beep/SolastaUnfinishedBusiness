@@ -10,7 +10,7 @@ namespace SolastaUnfinishedBusiness.Models;
 internal sealed class FlexibleCastingInvocationPlan
 {
     internal enum SourceKind { RegisteredEffect, TrustedCampaignInvocation }
-    internal enum Status { Entry, Captured, ModalOpen, Prepared, AcknowledgedPreflight, Cancelled, Rejected, Expired }
+    internal enum Status { Entry, Captured, ModalOpen, Prepared, AcknowledgedPreflight, NativeCommitted, Cancelled, Rejected, Expired }
     internal sealed class Evidence(string hero, object owner, object power, object repertoire, string definition, bool create, bool eligible)
     {
         internal string Hero { get; } = hero; internal object Owner { get; } = owner; internal object Power { get; } = power; internal object Repertoire { get; } = repertoire;
@@ -31,8 +31,9 @@ internal sealed class FlexibleCastingInvocationPlan
         internal void Set(Status state) => State = state;
         internal F.Authority Preflight(string repertoire) => new(Entry.Hero, Id, repertoire, Entry.Create, true,
             Kind == SourceKind.RegisteredEffect ? F.SourceProofKind.RegisteredEffect : F.SourceProofKind.TrustedCampaignInvocation);
-        // Parent action is deliberately held. No acknowledgement claims that native work completed.
-        internal bool ParentCompleted => false;
+        // Parent stays held until the dedicated native executor completes the owned campaign use.
+        internal bool ParentCompleted { get; private set; }
+        internal void CompleteParent()=>ParentCompleted=true;
     }
     internal sealed class Envelope(string command, string invocation, string hero, string repertoire, string definition, SourceKind kind, string effect,
         bool create, int nativeCircle, int resourceCircle, O.Domain input, O.Domain output, int cost, string requestFingerprint)
@@ -46,11 +47,13 @@ internal sealed class FlexibleCastingInvocationPlan
             Create == other.Create && NativeCircle == other.NativeCircle && ResourceCircle == other.ResourceCircle && Input == other.Input &&
             Output == other.Output && Cost == other.Cost && Fingerprint == other.Fingerprint;
     }
-    internal sealed class Acknowledgement(string command, string invocation)
+    internal sealed class Acknowledgement(string command, string invocation,FlexibleCastingNativeCommitPlan.Receipt native=null)
     {
         internal string Command { get; } = command; internal string Invocation { get; } = invocation;
-        internal string Result => "PreflightValidatedPendingAtomicJournal";
-        internal bool NativeCompleted => false;
+        internal string Result => native==null?"PreflightValidatedPendingAtomicJournal":native.NotificationFailures>0?"NativeCommittedWithNotificationFailures":"NativeCommitted";
+        internal bool NativeCompleted => native?.Committed==true;
+        internal bool ParentCompleted => native?.ParentCompleted==true;
+        internal bool ModalCompleted => native?.ModalCompleted==true;
     }
     private sealed class Pending(Authority source, F model, F.Authority preflight, F.Choice choice, F.Ticket ticket, Envelope envelope)
     {
@@ -73,6 +76,14 @@ internal sealed class FlexibleCastingInvocationPlan
     }
     private FlexibleCastingSlotToSorceryPlan standardSlots;
     internal FlexibleCastingSlotToSorceryPlan StandardSlots=>standardSlots??=new FlexibleCastingSlotToSorceryPlan(this);
+    private FlexibleCastingNativeCommitPlan nativeCommits;
+    internal FlexibleCastingNativeCommitPlan NativeCommits=>nativeCommits??=new FlexibleCastingNativeCommitPlan(this);
+    internal void RecordNativeCommit(StandardSlotIntent intent)
+    {
+        Known(intent.Source);
+        if(!pending.TryGetValue(intent.Command.Command,out var p)||!ReferenceEquals(p.Ticket,intent.Ticket))throw new O.Rejection(O.Code.MissingIdentity,"Unissued native receipt");
+        intent.Source.Set(Status.NativeCommitted);
+    }
     private readonly Func<string> mint;
     private readonly Dictionary<string, Authority> sources = new(StringComparer.Ordinal);
     private readonly ConditionalWeakTable<object, Authority> effects = new();
@@ -125,6 +136,7 @@ internal sealed class FlexibleCastingInvocationPlan
         Known(source); Same(source.Entry, current);
         if (!ReferenceEquals(source.Effect, effect)) throw new O.Rejection(O.Code.WrongOwner, "Unrelated native effect reference");
         if (source.State is Status.Cancelled or Status.Rejected or Status.Expired) throw new O.Rejection(O.Code.StaleOperation, "Closed invocation");
+        if(source.State==Status.NativeCommitted)throw new O.Rejection(O.Code.StaleOperation,"Invocation already committed; use its exact receipt");
         if (!source.Alive) { Close(source, Status.Expired); throw new O.Rejection(O.Code.StaleOperation, "Terminated/expired source"); }
     }
     internal void AttachModal(Authority source, Evidence current, object effect, object modal)
@@ -134,7 +146,7 @@ internal sealed class FlexibleCastingInvocationPlan
         if (source.State != Status.Captured && source.State != Status.ModalOpen) throw new O.Rejection(O.Code.StaleOperation, "Modal source already has an intent");
         if (modalOwners.TryGetValue(modal, out var occupant) && !ReferenceEquals(occupant, source))
         {
-            if (occupant.State is not (Status.Cancelled or Status.Rejected or Status.Expired)) throw new O.Rejection(O.Code.AmbiguousSource, "Modal belongs to another live invocation");
+            if (occupant.State is not (Status.Cancelled or Status.Rejected or Status.Expired)&&!(occupant.State==Status.NativeCommitted&&occupant.ParentCompleted)) throw new O.Rejection(O.Code.AmbiguousSource, "Modal belongs to another live invocation");
             modalOwners.Remove(modal);
         }
         if (!modalOwners.TryGetValue(modal, out _)) modalOwners.Add(modal, source);
@@ -172,6 +184,7 @@ internal sealed class FlexibleCastingInvocationPlan
     {
         Known(source);
         if (reason is not (Status.Cancelled or Status.Rejected or Status.Expired)) throw new ArgumentException("Terminal rejection/cancel only");
+        if(source.State==Status.NativeCommitted)throw new O.Rejection(O.Code.PendingAtomicJournal,"Committed source cannot be cancelled/refunded");
         if (source.State is Status.Cancelled or Status.Rejected or Status.Expired) return;
         foreach (var p in pending.Values) if (ReferenceEquals(p.Source, source)) p.Model.Cancel(p.Preflight);
         source.Set(reason); // no native refund, completion, cleanup or resource mutation

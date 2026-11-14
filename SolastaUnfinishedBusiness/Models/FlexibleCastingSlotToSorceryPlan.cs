@@ -7,13 +7,13 @@ using O = SolastaUnfinishedBusiness.Models.SpellResourceOperationPlan;
 
 namespace SolastaUnfinishedBusiness.Models;
 
-// A single-direction proposal/journal over the existing resource facade, NOT a native executor.
-// Native SpendSpellSlot publishes RepertoireRefreshed before the Sorcery write. No safe native
-// commit boundary exists yet. Staged failure tests must not be mistaken for native rollback tests.
+// Single-direction issued draft/managed journal. The legacy no-host native entry stays blocked.
+// Stage13.7B.2 executes through FlexibleCastingNativeCommitPlan with a callback-free field host.
+// Staging/managed tests must never be mistaken for Unity execution or native rollback tests.
 internal sealed class FlexibleCastingSlotToSorceryPlan(V registry)
 {
-    internal const bool NativeBoundaryAvailable = false;
-    internal enum State { Prepared, Rejected, Cancelled, ManagedCommitted, ManagedIndeterminate }
+    internal const bool NativeBoundaryAvailable = false; // legacy no-host API only
+    internal enum State { Prepared, Rejected, Cancelled, ManagedCommitted, ManagedIndeterminate, NativeApplying, NativeCommitted, NativeIndeterminate }
     internal enum Checkpoint { BeforeStaging, DebitStaged, CreditStaged, BeforePublish, AfterManagedPublish }
     internal sealed class Draft(V.StandardSlotIntent intent, F.Live before, F.Live after)
     {
@@ -29,9 +29,10 @@ internal sealed class FlexibleCastingSlotToSorceryPlan(V registry)
         internal int NativeUsedSorceryAfter => After.SorceryMaximum - After.SorceryRemaining;
         // Native CreateSorceryPoints reports remaining (not gained) points, with feature=null.
         internal int ExpectedSorceryEventValue => After.SorceryRemaining;
-        internal bool NativeCompleted => false;
-        internal bool ParentCompleted => false;
+        internal bool NativeCompleted => Status == State.NativeCommitted;
+        internal bool ParentCompleted => Intent.Source.ParentCompleted;
         internal void Set(State state) => Status = state;
+        internal void NativeReceipt(O.Receipt receipt)=>Receipt=receipt;
         internal void Confirm(O.Receipt receipt) { Receipt = receipt; Status = State.ManagedCommitted; }
         internal void PendingDelivery(bool value) => DeliveryPending = value;
     }
@@ -122,11 +123,22 @@ internal sealed class FlexibleCastingSlotToSorceryPlan(V registry)
     internal void Cancel(Draft draft)
     {
         Known(draft);
-        if (draft.Status is State.ManagedCommitted or State.ManagedIndeterminate)
+        if (draft.Status is State.ManagedCommitted or State.ManagedIndeterminate or State.NativeApplying or State.NativeCommitted or State.NativeIndeterminate)
             throw Reject(O.Code.PendingAtomicJournal, "no native refund/committed rollback");
         if (draft.Status is State.Cancelled or State.Rejected) return;
         registry.Close(draft.Intent.Source, V.Status.Cancelled); draft.Set(State.Cancelled);
     }
+    internal O.Receipt ApplyNativeBudget(Draft draft,V.Evidence current,object effect,F.Live live)
+    {
+        Current(draft,current,effect,live);
+        if(draft.Status!=State.Prepared)throw Reject(O.Code.PendingAtomicJournal,"Native commit requires fresh prepared ticket");
+        draft.Set(State.NativeApplying);
+        var receipt=draft.Intent.Model.CommitManagedStandardSlot(draft.Intent.Ticket,live);
+        draft.NativeReceipt(receipt);return receipt;
+    }
+    internal void ConfirmNative(Draft draft){Known(draft);draft.Intent.Model.CompleteNativeTicket(draft.Intent.Ticket,draft.Receipt);draft.Set(State.NativeCommitted);}
+    internal void MarkNativeIndeterminate(Draft draft){Known(draft);draft.Set(State.NativeIndeterminate);}
+    // Legacy no-host entry remains blocked. Only the explicit native field-host executor can commit.
     internal void CommitNative(Draft draft, V.Evidence current, object effect, F.Live live, bool network = false)
     {
         if (network) throw Reject(O.Code.PendingAtomicJournal, "network transport unavailable");
