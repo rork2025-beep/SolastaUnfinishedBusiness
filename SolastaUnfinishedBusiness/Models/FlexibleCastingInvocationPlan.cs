@@ -77,7 +77,16 @@ internal sealed class FlexibleCastingInvocationPlan
     internal StandardSlotIntent InspectNativeFlexible(Envelope command,Evidence current,object effect,F.Live live,bool network=false)
     {
         Receive(command,current,effect,live,network);
-        var p=pending[command.Command];p.Ticket.RequireNativeFlexible();
+        var p=pending[command.Command];
+        try { p.Ticket.RequireNativeFlexible(); }
+        catch (O.Rejection)
+        {
+            // Receiving the envelope proves preflight identity, not native route readiness.
+            // An unsupported condition lifecycle must not remain acknowledged or become
+            // replayable merely because settings/resources later return to the old snapshot.
+            Close(p.Source,Status.Rejected);
+            throw;
+        }
         return new StandardSlotIntent(p.Source,p.Model,p.Ticket,p.Envelope);
     }
     private FlexibleCastingSlotToSorceryPlan standardSlots;

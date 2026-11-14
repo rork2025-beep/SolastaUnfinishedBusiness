@@ -114,6 +114,7 @@ internal static class FlexibleCastingPreflightTests
         FlexibleCastingSlotToSorceryTests.Run(check,game,types);
         FlexibleCastingNativeCommitTests.Run(check,game,types);
         FlexibleCastingMatrixTests.Run(check,game,types);
+        FlexibleCastingSlotConditionTests.Run(check,game,types);
         Console.WriteLine($"Stage13.7A: {behavior} executed preflight/model checks; {metadata} compiled/definition audits; no Unity execution.");
     }
     private static void Finalization(Action<bool,string> b)

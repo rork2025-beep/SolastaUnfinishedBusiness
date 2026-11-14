@@ -1,3 +1,5 @@
+> **Stage13.7B.4 — NOT CODE-COMPLETE:** fifth route Sorcery→temporary standard slot stays blocked before debit/condition registration. Native lifecycle audit and executable rejection/debt regressions added; rejected route now closes source authority instead of leaving it acknowledged. Four B.3 routes remain implemented but Unity-unverified; MixedGameplayReady=false. See Stage13.7B.4 below.
+
 > **Текущее состояние — Stage13.7B.3:** сохранён B.2 Standard-slot gain; добавлены native SP→Sorcery, Pact→Sorcery и Sorcery→temporary SP credit в том же executor. **Sorcery→slot с native AdditionalSpellSlot condition остаётся blocked до первого debit**: отсутствует funded condition attach/removal/rest journal. Матрица **PARTIAL**, не complete. MixedGameplayReady=false; все implemented routes Unity-unverified; public switch отсутствует. См. последний раздел.
 
 > **Архивная запись — Stage13.7B.2:** dedicated single-player **campaign** standard-slot→Sorcery native commit реализован за закрытым gate. Production executor проверяется с fake native field ports; настоящий Unity field host скомпилирован и отдельно проаудирован, но **в Unity не исполнялся**. MixedGameplayReady=false, public activation отсутствует; feature не playable. См. последний раздел.
@@ -539,3 +541,112 @@ git diff --check
 ```
 
 Baseline **21 919** → final **22 930** (+**1 011**): **997 executed production matrix-adapter checks with fake native fields**, отдельно **14 compiled/native/condition-definition audits**. Предыдущие B.2 и все class/resource/spell-learning/Secrets/invocation/auxiliary regressions сохранены. Test runner не запускает Unity; actual NativeHost, rest/healing/GUI/Harmony остаются Unity-unverified. Native code реализован для четырёх маршрутов, условный slot grant **не реализован**. Commit/push выполняются только в feature branch, без release/package/generated/proprietary/settings/save artifacts. **Classification: PARTIAL — 4/5 conversion routes implemented/code-tested; slot-condition route blocked; all actual Unity behavior unverified.**
+
+
+## Stage13.7B.4 — funded standard slot condition lifecycle (BLOCKED)
+
+### Baseline and result
+
+Starting HEAD `d5f52e41d8ce0aa49acf63e48687588b9e4925c4`, branch `feature/progression-20-to-12`. Tracked tree clean before changes; existing untracked `SolastaFiles/Mods/` excluded from delivery. SDK **9.0.320**. Reproduced baseline: **22 930 checks**, Release Workflow **0 errors / 0 warnings**, `git diff --check` exit0. No baseline failure or dependency reinstall.
+
+**Fifth route NOT IMPLEMENTED. Stage13.7B.4 is NOT CODE-COMPLETE.** The fail-closed fallback requested in the task is retained. No Sorcery debit, temporary grant, condition allocation/registration, success receipt, healing, accounting, modal completion or parent completion occurs on this route. This is not a Unity prerequisite refusal: installed code was inspected and production executor rejection was executed outside Unity. A complete observer-free native condition lifecycle has not been established; the concrete missing transitions follow.
+
+### Installed call order and identity evidence
+
+Inspected actual `SolastaFiles/Solasta_Data/Managed/Assembly-CSharp.dll` with Cecil, and the installed blueprint snapshots. Offsets below refer to this installed assembly, not assumed tabletop behavior.
+
+| Exact native method | Relevant order / evidence | Consequence |
+|---|---|---|
+| `RulesetCharacter.CreateSpellSlot(int, RulesetSpellRepertoire)` | `SpellSlotCreationCost[level]` → `SpendSorceryPoints` at IL_000c; `InflictCondition` at IL_0049; returned condition discarded at IL_004e | Cannot use as executor: Sorcery observers/spending precede rejectable attachment, and no condition success receipt is returned. |
+| `RulesetCharacter.SpendSorceryPoints(int)` | used counter → `AccountUsedMagicAndPower(cost)` → positive healing affinities/`Heal` → `SorceryPointsAltered(remaining, firstHealingAffinity)` | Existing B.3 spending-side publication remains; do not call it again after raw counter debit. Fifth route never reaches this phase. |
+| `RulesetActor.InflictCondition(string, DurationType, int, TurnOccurenceType, string, ulong, string, int, string, int, int, int, DieType)` | immunity/death/`CanReceiveCondition` checks; may return null; `CreateActiveCondition`; `AddConditionOfCategory(tag, instance, refresh:true, registerCondition:true)` | Authority/ability to pay does not prove that the new condition can attach. |
+| `RulesetCondition.CreateActiveCondition(ulong, ConditionDefinition, DurationType, int, TurnOccurenceType, ulong, string, int, int, string, int, int)` | pooled `Get`; target/source/faction/duration fields; **no Register call** | Nonzero source/target/effect fields are not registry evidence. Need exact instance lookup in the live registry. |
+| `RulesetEntity.Register(bool)` | GenerateGuid then RegisterEntity if service exists | GUID alone does not prove registration; no service can mean no registration. |
+| `RulesetEntityManager.RegisterEntity(RulesetEntity)` | `TryAdd` IL_001f, result discarded IL_0024, Dirty=true; **no user callback in this installed body** | Registration itself is not proven impossible or inherently observer-unsafe. A future packet can verify the exact registry reference before currency writes. Void return and duplicate-key failure are not a verified success receipt. |
+| `RulesetActor.AddConditionOfCategory(string, RulesetCondition, bool refresh, bool registerCondition)` | cancellation processing first; list.Add IL_0185; Register IL_0198; OnConditionAdded IL_019f; ConditionAdded.Invoke IL_01b4; affinity/immunity work; refresh flag tested IL_0235; RefreshAll IL_024b | `refresh:false` does **not** defer callbacks. Calling before debit exposes an unfunded condition; calling after debit allows partial success/failure. |
+| `RulesetCharacterHero.RefreshAll()` | refreshes item/style/proficiency/attributes/attacks, then spell repertoires/powers and other state, then CharacterRefreshed | Not a callback-free resource/condition projection primitive; cannot run it between debit and coherent publication. |
+
+Native construction uses `ConditionAdditionalSpellSlot{1..5}`, original hero source GUID/current faction, `UntilLongRest` (enum9), duration0, `StartOfTurn` (enum0), category `11Effect`. Every installed condition allows multiple instances and has exactly one `MagicAffinityAdditionalSpellSlotN` feature adding one slot of N. The blueprint default occurrence is distinct from the explicit native construction argument. Existing conditions/definitions are not replaced or edited.
+
+### Removal, object pooling and rest: missing boundary
+
+A prefix/postfix around one removal method would not cover this installed graph:
+
+| Native path | Order / bypass | Required funded transition still absent |
+|---|---|---|
+| `RemoveConditionOfCategory(string, RulesetCondition, bool, bool, bool)` | list.Remove result ignored IL_0020; OnConditionRemoved IL_0023; visual/removed callbacks; Unregister IL_005c; RefreshAll IL_0065 | Exact membership/registry/funding proof; atomically retire capacity and update every view before callbacks; repeated removal must not repeat cleanup. |
+| `RemoveAllConditionsOfCategory` | Unregister before list.Remove and OnConditionRemoved; does not call single-removal method | A single-removal patch misses the operation and may miss the live exact instance before pooling. |
+| `RemoveAllConditionsOfCategoryExcludingSources` | Unregister → list.RemoveAt → callbacks; no single-removal call | Same, with native source exclusions retained. |
+| `RemoveAllConditionsOfCategoryAndType` | **OnConditionRemoved first** → Unregister → list.Remove → visual/removed callbacks; no single-removal call | Different ordering: initial callback still observes attached instance. Preserve native type filtering without publishing stale capacity. |
+| `RemoveConditionCategoryAsNeeded` | Unregister every entry then removes category; **no OnConditionRemoved and no single-removal call** | Callback-only tracking cannot reconcile this deletion. |
+| `RulesetCondition.Unregister()` | `objectPool.Return(this)` **before** base RulesetEntity.Unregister | Exact reference must be retired from funding before it can be reused; a GUID/name-only map or callback after pooling is insufficient. |
+| `ApplyRestForConditions(RestType)` | selects UntilLongRest/UntilAnyRest conditions and calls RemoveCondition → single-removal method | Condition callbacks occur inside cleanup, before its final refresh. |
+| `GameCampaignCharacter.EngageRest` / `RulesetCharacter.RefreshEffectsForRest` | directly enter ApplyRestForConditions; the latter does so before terminating spells/powers | The existing ApplyRest resource postfix alone is too late to make earlier condition observers coherent. |
+
+Existing UB prefixes/postfixes on AddConditionOfCategory / OnConditionRemoved also invoke light/custom-feature/action-switching handlers. No broad suppression, temporary unsubscription or general patch to all native conditions was introduced. No raw list append, delayed attachment or catch-and-refund was substituted.
+
+The missing seam is a **dedicated, verified funded attach AND all applicable detach/expiry transitions**, with exact original hero + issued command + exact condition instance + registry entry + standard-budget contribution bound together before observer publication. Native methods above do not expose such a silent transactional API. Replacing these transitions narrowly is possible in principle; it has not been implemented/proved safe here. Merely observing Register or post-removal callbacks cannot supply it.
+
+### Existing budget lifecycle: executed characterization, not native support
+
+`StandardCasterResourcePlan.Budget.GrantTemporarySlots` keeps operation receipts, adds one temporary slot (or an SP credit in SP mode), and does not bind a native condition. `Refresh` replaces allocation/modifier capacities without resetting `usedSlots`. `Spend` uses one authoritative cumulative slot debt. Short rest retains that debt; long rest resets debt and temporary capacity while keeping historical operation IDs.
+
+`StandardMulticasterResourcesContext.Refresh` independently collects condition AdditionalSlots into modifiers keyed by native condition GUID/feature/index, then projects the budget to class repertoires. Existing unrelated conditions therefore have ordinary capacity-source behavior.
+
+New executable characterization tests establish:
+
+- Distinct condition modifiers preserve independent capacity; repeated views of one identity are counted once.
+- Spending all capacity then refreshing/removing/readding modifiers preserves debt; ordinary short rest does not mint a slot; model long rest after expiry restores only base capacity.
+- **Hazard reproduced:** `GrantTemporarySlots(funding, N, 1)` plus a condition-derived modifier for the same reward yields **base+2**, not base+1.
+- **Hazard reproduced:** removing that modifier does not revoke the independent temporary grant. There is no exact-condition revoke/retire operation in the current budget.
+- After long rest, replay of the historical temporary grant does not recreate capacity.
+
+These are tests of existing production arithmetic. They do **not** show a funded native condition was attached, removed, rested or successfully converted. No second budget/pool or fake native condition journal was added to make tests pass.
+
+### Narrow runtime safety correction
+
+The new production-executor rejection test initially failed: `InspectNativeFlexible` called Receive (which set AcknowledgedPreflight), then the condition-route guard threw, leaving the authority acknowledged. The test is recorded as a newly exposed defect, not a baseline failure.
+
+`FlexibleCastingInvocationPlan.InspectNativeFlexible` now closes that issued authority as **Rejected** when typed native-route admission fails. The preflight ticket is cancelled through the existing model; the held parent is not marked completed and no resources are refunded. Replaying this closed command is StaleOperation; changing contents is ConflictingOperation. Reusing the hero/circle does not resurrect the old identity. Supported B.3 routes pass the same guard and retain their existing commit behavior.
+
+The `PendingAtomicJournal` diagnostic now names exact registry proof, single/bulk removal/rest and capacity/debt reconciliation. It remains before `FlexibleCastingNativeCommitPlan.IHost.Prepare`, native publication, budget commitment and condition allocation.
+
+### Route / evidence matrix
+
+| Route | Code state after B.4 | Executed evidence | Unity |
+|---|---|---|---|
+| Standard slot→Sorcery | B.2 preserved | Full B.2/B.3 production-adapter regressions | UNVERIFIED |
+| SP→Sorcery | B.3 preserved | Full B.3 production-adapter regressions | UNVERIFIED |
+| Pact→Sorcery | B.3 preserved, unchanged Shift/priority/lossy policy; no Arcanum | Full B.3 regressions | UNVERIFIED |
+| Sorcery→temporary SP | B.3 preserved; no condition | Full B.3 funding/refresh/rest regressions | UNVERIFIED |
+| Sorcery→temporary standard slot | **BLOCKED before debit**, all circles1–5 | Real executor rejection with fake native field/condition-port boundary; separate existing-budget hazard/debt tests | NOT IMPLEMENTED |
+| Network / unsupported source / location parent | Remains blocked | Existing suite plus new rejection tests | NOT ENABLED |
+
+New tests use the production NativeCommitPlan/registry/preflight and an IHost whose condition preparation port fails if reached. They assert unchanged Standard/Pact/Sorcery/native counters, exact existing graph/registry references, no native receipt, healing, notification, refund, or parent/modal completion. Sorcerer+Wizard / Sorcerer+Warlock, valid two/three-class owners and all circles1–5 are covered, together with duplicate/changed/cancelled/stale owner/repertoire/source/modal/rules/resources cases and gate/network rejection.
+
+**Not executed:** successful funded slot creation/spending, two successful conversions, native attach refusal/registration-failure injection, native removal/repeated removal/expiry and listener failure during a successful fifth-route commit. Those cannot be represented as passing tests while the adapter is absent. The fake condition port is never reached; it is a guard test, not a simulated successful lifecycle. Existing four-route reentry/listener/receipt tests continue in the complete runner. Cecil/signature/blueprint assertions do not execute Harmony, pooling, callbacks or Unity.
+
+### Outstanding implementation and Unity checks
+
+Before lifting the fifth-route guard, implement and test the exact-instance funding ledger and coordinated condition graph/registry/resource publication, including every applicable native bulk removal path and rest cleanup. Choose one capacity representation; reconcile removal against spent debt without deleting other grants. Revalidate held parent/modal/source, unchanged graph and registration, Sorcery/rules/budget immediately before writes. Capture notifications before writes and publish only after the committed receipt. Later delivery failure must not re-debit, re-heal or re-complete.
+
+Then use disposable new heroes/separate test saves to verify native admission, source ownership, exact one-time cost/condition/capacity on all circles, spending and all repertoire views, unrelated conditions, two conversions, repeated refresh, short/long rest and removal while spent, reentry/listener exceptions and parent/UI once. None of these game scenarios ran in this environment. Save/load, Respec, public activation, network and general mixed casting remain outside scope. `MixedGameplayReady=false`.
+
+Changed files: Models/FlexibleCastingInvocationPlan.cs; Models/FlexibleCastingPreflightPlan.cs; Tests/FighterProgression/FlexibleCastingPreflightTests.cs; new Tests/FighterProgression/FlexibleCastingSlotConditionTests.cs; Documentation/FlexibleCastingPreflight.md.
+
+### Final validation
+
+SDK9.0.320; final commands and observed results:
+
+```sh
+dotnet build SolastaUnfinishedBusiness.sln --no-restore -c "Release Workflow" -m:2
+# exit0; 0 errors; 0 warnings
+dotnet run --project Tests/FighterProgression/FighterProgression.Tests.csproj
+# exit0; 23251 checks passed
+git diff --check
+# exit0; no output
+```
+
+Baseline **22 930** → final **23 251**, delta **321**: **298 executed production rejection/budget checks**, separately **23 native/compiled/definition audits**. All earlier class, auxiliary, invocation, spell-learning and four-route B.3 regressions are included. Initial new-test runs exposed the acknowledged-rejection defect above; metadata assertions were corrected to reflect distinct native bulk-removal orders and IL argument macros. Baseline itself passed. Final build/test/diff checks all pass; no Unity execution occurred.
+
+Delivery contains the five listed source/test/documentation files only, on the feature branch. No generated DLL/game assembly/settings/save is included. **Final classification: NOT CODE-COMPLETE / fifth route BLOCKED; four previous routes retained and Unity-unverified.**

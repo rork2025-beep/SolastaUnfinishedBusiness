@@ -65,7 +65,7 @@ internal sealed class FlexibleCastingPreflightPlan
                 if(Request.Input!=O.Domain.SorceryPoints||Request.OperationKind!=O.Kind.SorceryToSlot)
                     throw new O.Rejection(O.Code.WrongDomain,"Creation must be funded by original-hero Sorcery Points");
                 if(Request.Output==O.Domain.StandardSlots)
-                    throw new O.Rejection(O.Code.PendingAtomicJournal,"AdditionalSpellSlot requires funded native condition attach/removal/rest journal; no Sorcery debit permitted");
+                    throw new O.Rejection(O.Code.PendingAtomicJournal,"AdditionalSpellSlot requires exact registry proof, funded attach and all single/bulk removal/rest transitions with capacity/debt reconciliation; no Sorcery debit permitted");
                 if(Request.Output!=O.Domain.SpellPoints)throw new O.Rejection(O.Code.WrongDomain,"Unknown creation resource");
             }
             else if(Request.OperationKind!=O.Kind.SlotToSorcery||Request.Output!=O.Domain.SorceryPoints||
