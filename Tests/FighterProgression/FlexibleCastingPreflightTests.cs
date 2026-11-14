@@ -22,10 +22,11 @@ internal static class FlexibleCastingPreflightTests
         internal readonly F.Authority Authority;internal string Rules="rules1",Casting="CastSpellSorcerer",Owner="17",Repertoire="17/CastSpellSorcerer";
         internal int Actual=8,Effective=11,NativeSorcery,NativePowerUses=1,NativeRefunds=0;internal bool Eligible=true,Preference;
         internal string[] Conditions={"original-condition"};internal int[] NativeCosts=Costs.ToArray();
-        internal Fixture(S.ResourceMode mode,string other,bool create=false,int? sorcery=null)
+        internal Fixture(S.ResourceMode mode,string other,bool create=false,int? sorcery=null,bool threeClasses=false)
         {
-            var ids=new[]{new C.ClassInput("Sorcerer",8,true),new C.ClassInput(other,12,true)};
-            var calculator=new C("A-native-fixture",ids.Select(c=>new C.ClassProfile(c.ClassId,true,new C.CastingProfile("CastSpell"+c.ClassId,c.ClassId=="Warlock"?C.CasterKind.Pact:C.CasterKind.Full,1,true,c.ClassId=="Warlock"?pactRows.Select(r=>Array.FindIndex(r,n=>n>0)+1):Full))));
+            var ids=threeClasses?new[]{new C.ClassInput("Sorcerer",8,true),new C.ClassInput(other,6,true),new C.ClassInput("Fighter",6,true)}:
+                new[]{new C.ClassInput("Sorcerer",8,true),new C.ClassInput(other,12,true)};
+            var calculator=new C("A-native-fixture",ids.Select(c=>new C.ClassProfile(c.ClassId,true,c.ClassId=="Fighter"?null:new C.CastingProfile("CastSpell"+c.ClassId,c.ClassId=="Warlock"?C.CasterKind.Pact:C.CasterKind.Full,1,true,c.ClassId=="Warlock"?pactRows.Select(r=>Array.FindIndex(r,n=>n>0)+1):Full))));
             var result=calculator.Calculate(new C.Snapshot(20,ids,ids.SelectMany(c=>Enumerable.Repeat(c.ClassId,c.ActualLevel))));
             Resources=new P.CastingLedger(new S.Budget(tables,S.Allocation.StandardPortion(tables,result,mode)),new P.Budget(new P.Allocation(pact,result)));
             NativeSorcery=sorcery??(create?11:6);Sorcery=new O.Counter("17/SorceryPoints","17",O.Domain.SorceryPoints,11,NativeSorcery,"LongRest");
@@ -112,6 +113,7 @@ internal static class FlexibleCastingPreflightTests
         FlexibleCastingInvocationTests.Run(check,game,types);
         FlexibleCastingSlotToSorceryTests.Run(check,game,types);
         FlexibleCastingNativeCommitTests.Run(check,game,types);
+        FlexibleCastingMatrixTests.Run(check,game,types);
         Console.WriteLine($"Stage13.7A: {behavior} executed preflight/model checks; {metadata} compiled/definition audits; no Unity execution.");
     }
     private static void Finalization(Action<bool,string> b)

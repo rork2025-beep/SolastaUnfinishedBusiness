@@ -24,8 +24,9 @@ internal sealed class FlexibleCastingSlotToSorceryPlan(V registry)
         internal bool DeliveryPending { get; private set; }
         internal bool Busy;
         internal int SlotCircle => Intent.Ticket.Request.Circle;
-        internal int SlotDebit => 1;
+        internal int SlotDebit => Intent.Ticket.Request.Input is O.Domain.StandardSlots or O.Domain.PactSlots?1:0;
         internal int SorceryGain => Intent.Ticket.Preview.OutputAmount;
+        internal string NativeFundingIdentity=>Intent.Ticket.NativeFundingIdentity;
         internal int NativeUsedSorceryAfter => After.SorceryMaximum - After.SorceryRemaining;
         // Native CreateSorceryPoints reports remaining (not gained) points, with feature=null.
         internal int ExpectedSorceryEventValue => After.SorceryRemaining;
@@ -71,7 +72,9 @@ internal sealed class FlexibleCastingSlotToSorceryPlan(V registry)
             }
         }
     }
-    internal Draft Prepare(V.Envelope command, V.Evidence current, object effect, F.Live live, bool network = false)
+    internal Draft Prepare(V.Envelope command,V.Evidence current,object effect,F.Live live,bool network=false)=>PrepareCore(command,current,effect,live,network,false);
+    internal Draft PrepareNativeFlexible(V.Envelope command,V.Evidence current,object effect,F.Live live,bool network=false)=>PrepareCore(command,current,effect,live,network,true);
+    private Draft PrepareCore(V.Envelope command,V.Evidence current,object effect,F.Live live,bool network,bool nativeFlexible)
     {
         if (network) throw Reject(O.Code.PendingAtomicJournal, "network transport unavailable");
         if (command == null || string.IsNullOrWhiteSpace(command.Command)) throw Reject(O.Code.MissingIdentity, "command envelope");
@@ -80,8 +83,8 @@ internal sealed class FlexibleCastingSlotToSorceryPlan(V registry)
             if (!command.SameAs(previous.Intent.Command)) throw Reject(O.Code.ConflictingOperation, "command identity changed");
             Current(previous, current, effect, live); return previous;
         }
-        var intent = registry.InspectStandardSlot(command, current, effect, live);
-        var draft = new Draft(intent, live, Project(live, intent.Ticket)); drafts.Add(command.Command, draft); return draft;
+        var intent = nativeFlexible?registry.InspectNativeFlexible(command,current,effect,live):registry.InspectStandardSlot(command,current,effect,live);
+        var draft = new Draft(intent, live, nativeFlexible?intent.Model.ProjectNativeAfter(intent.Ticket,live):Project(live, intent.Ticket)); drafts.Add(command.Command, draft); return draft;
     }
     // Executable arithmetic only. This NEVER updates native fields/projections, invokes native
     // callbacks or completes a parent. The caller must not use this receipt as native authority.
@@ -133,7 +136,7 @@ internal sealed class FlexibleCastingSlotToSorceryPlan(V registry)
         Current(draft,current,effect,live);
         if(draft.Status!=State.Prepared)throw Reject(O.Code.PendingAtomicJournal,"Native commit requires fresh prepared ticket");
         draft.Set(State.NativeApplying);
-        var receipt=draft.Intent.Model.CommitManagedStandardSlot(draft.Intent.Ticket,live);
+        var receipt=draft.Intent.Model.CommitNativeFlexibleBudget(draft.Intent.Ticket,live);
         draft.NativeReceipt(receipt);return receipt;
     }
     internal void ConfirmNative(Draft draft){Known(draft);draft.Intent.Model.CompleteNativeTicket(draft.Intent.Ticket,draft.Receipt);draft.Set(State.NativeCommitted);}

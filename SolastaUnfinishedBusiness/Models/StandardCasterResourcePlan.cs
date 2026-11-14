@@ -186,6 +186,14 @@ internal sealed class StandardCasterResourcePlan
             return Current.Mode == ResourceMode.SpellPoints ? (CanSpend(circle) ? 1 : 0)
                 : Math.Max(0, Current.Slots[circle - 1] + temporarySlots[circle - 1] - usedSlots[circle - 1]);
         }
+        // Read-only preview of the SAME SP availability rule at a staged point balance.
+        internal int PreviewPointSlot(int circle,int pointBalance)
+        {
+            Circle(circle);
+            if(Current.Mode!=ResourceMode.SpellPoints||pointBalance<0||circle==0)throw new ArgumentException("SP preview requires a valid point balance/circle");
+            return Current.Slots[circle-1]>0&&pointBalance>=tables.Cost(circle)&&(circle<6||!highCircleUsed[circle-1])?1:0;
+        }
+        internal bool HasTemporaryCredit(string id,int circle)=>temporaryIds.TryGetValue(id,out var value)&&value.Circle==circle&&value.Count==1;
         internal bool HighCircleSpent(int circle) { Circle(circle); return circle >= 6 && highCircleUsed[circle - 1]; }
         internal int TemporarySlots(int circle) { Circle(circle); return circle == 0 ? 0 : temporarySlots[circle - 1]; }
         internal bool GrantTemporarySlots(string sourceId, int circle, int count)

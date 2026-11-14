@@ -197,7 +197,7 @@ internal static partial class FlexibleCastingPreflightContext
         if(!StandardMulticasterResourcesContext.RuntimeEnabled)throw new O.Rejection(O.Code.Ineligible,"Preflight gate closed");
         if(command==null||string.IsNullOrWhiteSpace(command.Invocation)||!Origins.TryGetValue(command.Invocation,out var source))throw new O.Rejection(O.Code.MissingIdentity,"Unknown native invocation envelope");
         RequireLocalSinglePlayer();
-        if(!command.Create&&command.Input==O.Domain.StandardSlots)
+        if(command.Input is O.Domain.StandardSlots or O.Domain.SpellPoints or O.Domain.PactSlots or O.Domain.SorceryPoints)
         {
             if(source.Source.Modal is not FlexibleCastingModal modal)throw new O.Rejection(O.Code.MissingIdentity,"Exact modal binding missing");
             source.Native??=new NativeHost(source,modal);
@@ -205,6 +205,12 @@ internal static partial class FlexibleCastingPreflightContext
             return new V.Acknowledgement(command.Command,command.Invocation,receipt);
         }
         return Invocations.Receive(command,Evidence(source),source.Effect,Read(source));
+    }
+    internal static void SynchronizeNativeRest(RulesetCharacterHero hero,string operation,bool longRest)
+    {
+        if(!StandardMulticasterResourcesContext.RuntimeEnabled||!Sessions.TryGetValue(hero,out var session))return;
+        var maximum=hero.TryGetAttributeValue(AttributeDefinitions.SorceryPoints);
+        session.Plan.SynchronizeNativeRest(operation,longRest,maximum,maximum-hero.UsedSorceryPoints);
     }
     private static void BlockNativeCommit(V.Envelope command)
     {

@@ -56,6 +56,23 @@ internal sealed class FlexibleCastingPreflightPlan
             if(Request.Circle is <1 or >5||Request.Circle!=Request.NativeCircle||Request.Quantity!=1||Request.Cost!=1)
                 throw new O.Rejection(O.Code.InvalidCost,"One verified actual circle1..5 standard slot required");
         }
+        internal void RequireNativeFlexible()
+        {
+            if(Request.Quantity!=1||Request.NativeCircle is <1 or >5||Request.Circle is <1 or >5)
+                throw new O.Rejection(O.Code.InvalidCircle,"Flexible Casting UI and consumed circles must be1..5");
+            if(Authority.CreateSlot)
+            {
+                if(Request.Input!=O.Domain.SorceryPoints||Request.OperationKind!=O.Kind.SorceryToSlot)
+                    throw new O.Rejection(O.Code.WrongDomain,"Creation must be funded by original-hero Sorcery Points");
+                if(Request.Output==O.Domain.StandardSlots)
+                    throw new O.Rejection(O.Code.PendingAtomicJournal,"AdditionalSpellSlot requires funded native condition attach/removal/rest journal; no Sorcery debit permitted");
+                if(Request.Output!=O.Domain.SpellPoints)throw new O.Rejection(O.Code.WrongDomain,"Unknown creation resource");
+            }
+            else if(Request.OperationKind!=O.Kind.SlotToSorcery||Request.Output!=O.Domain.SorceryPoints||
+                Request.Input is not (O.Domain.StandardSlots or O.Domain.SpellPoints or O.Domain.PactSlots))
+                throw new O.Rejection(O.Code.WrongDomain,"Arcanum/unknown resource cannot fund Flexible Casting");
+        }
+        internal string NativeFundingIdentity=>Authority.CreateSlot?O.CoordinatorKey(Request.Hero,Request.Operation):null;
         internal string FundingIdentity=>Authority.CreateSlot?Request.Operation+"/AdditionalSpellSlot"+Request.NativeCircle:null;
     }
     private readonly string hero,rules;
@@ -138,6 +155,32 @@ internal sealed class FlexibleCastingPreflightPlan
     // Model arithmetic only; this does not publish a native projection, event, parent action or acknowledgement.
     internal O.Receipt CommitManagedStandardSlot(Ticket ticket,Live live)
     {ticket.RequireStandardSlotToSorcery();Revalidate(ticket,live);return operations.CommitManaged(ticket.Request);}
+    internal O.Receipt CommitNativeFlexibleBudget(Ticket ticket,Live live)
+    {ticket.RequireNativeFlexible();Revalidate(ticket,live);return operations.CommitManaged(ticket.Request);}
+    internal Live ProjectNativeAfter(Ticket ticket,Live before)
+    {
+        ticket.RequireNativeFlexible();var request=ticket.Request;var standard=operations.Resources.Standard;var pact=operations.Resources.Pact;
+        var points=before.PointRemaining;
+        if(request.Input==O.Domain.SpellPoints)points=checked(points-request.Cost);
+        if(request.Output==O.Domain.SpellPoints)points=checked(points+ticket.Preview.OutputAmount);
+        var remaining=request.Input==O.Domain.SorceryPoints?before.SorceryRemaining-request.Cost:before.SorceryRemaining+ticket.Preview.OutputAmount;
+        var pactUsed=before.PactUsed+(request.Input==O.Domain.PactSlots?1:0);
+        var used=new int[9];
+        for(var c=1;c<=9;c++)
+        {
+            var available=standard.Current.Mode==S.ResourceMode.SpellPoints?standard.PreviewPointSlot(c,points):standard.RemainingSlots(c);
+            if(request.Input==O.Domain.StandardSlots&&request.Circle==c)available--;
+            var capacity=standard.Current.Slots[c-1]+standard.TemporarySlots(c);
+            used[c-1]=capacity-available+(c==pact.Current.Circle?pactUsed:0);
+        }
+        return new Live(before.Hero,before.Repertoire,before.Casting,before.Actual,before.Effective,before.Compressed,before.Eligible,before.Rules,
+            before.SorceryMaximum,remaining,before.Capacities,used,pactUsed,before.PointPools,before.PointMaximum,points,before.Costs,before.Conditions,before.PreferPact);
+    }
+    internal void SynchronizeNativeRest(string operation,bool longRest,int maximum,int remaining)
+    {
+        if(maximum!=sorcery.Maximum||remaining<0||remaining>maximum)throw new O.Rejection(O.Code.StaleOperation,"Sorcery rest capacity changed; new validated session required");
+        operations.Rest(operation,longRest);sorcery.SynchronizeRestSnapshot(maximum,remaining);
+    }
     internal void RevalidateManagedReceipt(Ticket ticket,O.Receipt receipt,Live live,string expectedProjection)
     {
         Validate(ticket.Authority,live);

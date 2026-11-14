@@ -295,7 +295,11 @@ internal static class StandardMulticasterResourcesContext
             internal readonly RulesetSpellRepertoire Rep=rep;
             internal readonly Dictionary<int,int> BeforeCaps=rep.spellsSlotCapacities,BeforeUsed=rep.usedSpellsSlots;
             internal readonly Dictionary<int,int> Caps=new(rep.spellsSlotCapacities),Used=new(rep.usedSpellsSlots);
-            internal void Stage(int level){Used.TryGetValue(level,out var n);Used[level]=checked(n+1);}
+            internal void Stage(FlexibleCastingSlotToSorceryPlan.Draft draft)
+            {
+                for(var c=1;c<=9;c++)if(Caps.ContainsKey(c)||draft.After.Used[c-1]!=0)Used[c]=draft.After.Used[c-1];
+                if(Used.ContainsKey(SharedSpellsContext.PactMagicSlotsTab)||draft.After.PactUsed!=0)Used[SharedSpellsContext.PactMagicSlotsTab]=draft.After.PactUsed;
+            }
             internal void Write(){Rep.spellsSlotCapacities=Caps;Rep.usedSpellsSlots=Used;}
         }
         private readonly RulesetCharacterHero hero;
@@ -304,19 +308,29 @@ internal static class StandardMulticasterResourcesContext
         private readonly ResourcePlan.Budget budget;
         private readonly Binding binding;
         private bool ownsProjectionGuard;
-        private readonly int remaining;
+        private readonly int[] remaining,afterRemaining;
+        private readonly RulesetUsablePower pointPool;
+        private readonly PactMagicResourcePlan.Budget pact;
+        private readonly int pointMaximum;
         internal readonly RulesetSpellRepertoire[] Repertoires;
         internal FlexibleSlotViews(RulesetCharacterHero owner,Binding bound,FlexibleCastingSlotToSorceryPlan.Draft operation)
         {
-            hero=owner;binding=bound;budget=bound.Budget;draft=operation;remaining=budget.RemainingSlots(draft.SlotCircle);
+            hero=owner;binding=bound;budget=bound.Budget;draft=operation;
+            pact=PactMagicMulticasterContext.BoundLedgerForPreflight(hero).Pact;
+            remaining=Enumerable.Range(1,9).Select(budget.RemainingSlots).ToArray();
+            afterRemaining=Enumerable.Range(1,9).Select(c=>budget.Current.Mode==ResourcePlan.ResourceMode.SpellPoints?
+                budget.PreviewPointSlot(c,draft.After.PointRemaining):remaining[c-1]-(draft.Intent.Ticket.Request.Input==SpellResourceOperationPlan.Domain.StandardSlots&&draft.SlotCircle==c?1:0)).ToArray();
+            if(budget.Current.Mode==ResourcePlan.ResourceMode.SpellPoints){pointPool=CanonicalPower(hero,bound);pointMaximum=hero.GetMaxUsesOfPower(pointPool);}
             Repertoires=hero.SpellRepertoires.Where(StandardRepertoire).ToArray();
             views=Repertoires.Select(r=>new View(r)).ToArray();
-            Validate();foreach(var view in views)view.Stage(draft.SlotCircle);
+            Validate();foreach(var view in views)view.Stage(draft);
         }
         internal void Validate()
         {
-            if(binding.Projecting||!hero.SpellRepertoires.Where(StandardRepertoire).SequenceEqual(Repertoires)||remaining!=budget.RemainingSlots(draft.SlotCircle))
+            if(binding.Projecting||!hero.SpellRepertoires.Where(StandardRepertoire).SequenceEqual(Repertoires)||!remaining.SequenceEqual(Enumerable.Range(1,9).Select(budget.RemainingSlots)))
                 throw new InvalidOperationException("Flexible Casting repertoire owner/list/budget changed before publication.");
+            if(pointPool!=null&&(!ReferenceEquals(CanonicalPower(hero,binding),pointPool)||pointPool.RemainingUses!=draft.Before.PointRemaining||hero.GetMaxUsesOfPower(pointPool)!=pointMaximum))
+                throw new InvalidOperationException("Canonical Spell Points pool/reference/balance changed");
             foreach(var view in views)
             {
                 if(view.Rep.GetCaster()?.GetOriginalHero()!=hero||!ReferenceEquals(view.Rep.spellsSlotCapacities,view.BeforeCaps)||!ReferenceEquals(view.Rep.usedSpellsSlots,view.BeforeUsed))
@@ -330,11 +344,15 @@ internal static class StandardMulticasterResourcesContext
                 if(pactUsed!=draft.Before.PactUsed)throw new InvalidOperationException("Divergent Pact sentinel view.");
             }
         }
-        internal void ApplyFields(){binding.Projecting=true;ownsProjectionGuard=true;for(var i=0;i<views.Length;i++)views[i].Write();}
+        internal void ApplyFields(){binding.Projecting=true;ownsProjectionGuard=true;if(pointPool!=null)pointPool.remainingUses=draft.After.PointRemaining;for(var i=0;i<views.Length;i++)views[i].Write();}
         internal void Release(){if(ownsProjectionGuard){binding.Projecting=false;ownsProjectionGuard=false;}}
         internal void AssertCoherent()
         {
-            if(budget.RemainingSlots(draft.SlotCircle)!=remaining-1)throw new InvalidOperationException("Flexible Casting standard debit mismatch.");
+            if(!afterRemaining.SequenceEqual(Enumerable.Range(1,9).Select(budget.RemainingSlots))||pact.Used!=draft.After.PactUsed)
+                throw new InvalidOperationException("Flexible Casting standard/Pact resource mismatch.");
+            if(pointPool!=null&&(pointPool.RemainingUses!=budget.RemainingPoints||pointPool.RemainingUses!=draft.After.PointRemaining))throw new InvalidOperationException("Spell Points publication mismatch");
+            if(draft.Intent.Ticket.Request.Output==SpellResourceOperationPlan.Domain.SpellPoints&&!budget.HasTemporaryCredit(draft.NativeFundingIdentity,draft.SlotCircle))
+                throw new InvalidOperationException("Unfunded temporary point credit");
             foreach(var view in views)
             {
                 if(!ReferenceEquals(view.Rep.spellsSlotCapacities,view.Caps)||!ReferenceEquals(view.Rep.usedSpellsSlots,view.Used))throw new InvalidOperationException("Unpublished view.");
@@ -348,7 +366,7 @@ internal static class StandardMulticasterResourcesContext
     }
     internal static FlexibleSlotViews PrepareFlexibleSlotViews(RulesetCharacterHero hero,FlexibleCastingSlotToSorceryPlan.Draft draft)
     {
-        if(!TryBinding(hero,out var binding)||binding.Budget.Current.Mode!=ResourcePlan.ResourceMode.Slots)
+        if(!TryBinding(hero,out var binding))
             throw new InvalidOperationException("Flexible Casting native commit requires the bound standard-slot owner.");
         return new FlexibleSlotViews(hero,binding,draft);
     }
@@ -359,6 +377,8 @@ internal static class StandardMulticasterResourcesContext
         var operation = "rest:" + Guid.NewGuid();
         b.Budget.Rest(operation, restType == RestType.LongRest);
         AuxiliarySpellSourcesContext.FinishNativeRest((RulesetCharacterHero)ResolveOwner(actor), restType, simulate);
-        PactMagicMulticasterContext.Rest(actor, operation, restType == RestType.LongRest, false); Project(actor, b);
+        PactMagicMulticasterContext.Rest(actor, operation, restType == RestType.LongRest, false);
+        FlexibleCastingPreflightContext.SynchronizeNativeRest((RulesetCharacterHero)ResolveOwner(actor),operation,restType==RestType.LongRest);
+        Project(actor, b);
     }
 }

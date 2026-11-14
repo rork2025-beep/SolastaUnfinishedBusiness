@@ -74,6 +74,12 @@ internal sealed class FlexibleCastingInvocationPlan
         var p=pending[command.Command];p.Ticket.RequireStandardSlotToSorcery();
         return new StandardSlotIntent(p.Source,p.Model,p.Ticket,p.Envelope);
     }
+    internal StandardSlotIntent InspectNativeFlexible(Envelope command,Evidence current,object effect,F.Live live,bool network=false)
+    {
+        Receive(command,current,effect,live,network);
+        var p=pending[command.Command];p.Ticket.RequireNativeFlexible();
+        return new StandardSlotIntent(p.Source,p.Model,p.Ticket,p.Envelope);
+    }
     private FlexibleCastingSlotToSorceryPlan standardSlots;
     internal FlexibleCastingSlotToSorceryPlan StandardSlots=>standardSlots??=new FlexibleCastingSlotToSorceryPlan(this);
     private FlexibleCastingNativeCommitPlan nativeCommits;

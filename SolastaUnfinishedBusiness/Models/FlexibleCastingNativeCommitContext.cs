@@ -47,7 +47,7 @@ internal static partial class FlexibleCastingPreflightContext
                 !hero.UsablePowers.Contains(power) || !hero.HasAnyFeature(power.PowerDefinition) || !ReferenceEquals(source.Source.Entry.Power, power.PowerDefinition))
                 throw new O.Rejection(O.Code.WrongOwner, "Original hero/Sorcerer/power ownership changed");
             StandardMulticasterResourcesContext.PreflightResources(hero);
-            if (Main.Settings.UseAlternateSpellPointsSystem) throw new O.Rejection(O.Code.WrongDomain, "Native Flexible Casting supports standard slots only");
+
             if (!replay)
             {
                 if (source.Source.Kind != V.SourceKind.TrustedCampaignInvocation ||
@@ -55,7 +55,7 @@ internal static partial class FlexibleCastingPreflightContext
                     !ReferenceEquals(parent.Authority, source.Source) || !ReferenceEquals(parent.Usable, power) || parent.Hero != hero ||
                     ServiceRepository.GetService<IRulesetImplementationService>()?.GetType() != typeof(RulesetImplementationManager) ||
                     ServiceRepository.GetService<IPlayerControllerService>()?.ActivePlayerController?.IsCharacterControlled(hero) != true ||
-                    !Modals.TryGetValue(modal, out var origin) || !ReferenceEquals(origin, source) || !modal.Visible || modal.caster != hero || modal.repertoire != source.Repertoire || modal.createSlotMode ||
+                    !Modals.TryGetValue(modal, out var origin) || !ReferenceEquals(origin, source) || !modal.Visible || modal.caster != hero || modal.repertoire != source.Repertoire || modal.createSlotMode!=source.Authority.CreateSlot ||
                     power.PowerDefinition.RechargeRate != RuleDefinitions.RechargeRate.AtWill || power.RemainingUses != power.MaxUses ||
                     power.PowerDefinition is FeatureDefinitionPowerSharedPool || power.PowerDefinition.HasSubFeatureOfType<CountPowerUseInSpecialFeatures>())
                     throw new O.Rejection(O.Code.PendingAtomicJournal, "Native commit supports only the exact held local campaign parent/modal and unmodified AtWill source");
@@ -71,12 +71,26 @@ internal static partial class FlexibleCastingPreflightContext
             var repertoire = views.Repertoires.SelectMany(rep => (rep.RepertoireRefreshed?.GetInvocationList() ?? Array.Empty<Delegate>())
                 .Cast<RulesetSpellRepertoire.RepertoireRefreshedHandler>().Select(listener => (Action)(() => listener(rep)))).ToArray();
             var sorceryListeners = hero.SorceryPointsAltered?.GetInvocationList() ?? Array.Empty<Delegate>();
-            var sorcery = sorceryListeners.Cast<RulesetCharacter.SorceryPointsAlteredHandler>()
-                .Select(listener => (Action)(() => listener(hero, draft.ExpectedSorceryEventValue, null))).ToList();
+            var spending=draft.Intent.Ticket.Request.Input==O.Domain.SorceryPoints;
+            // Match native SpendSorceryPoints enumeration/order, without changing its used counter twice.
+            var affinities=new System.Collections.Generic.List<FeatureDefinition>();
+            if(spending)hero.EnumerateFeaturesToBrowse<FeatureDefinitionMagicAffinity>(affinities,null);
+            var healingFeatures=affinities.Cast<FeatureDefinitionMagicAffinity>().Where(f=>f.HealingPerSpentSorceryPoint>0).ToArray();
+            var healing=checked(healingFeatures.Sum(f=>checked(f.HealingPerSpentSorceryPoint*draft.Intent.Ticket.Request.Cost)));
+            FeatureDefinition healingSource=healingFeatures.FirstOrDefault();
+            var sorcery=new System.Collections.Generic.List<Action>();
+            if(spending)
+            {
+                var cost=draft.Intent.Ticket.Request.Cost;
+                sorcery.Add(()=>hero.AccountUsedMagicAndPower(cost));
+                if(healing>0)sorcery.Add(()=>RulesetCharacter.Heal(healing,hero,hero,(RuleDefinitions.HealingCap)0,hero.Guid));
+            }
+            sorcery.AddRange(sorceryListeners.Cast<RulesetCharacter.SorceryPointsAlteredHandler>()
+                .Select(listener=>(Action)(()=>listener(hero,draft.ExpectedSorceryEventValue,healingSource))));
             // The original Convert callback was suppressed, so its normal one-shot modal listener
             // was never subscribed. Refresh it explicitly, unless it was already present.
-            if (!sorceryListeners.Any(d => ReferenceEquals(d.Target, modal) && d.Method.Name == nameof(FlexibleCastingModal.SorceryPointCreated)))
-                sorcery.Add(() => modal.SorceryPointCreated(hero, draft.ExpectedSorceryEventValue, null));
+            if (!sorceryListeners.Any(d => ReferenceEquals(d.Target, modal) && d.Method.Name == (spending?nameof(FlexibleCastingModal.SpellSlotCreated):nameof(FlexibleCastingModal.SorceryPointCreated))))
+                sorcery.Add(()=>{if(spending)modal.SpellSlotCreated(hero,draft.ExpectedSorceryEventValue,healingSource);else modal.SorceryPointCreated(hero,draft.ExpectedSorceryEventValue,null);});
             var parentEvents = (hero.PowerActivated?.GetInvocationList() ?? Array.Empty<Delegate>()).Cast<RulesetCharacter.PowerActivatedHandler>()
                 .Select(listener => (Action)(() => listener(hero, power, 0))).ToArray();
             return new N.Publication(

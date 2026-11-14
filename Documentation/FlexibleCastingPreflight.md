@@ -1,4 +1,6 @@
-> **Текущее состояние — Stage13.7B.2:** dedicated single-player **campaign** standard-slot→Sorcery native commit реализован за закрытым gate. Production executor проверяется с fake native field ports; настоящий Unity field host скомпилирован и отдельно проаудирован, но **в Unity не исполнялся**. MixedGameplayReady=false, public activation отсутствует; feature не playable. См. последний раздел.
+> **Текущее состояние — Stage13.7B.3:** сохранён B.2 Standard-slot gain; добавлены native SP→Sorcery, Pact→Sorcery и Sorcery→temporary SP credit в том же executor. **Sorcery→slot с native AdditionalSpellSlot condition остаётся blocked до первого debit**: отсутствует funded condition attach/removal/rest journal. Матрица **PARTIAL**, не complete. MixedGameplayReady=false; все implemented routes Unity-unverified; public switch отсутствует. См. последний раздел.
+
+> **Архивная запись — Stage13.7B.2:** dedicated single-player **campaign** standard-slot→Sorcery native commit реализован за закрытым gate. Production executor проверяется с fake native field ports; настоящий Unity field host скомпилирован и отдельно проаудирован, но **в Unity не исполнялся**. MixedGameplayReady=false, public activation отсутствует; feature не playable. См. последний раздел.
 
 > **Архивная запись — Stage13.7B.1 revised:** реализованы single-direction transaction proposal, source/ticket revalidation и existing-ledger managed arithmetic; **native commit остаётся blocked**. См. последний раздел. MixedGameplayReady=false; Unity validation pending. Предыдущие разделы13.7A/A.2 сохранены как baseline/history.
 
@@ -437,3 +439,103 @@ git diff --check
 Baseline **20 785** → final **21 919** (+**1 134**): **1 120 executed production commit-adapter checks with fake native field/notification ports**, отдельно **14 compiled/native signature audits**. Все прежние class, resource, spell-learning, Bard Secrets, Warlock invocation/Pact/Arcanum, auxiliary/third-caster и transaction regressions сохранены. Ни одна проверка не названа Unity execution.
 
 **Итог:** single-player campaign native path implemented and code-tested at the production executor boundary; actual Unity field host compiled/audited, Unity-unverified. Обязательна disposable in-game проверка real Harmony/source/controller/main-thread/GUI/resource пути до normal gameplay. MixedGameplayReady=false; public activation, location-action completion, reverse/SP/Pact/network, save/load/persistent replay/Respec не добавлены. Release/пакет мода не публиковались; proprietary assemblies, outputs, settings и saves не включаются в коммит.
+
+## Stage13.7B.3 — single-player Flexible Casting matrix (PARTIAL)
+
+### Baseline и actual scope
+
+Starting commit `3a06bc0be83f90f30fd7d91a6126b613bc3ebaf0`, feature branch. До изменений tracked tree чистый; прежний untracked SolastaFiles/Mods сохранён. Повторный baseline: SDK9.0.320, Release Workflow **0 errors / 0 warnings**, **21 919 checks passed**, diff check clean. Baseline failures нет, reinstall dependencies не требовался.
+
+Расширен существующий production FlexibleCastingNativeCommitPlan и actual game-field NativeHost. Новый parallel proposal engine, resource owner или PowerSpellPoints не создаётся. Source authority/nonce/exact effect/modal/local envelope, main-thread и single-player validation, receipt-before-observers, reentrancy guard и parent completion B.2 сохранены. Обычный gate-OFF путь не затронут. MixedGameplayReady=false; нет public activation, save import/Respec или multiclass admission.
+
+| Native conversion | Результат кода | Resource / lifecycle | Unity |
+|---|---|---|---|
+| Standard slot → Sorcery | IMPLEMENTED, сохранён B.2 | Один existing Standard budget debit, native clamped UI-circle gain | UNVERIFIED |
+| Spell Points → Sorcery | IMPLEMENTED | Existing budget at installed SpellCostByLevel[actual circle]; тот же canonical power remaining field; no second view debit | UNVERIFIED |
+| Pact slot → Sorcery | IMPLEMENTED | Один actual Pact slot; UI circle может отличаться; Standard/SP и Arcanum не расходуются | UNVERIFIED |
+| Sorcery → temporary Spell Points credit | IMPLEMENTED | Original hero Sorcery -native creation cost; exact operation-funded temporary bonus in existing budget; **нет slot condition** | UNVERIFIED |
+| Sorcery → temporary standard slot + native condition | **BLOCKED_PENDING_NATIVE_JOURNAL**, circles1–5 | Guard до debit, grant, condition creation и native parent completion; missing funded attach/removal/rest lifecycle | NOT IMPLEMENTED / NOT TESTED IN UNITY |
+| Registered/location-action parent / network | BLOCKED | Нет guessed parent или identity-less transport fallback | NOT ENABLED |
+
+Все implemented routes ограничены прежним verified local base-campaign parent, actual original-hero Sorcerer repertoire и UI circles1–5. Не объявляется complete вся матрица, пока slot-condition route blocked.
+
+### Source selection / actual resource / projections
+
+Используется неизменённый production `SpellResourceConsumerCatalog.ResolveFlexibleInput`13.6. Shift и AlwaysSpendPactSlotsFirst снимаются при original modal callback, не после dispatch. Берутся existing Standard/Pact availability и actual Pact circle. В installed policy priority=true разрешает Pact только когда UI circle==Pact circle; priority=false +Shift может дать lossy Pact5→UI1. Это не исправляется под tabletop assumptions. При exhausted Pact выполняется только разрешённый installed fallback, при обоих exhausted — отказ. Mystic Arcanum никогда не является input.
+
+`Ticket.RequireNativeFlexible` разрешает только typed supported directions. Operation plan повторно проверяет source/proof, actual/resource circle, native UI circle, quantity, installed effective cost и clamped output. Class/shared/effective level не подставляется вместо Sorcery balance или стоимости. `CommitNativeFlexibleBudget` расходует существующий coordinator с прежним command ID; native host затем **проецирует**, не расходует вторую стоимость.
+
+General after-projection хранит:
+
+- Native Sorcery remaining: +min(UI circle,missing) для gain; -RuleDefinitions.SpellSlotCreationCost[UI circle] для creation.
+- SP remaining: -installed spell cost либо +installed temporary-credit value. Bonus может быть выше PointMaximum, как в existing budget; maximum при этом не повышается.
+- Pact used: +1 только для verified Pact input, actual circle берётся из installed Pact budget. Sentinel -1 и matching-circle view updates подготовлены вместе; usedMysticArcanum не меняется.
+- В SP mode все standard repertoire circles1–9 пересчитываются по **existing budget availability rule**, включая high-circle spent flags. Добавлен readonly PreviewPointSlot(pointBalance), не второй resource calculator. Low-circle credit не очищает circle6–9 restrictions и не расширяет class learning/preparation/access.
+
+`FlexibleSlotViews` теперь готовит все dictionary values из ожидаемого After, проверяя прежние owners/references/values. Если mode=SP, до mutation находит единственный существующий canonical PowerSpellPoints и проверяет его identity, maximum и remaining. Raw packet присваивает remainingUses равным authoritative After, затем все views; PowerProvider.Get/Grant/replacement pool не используются. AssertCoherent проверяет Standard/Pact usage, point field и временный credit receipt. Старые Base/HP/class levels/proficiency/abilities не пересчитываются.
+
+### Sorcery spending-side notifications
+
+Native `CreateSpellSlot` вызывает SpendSorceryPoints, затем InflictCondition. Native SpendSorceryPoints сначала повышает used counter, затем AccountUsedMagicAndPower(cost), суммирует positive HealingPerSpentSorceryPoint affinities, при наличии вызывает Heal, затем SorceryPointsAltered(hero,remaining,firstHealingAffinity). Это отдельно от gaining path, где healing нет.
+
+Для supported Sorcery→SP raw usedSorceryPoints уже обновляется вместе с point credit. В notification phase вызывается **только** native accounting, положенный native Heal (если есть affinity) и Sorcery event с тем же feature argument. SpendSorceryPoints не вызывается повторно, Sorcery не дебитуется дважды. Side effects выполняются после coherent resources и receipt; thrown notification не повторяется на retry и не откатывает currency. Base/max HP, class HP progression и PB не меняются; обычное восстановление current HP от установленной spending affinity сохраняется как native rule. Actual healing/UI callbacks в Unity не выполнялись и не считаются проверенными fake-field tests.
+
+Modal refresh выбирается по направлению: SorceryPointCreated для gain, SpellSlotCreated для creation/SP credit; one-shot handler не подписывается/не дублируется через старый Create*. Owned AtWill parent и modal закрываются в том же once-only порядке. Projection guard B.2 остаётся активным до конца notification phase.
+
+### Temporary SP funding, refresh и rest
+
+Funding ID — **точный coordinator key существующего GrantTemporarySlots**: `m06:<heroLength>:<hero>:<issuedCommand>`. Native receipt и ticket ссылаются на тот же operation. Это temporary **point credit**, не созданная condition: ConditionsByCategory, inventory и feature grants не меняются. Historical grant receipt сохраняется после расхода/отдыха, чтобы повтор не мог выдать credit снова.
+
+Existing budget.GrantTemporarySlots в SP mode добавляет `SpellCostByLevel[circle]` в bonusPoints. Spend сначала расходует этот bonus, затем base expenditure. Refresh(allocation) не обнуляет и не повторяет bonus. Short rest не восстанавливает/не удаляет Standard/SP credit и не сбрасывает high-circle flags; Pact восстанавливается прежним механизмом. Long rest existing budget очищает bonus и temporary resource debt и возвращает обычный maximum. Никакого постоянного повышения power maximum нет.
+
+В existing gated StandardMulticasterResourcesContext.FinishRest добавлен узкий sync **уже существующей active Flexible Casting session** после native ApplyRest: используется тот же existing rest operation ID, existing coordinator.Rest (idempotent resource domains) и actual original-hero Sorcery snapshot. Он не назначает native Sorcery и не изобретает restoration; сверяет прежний maximum и переносит native post-rest remaining в managed mirror. Это необходимо, чтобы следующий conversion после native rest не сравнивался со старым snapshot. Отсутствующая session не создаётся; ordinary gate OFF не меняется. Native rest publication/order и durable rest callback replay не перепроектированы; real rest behavior остаётся Unity-unverified.
+
+### Slot-condition blocker: exact evidence / affected cases
+
+**Affected:** Sorcery→standard slot в slots mode, все circles1–5, любые supported owners/subclasses. Native guard проверяется после source/ticket validation, но до coordinator commit, native Sorcery write, temporary slot grant, condition allocation/registration или callbacks. Остальные четыре маршрута не блокируются этим ограничением.
+
+Installed evidence:
+
+1. `RulesetCharacter.CreateSpellSlot(int,RulesetSpellRepertoire)` вызывает **SpendSorceryPoints до InflictCondition**. Native construction: `ConditionAdditionalSpellSlotN`, DurationType.UntilLongRest, duration0, category11Effect, original source Guid/faction. Blueprint всех пяти conditions: allowMultipleInstances=true, specialDuration=true, UntilLongRest, AdditionalSlots affinity.
+2. `RulesetActor.InflictCondition(...)` проверяет immunity/can-receive, вызывает CreateActiveCondition, затем AddConditionOfCategory(register=true,refresh=true); может вернуть null. Нет command/funding argument или returned atomic receipt.
+3. `AddConditionOfCategory` вставляет instance в список, регистрирует entity, вызывает OnConditionAdded / ConditionAdded listeners, обрабатывает affinities/immunity и **лишь потом** RefreshAll. Callback может удалить/изменить instance. Нельзя вызвать его после debit и объявить результат atomic; нельзя вызвать до debit и показать observers unfunded slot.
+4. `RemoveConditionOfCategory` сначала removes instance, затем OnConditionRemoved / visual / ConditionRemoved callbacks, затем Unregister, затем RefreshAll. Long-rest cleanup использует condition lifecycle до existing resource-rest postfix; нет scoped funding-owner transition между списком, resource owner и notifications.
+5. Existing operation budget умеет GrantTemporarySlots по operation key, но не хранит native condition identity и не имеет matched condition-removal/revoke lifecycle. Existing Standard.Refresh в slots mode повторно выводит modifiers из native condition AdditionalSlots. Если одновременно применить existing temporary grant и обычный condition modifier, получится **двойная ёмкость**; если лишь скрыть condition из refresh, потеряется корректное expiry/removal/rest reconciliation.
+
+Недостаёт конкретно dedicated **funded condition attachment/removal/rest executor**: pre-created exact instance+registry ownership, source/condition/operation mapping, once-only AdditionalSlots contribution, observer-free add/remove field/cache transitions и expiry reconciliation с preserved debt до native callbacks. Это не принципиальное утверждение, что replacement невозможен; этот lifecycle **не установлен и не реализован** текущим slice. Raw append или catch+refund не подменяют его. Широкий patch всех условий/сил не добавлялся. Следовательно, route остаётся incomplete; никакая condition не создаётся и никакой unspent slot не выдаётся бесплатно.
+
+В SP mode этот blocker обходится корректным installed конечным ресурсом: existing SpellPointsContext.ConvertAdditionalSlotsIntoSpellPointsBeforeRefreshSpellRepertoire в обычном UB превращает AdditionalSlots в point credit и удаляет condition. Новая supported ветвь сразу фиксирует funded temporary **SP budget** и ничего не добавляет в condition graph. Поэтому отсутствуют новый remove callback и двойной condition→SP grant.
+
+### Executed tests versus audits / Unity
+
+Новый FlexibleCastingMatrixTests вызывает **тот же production NativeCommitPlan.Execute**, который подключён к game receiver, с fake native counters/pool/views/notifications. Coherence сравнивается с actual existing ledger oracle после commitment, не только с ожидаемым projection planner. Покрыты Sorcerer+Wizard, Sorcerer+Warlock в обоих modes, три actual класса Sorcerer8/caster6/noncasting Fighter6, все UI1–5, Standard/SP/Pact policy, lossy5→1, exhausted domains, native clamp, точные costs, funding, refresh/rest/retry, cancelled/stale/reentrant/throwing notifications и blocked slot-condition source. Noncasting Fighter не получает casting profile/contribution.
+
+B.2 regression port остаётся сознательно standard-slot-only; новая matrix fake host покрывает новые native domains. Это не ослабление game guards. Отдельные Cecil/definition audits устанавливают actual pool field writes, native condition construction/attach/detach callbacks, duration/multiplicity, native spending-side healing/accounting и rest bridge. Реальный Unity NativeHost и его events/healing/condition/rest/GUI/controller/Harmony execution не запускались. Все предыдущие class/spell transaction suites сохраняются.
+
+### Требуемые manual checks (не выполнены)
+
+Только disposable new heroes / separate test saves через будущий controlled internal binder. Public toggle не добавлен, user Settings.xml не меняется автоматически.
+
+- Standard/SP gain: записать initial pool/reference, Sorcery used/max/remaining и все repertoire views; на UI1–5 сверить installed cost и clamp, full/partial cap, одна native запись без второго debit.
+- Pact: true/false priority, Shift, Standard exhausted, Pact exhausted; отдельно Pact5/UI1 при разрешённом policy и запрещённый priority=true lossy fallback. Проверить sentinel, short-rest recharge и неизменные Arcanum6–9/Standard/SP balances.
+- Sorcery→SP: native creation cost, bonus value, возможность above maximum, identical pool object; high-circle restrictions; no AdditionalSpellSlot condition; повтор refresh, две разные funded invocations и retry каждой.
+- Actual Sorcery-spend affinity/accounting callbacks: original hero, native healing amount/source, no double debit; callback exceptions после commit не повторяют эффект.
+- Long rest очищает temporary SP, short rest сохраняет Standard balance; следующий conversion использует свежий native Sorcery snapshot; old receipts не восстанавливают credit.
+- Slot-mode creation1–5 должна дать явный PendingAtomicJournal **до Sorcery debit/condition/slot/parent completion**. Не считать guard реализацией route.
+- Reentry/Cancel/stale source/rules/resources, post-commit listener failure, owned parent/modal once, gate-OFF ordinary UB, network/registered parent rejection. Class levels/history/HP/PB и spell access не переписываются.
+- Save/load, Respec и persistent replay отдельно не поддержаны; не тестировать автоматическую конверсию существующих героев.
+
+Изменённые файлы: Models/FlexibleCastingPreflightPlan.cs, FlexibleCastingSlotToSorceryPlan.cs, FlexibleCastingInvocationPlan.cs, FlexibleCastingNativeCommitPlan.cs, FlexibleCastingNativeCommitContext.cs, FlexibleCastingPreflightContext.cs, StandardCasterResourcePlan.cs, StandardMulticasterResourcesContext.cs, SpellResourceOperationPlan.cs; Tests/FighterProgression/FlexibleCastingMatrixTests.cs (новый), FlexibleCastingPreflightTests.cs, FlexibleCastingNativeCommitTests.cs; Documentation/FlexibleCastingPreflight.md.
+
+Финальная валидация (SDK9.0.320, существующее подготовленное окружение):
+
+```sh
+dotnet build SolastaUnfinishedBusiness.sln --no-restore -c "Release Workflow" -m:2
+# exit0, 0 errors / 0 warnings
+dotnet run --project Tests/FighterProgression/FighterProgression.Tests.csproj
+# exit0, 22930 checks passed
+git diff --check
+# exit0, no output
+```
+
+Baseline **21 919** → final **22 930** (+**1 011**): **997 executed production matrix-adapter checks with fake native fields**, отдельно **14 compiled/native/condition-definition audits**. Предыдущие B.2 и все class/resource/spell-learning/Secrets/invocation/auxiliary regressions сохранены. Test runner не запускает Unity; actual NativeHost, rest/healing/GUI/Harmony остаются Unity-unverified. Native code реализован для четырёх маршрутов, условный slot grant **не реализован**. Commit/push выполняются только в feature branch, без release/package/generated/proprietary/settings/save artifacts. **Classification: PARTIAL — 4/5 conversion routes implemented/code-tested; slot-condition route blocked; all actual Unity behavior unverified.**

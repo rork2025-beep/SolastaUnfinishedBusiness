@@ -67,6 +67,7 @@ internal static class FlexibleCastingNativeCommitTests
             {
                 if(!rig.Gate||!rig.MainThread)throw new O.Rejection(O.Code.Ineligible,"gate or main thread");
                 if(!rig.Local)throw new O.Rejection(O.Code.PendingAtomicJournal,"network blocked");
+                if(!replay&&(create||rig.F.Resources.Standard.Current.Mode!=S.ResourceMode.Slots||Command.Input!=O.Domain.StandardSlots))throw new O.Rejection(O.Code.WrongDomain,"historical standard-slot-only field port");
                 if(!replay&&(Source.Kind!=V.SourceKind.TrustedCampaignInvocation||ParentDone||Closed))throw new O.Rejection(O.Code.PendingAtomicJournal,"parent not supported/held");
             }
             public void Log(Exception error){rig.Logs++;if(rig.ThrowAt=="log")throw new InvalidOperationException("logger");}
@@ -225,7 +226,7 @@ internal static class FlexibleCastingNativeCommitTests
         a(host.Interfaces.Any(i=>i.InterfaceType.FullName.Contains("FlexibleCastingNativeCommitPlan/IHost")),"game-field host implements the executed production adapter port");
         a(Calls(context.Methods.Single(m=>m.Name=="ReceiveLocalCommand")).Any(m=>m.DeclaringType.Name=="FlexibleCastingNativeCommitPlan"&&m.Name=="Execute"),"actual local envelope receiver dispatches to native executor");
         var methods=context.Methods.Concat(context.NestedTypes.SelectMany(t=>t.Methods)).Where(m=>m.HasBody).SelectMany(Calls).ToArray();
-        a(!methods.Any(m=>m.Name is "CreateSorceryPoints" or "SpendSpellSlot" or "GainSorceryPoints" or "Heal" or "RefundActionUse"),"native route never calls old non-atomic executor or healing/refund");
+        a(!methods.Any(m=>m.Name is "CreateSorceryPoints" or "SpendSpellSlot" or "GainSorceryPoints" or "RefundActionUse"),"native route never calls old non-atomic executor or refund; B.3 spending-side healing is post-commit only");
         a(Calls(context.Methods.Single(m=>m.Name=="RequireLocalSinglePlayer")).Any(m=>m.Name=="get_IsMultiplayerGame"),"actual native host rejects multiplayer even with a local command manager");
         var original=game.MainModule.Types.Single(t=>t.Name=="RulesetCharacter").Methods.Single(m=>m.Name=="set_UsedSorceryPoints");
         a(Calls(original).Length==0,"native Sorcery setter has no publication callback");

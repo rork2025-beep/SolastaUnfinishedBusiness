@@ -68,6 +68,11 @@ internal sealed class SpellResourceOperationPlan
         internal int Gain(int amount) => Overflow ? amount : Math.Min(amount, Math.Max(0, Maximum - Remaining));
         internal void Debit(int value) => Remaining = checked(Remaining - value);
         internal void Credit(int value) => Remaining = checked(Remaining + value);
+        internal void SynchronizeRestSnapshot(int maximum,int remaining)
+        {
+            if(maximum!=Maximum||remaining<0||remaining>Maximum)throw new Rejection(Code.StaleOperation,"Native rest changed Sorcery capacity or supplied invalid remaining points");
+            Remaining=remaining;
+        }
         internal void Rest(bool longRest) { if (Resource is not (Domain.ItemCharges or Domain.StoredSpellUse or Domain.ItemQuantity) && (Recharge == "ShortRest" || longRest && Recharge == "LongRest")) Remaining = Maximum; }
     }
     internal sealed class Request(string operation, string hero, string source, string definition, string revision, Kind kind,
@@ -297,10 +302,11 @@ internal sealed class SpellResourceOperationPlan
     }
     // Executable managed arithmetic only. Native spend/effect publication is NOT authorized by
     // this method; every native hook below remains closed until Stage13.7 supplies that boundary.
+    internal static string CoordinatorKey(string hero,string operation)=>"m06:"+hero.Length+":"+hero+":"+operation;
     internal Receipt CommitManaged(Request r)
     {
         var previous = Existing(r); if (previous != null) return previous;
-        var p = Validate(r); Resources.ClaimConsumer(r.Operation,r.Signature); var before = State; var key = "m06:" + hero.Length + ":" + hero + ":" + r.Operation;
+        var p = Validate(r); Resources.ClaimConsumer(r.Operation,r.Signature); var before = State; var key = CoordinatorKey(hero,r.Operation);
         if (Shared(r.Input))
         {
             var paid = r.Input == Domain.PactSlots ? Resources.Pact.Spend(key, P.Source.Pact, r.Circle) : Resources.Standard.Spend(key, r.Circle);

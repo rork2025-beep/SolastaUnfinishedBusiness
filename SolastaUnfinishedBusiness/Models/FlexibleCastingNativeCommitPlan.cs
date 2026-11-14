@@ -37,6 +37,7 @@ internal sealed class FlexibleCastingNativeCommitPlan(V registry)
         internal readonly V.Envelope Command = command;
         internal readonly T.Draft Draft = draft;
         internal readonly object Owner = host.Owner, Repertoire = host.Repertoire, Effect = host.Effect, Modal = host.Modal;
+        internal string FundingIdentity=>Draft.NativeFundingIdentity;
         internal O.Receipt ResourceReceipt { get; private set; }
         internal bool Committed { get; private set; }
         internal bool Indeterminate { get; private set; }
@@ -77,7 +78,7 @@ internal sealed class FlexibleCastingNativeCommitPlan(V registry)
                 return old; // historical receipt; never republish listeners/parent/UI or reauthorize a source
             }
             host.RequireAccess(false);
-            var draft = registry.StandardSlots.Prepare(command, host.Evidence(), host.Effect, host.Read());
+            var draft = registry.StandardSlots.PrepareNativeFlexible(command, host.Evidence(), host.Effect, host.Read());
             if (draft.Status != T.State.Prepared) throw new O.Rejection(O.Code.PendingAtomicJournal, "Managed arithmetic receipt is not native authorization");
             if (!ReferenceEquals(host.Owner, draft.Intent.Source.Entry.Owner) || !ReferenceEquals(host.Repertoire, draft.Intent.Source.Entry.Repertoire) ||
                 !ReferenceEquals(host.Modal, draft.Intent.Source.Modal) || !ReferenceEquals(host.Effect, draft.Intent.Source.Effect))
