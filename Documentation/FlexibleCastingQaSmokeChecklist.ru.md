@@ -1,22 +1,16 @@
-# QA 13.7C.1 — краткий checklist (diagnostic-only)
+# QA13.7C.2 — editor candidate checklist
 
-**STOP для conversion smoke: admission/XP закрыты. Это не playable QA build.** Четыре backend-маршрута пока недоступны через QA UI. Unity не проверена. Нужны disposable heroes и отдельные test saves; настоящие saves не открывать. Полная установка/откат — в FlexibleCastingQaBuild.md рядом с этим файлом.
+**Это не campaign smoke build.** C.2 проверен вне Unity; in-game smoke требует C.3 и реальной Unity validation. Campaign admission, XP controls, четыре conversions и пятый slot-condition route закрыты. Существующие герои/saves не импортировать. Установка/откат подробно в FlexibleCastingQaBuild.md.
 
-| Шаг | Действие и ожидаемый результат | Что вернуть |
+| Шаг (ожидания, ещё НЕ выполнено в Unity) | Что проверить | Что вернуть |
 |---|---|---|
-| 1 | Закрыть игру, сохранить обычную UB папку вне Mods, установить только QA. В UMM виден `13.7C.1-DIAGNOSTIC-BLOCKED`. Открыть QA panel, сравнить полный SHA с QA-MANIFEST.json. | `01-build.png`: полный SHA и надпись BLOCKED; manifest. |
-| 2 | В panel нажать «Сохранить диагностический снимок». Ожидается ADMITTED=false, причина отказа, XP action disabled. | `02-admission.png`; копия latest.txt как `02-admission.txt`. |
-| 3 | При желании создать **нового одноразового** героя обычным UI. QA лишь наблюдает level0 объект; это не resource binding. В panel выбрать героя, сверить actual classes/history, XP/threshold, Sorcery/SP/Pact/repertoires. При переходе в кампанию новый loaded object не должен считаться автоматически admitted. | `03-hero.png`; `03-hero.txt`. Не выдавать опыт через Party Editor/console. |
-| 4 | Ничего не конвертировать и не обходить guards. Если Flexible Casting всё же открывается: не нажимать Confirm повторно; сохранить снимок/UMM log и остановиться при любом debit. В этой сборке QA campaign entry/modal conversion должны отклоняться; родительские location actions не проверены. | При неожиданном поведении: before/after screenshots, `04-rejection.txt`, полный UMM log. |
-| 5 | Нажать End QA session. Закрыть игру полностью, переместить QA папку вне Mods, восстановить обычную UB папку и исходные настройки. QA пункта больше нет. | `05-end.png`, `05-end.txt`; ошибка отката, если была. |
+| 1. Закрыть игру, сохранить ordinary UB папку вне Mods; установить только QA. | В panel `QA13.7C.2 — EDITOR ONLY`; full SHA совпадает с manifest. | `01-build.png`, manifest. |
+| 2. С ранее включёнными Level20/Multiclass/Sorcerer compression перезапустить. В idle main-menu panel нажать «Подготовить следующего НОВОГО editor Sorcerer». | Один disposable candidate, не loaded/pool hero. QA настройки не меняются автоматически. | `02-arm.png`. |
+| 3. Создать Sorcerer1 обычным UI: некастующие race/background/feat, заполнить все pools и spells, Finish. | Receipt Committed, confirmed actual1, собственный Sorcerer repertoire, native history и spell choices сохранены. Не переносить в кампанию. | `03-level1.png`, `03-level1.txt`. |
+| 4. После закрытия первого редактора выбрать тот же candidate и «Открыть native editor draft Sorcerer2». Заполнить UI choices, Finish. | Новый issued ID; actual/confirmed2, history Sorcerer/Sorcerer, native Sorcery2, один repertoire/Standard owner, XP без изменения. | `04-level2-before.txt`, `04-level2-after.txt`, `04-level2.png`. |
+| 5. Отдельно проверить Back/Cancel до Finish и incomplete draft. | Нет committed ack/grant от QA. Не повторять Indeterminate operation. Wizard/Warlock и уровни выше2 должны отклоняться. | `05-rejection.png`, `05-rejection.txt`, UMM log. |
+| 6. End QA, закрыть процесс, переместить QA папку вне Mods и вернуть ordinary backup. | QA UI отсутствует; исходные Settings.xml/saves не изменены миграцией. | `06-end.png`, `06-end.txt`. |
 
-Отчёт: `<Solasta>/Mods/SolastaUnfinishedBusiness/QaDiagnostics/FlexibleCasting-QA-latest.txt`. Каждый снимок заменяет предыдущий — копируйте его сразу под именем из таблицы. Приложите ZIP SHA256, manifest, UMM log; не нужны saves/личные Settings.xml.
+Отчёт: `<Solasta>/Mods/SolastaUnfinishedBusiness/QaDiagnostics/FlexibleCasting-QA-latest.txt`. Каждый снимок заменяет предыдущий: копируйте сразу под именем из таблицы. При Indeterminate/несовпадении ресурсов остановиться, сохранить лог, не использовать/не сохранять candidate как игровой hero. Никаких console/PartyEditor XP, force-level или class-history edits.
 
-**После будущего исправления admission (не выполнять сейчас):** Sorcerer2 через long-rest level-up → Wizard1; отдельный Sorcerer/Warlock run; Slots: slot→Sorcery; новый SP run: SP→Sorcery и Sorcery→temporary SP; Pact normal/Shift/priority; short/long rest с before/after ресурсами. Пятый маршрут Sorcery→standard slot должен дать PendingAtomicJournal без debit/condition/успешного parent. Третий класс только после успешного первого smoke.
-
-| Поздний checkpoint — всё НЕ ПРОВЕРЕНО | Actual classes (пример) | Ожидаемая feature projection |
-|---|---|---|
-| Character2 / 3 | Sorcerer2 / Sorcerer2+Wizard1 | original Sorcerer2 / Wizard1 |
-| Character12 | Sorcerer11+Wizard1 | original Sorcerer17 / Wizard1 |
-| Character13 | Sorcerer12+Wizard1 | original Sorcerer20; Sorcerer13 запрещён |
-| Character20 | Sorcerer12+Wizard8 | original20/11; total cap20, classes≤3 |
+**Не выполнять до C.3:** editor→party transfer, Sorcerer/Wizard/Warlock campaign, XP controls, Flexible Casting, rest после conversion, save/load и respec. Четыре backend routes сохранены; пятый всегда blocked до debit. Поздние checkpoints Character12/13/20 остаются NOT RUN; классу12 нельзя давать13, total cap20/classes≤3. Сейчас поддержан только editor Sorcerer0→1→2.

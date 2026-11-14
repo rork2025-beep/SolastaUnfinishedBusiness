@@ -262,7 +262,8 @@ internal static class PactMagicMulticasterTests
         bool Calls(MethodDefinition m,string owner,string name)=>m.HasBody&&m.Body.Instructions.Any(i=>i.Operand is MethodReference r&&r.DeclaringType.Name==owner&&r.Name==name);
         check(Calls(context.Methods.Single(m=>m.Name=="get_RuntimeEnabled"),standard.Name,"get_RuntimeEnabled") && types.Single(t=>t.Name=="CompressedMulticasterProgressionPlan").Fields.Single(f=>f.Name=="MixedGameplayReady").Constant is false,
             "Pact compiled binding OFF: same permanently closed gate, no settings/UI activation");
-        check(Calls(standard.Methods.Single(m=>m.Name=="BindNewHero"),context.Name,"BindNewHero")&&Calls(standard.Methods.Single(m=>m.Name=="UpdateProgression"),context.Name,"Synchronize"),
+        check(Calls(standard.Methods.Single(m=>m.Name=="BindNewHero"),standard.Name,"BindNewHeroCore")&&
+            Calls(standard.Methods.Single(m=>m.Name=="BindNewHeroCore"),context.Name,"BindNewHeroCore")&&Calls(standard.Methods.Single(m=>m.Name=="UpdateProgression"),context.Name,"Synchronize"),
             "Pact compiled binding: same validated new hero and actual standard ledger, no second standard owner");
         foreach(var method in new[]{"TrySpend","TryCanSpend","FinishRest","Project"})
             check(standard.Methods.Single(m=>m.Name==method).Body.Instructions.Any(i=>i.Operand is MethodReference r&&r.DeclaringType.Name==context.Name),"Pact compiled binding: standard/Pact coordination at "+method);

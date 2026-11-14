@@ -655,3 +655,8 @@ Delivery contains the five listed source/test/documentation files only, on the f
 ## Stage13.7C.1 — diagnostic QA artifact, smoke admission BLOCKED
 
 См. [FlexibleCastingQaBuild.md](FlexibleCastingQaBuild.md) и [русский checklist](FlexibleCastingQaSmokeChecklist.ru.md). Compile-only QA variant содержит read-only panel, full SHA и диагностику; не открывает MixedGameplayReady или resource binding. Native finalization и trusted transfer level0 editor→fresh party отсутствуют, поэтому **это не готовый conversion smoke build**. Все четыре implemented B.3 routes остаются backend-only/Unity-unverified; пятая condition route по-прежнему blocked. QA XP action disabled, Respec и identity-less conversions закрыты. Ordinary build не содержит QA UI/hooks.
+
+
+## Stage13.7C.2 — fresh editor native finalization
+
+См. актуальный раздел FlexibleCastingQaBuild.md: production QA hooks и existing resource owners поддерживают только Sorcerer0→1→2; отдельный native tail/exception journal, без global runtime gate. Wizard1/Warlock1 blocked. Это не campaign admission и не in-game pass. C.3 transfer, actual Unity validation, XP/conversions/save/respec по-прежнему отсутствуют.

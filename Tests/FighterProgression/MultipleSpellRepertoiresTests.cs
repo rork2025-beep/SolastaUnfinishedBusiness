@@ -257,7 +257,9 @@ internal static class MultipleSpellRepertoiresTests
             "Repertoire compiled binding: original class metadata captured after rule switches and before compression");
         check(Calls(context.Methods.Single(m=>m.Name=="CaptureCore"),context.Name,"CaptureGrants"),"Repertoire compiled binding: auto/bonus/extended spell grants frozen before source definitions are projected");
         var resources=types.Single(t=>t.Name=="StandardMulticasterResourcesContext");
-        check(Calls(resources.Methods.Single(m=>m.Name=="BindNewHero"),context.Name,"BindNewHero") && Calls(resources.Methods.Single(m=>m.Name=="UpdateProgression"),context.Name,"Synchronize"),
+        check(Calls(resources.Methods.Single(m=>m.Name=="BindNewHero"),resources.Name,"BindNewHeroCore") &&
+            Calls(resources.Methods.Single(m=>m.Name=="BindNewHeroCore"),context.Name,"BindNewHeroCore") &&
+            Calls(resources.Methods.Single(m=>m.Name=="UpdateProgression"),context.Name,"Synchronize"),
             "Repertoire compiled binding: explicit resource owner binder supplies same validated progression, no new budget");
         check(Calls(types.Single(t=>t.Name=="SharedSpellsContext").Methods.Single(m=>m.Name=="MaxSpellLevelOfSpellCastingLevel"),context.Name,"TryAccess"),
             "Repertoire compiled binding: class-local max query uses captured own access; ordinary resource max getter remains shared");

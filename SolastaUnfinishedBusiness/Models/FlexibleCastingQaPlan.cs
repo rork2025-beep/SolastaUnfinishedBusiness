@@ -8,9 +8,9 @@ namespace SolastaUnfinishedBusiness.Models;
 // Neither the QA variant nor this pure policy authorizes native finalization or conversions.
 internal static class FlexibleCastingQaPlan
 {
-    internal const string BuildId = "13.7C.1-DIAGNOSTIC-BLOCKED";
+    internal const string BuildId = "13.7C.2-EDITOR-ONLY";
     internal const bool NativeAdmissionReady = false;
-    internal enum Code { OrdinaryBuild, Ended, NotLocal, NoParty, UnprovenOwner, InvalidHistory, NativeFinalizationUnavailable }
+    internal enum Code { OrdinaryBuild, Ended, NotLocal, NoParty, UnprovenOwner, InvalidHistory, CampaignTransferUnavailable }
     internal sealed class Hero(object identity, bool observedAtZero, bool boundAtZero, int level,
         IEnumerable<KeyValuePair<string, int>> classes, IEnumerable<string> history)
     {
@@ -35,7 +35,7 @@ internal static class FlexibleCastingQaPlan
             return Code.InvalidHistory;
         // A complete staged draft still returns PendingAtomicJournal in the existing finalizer.
         // The pool-to-party transfer also has no validated resource-owner/transaction journal.
-        return Code.NativeFinalizationUnavailable;
+        return Code.CampaignTransferUnavailable;
     }
     internal static string Reason(Code code) => code switch
     {
@@ -45,7 +45,7 @@ internal static class FlexibleCastingQaPlan
         Code.NoParty => "Нет активной партии. Admission закрыт; level-0 observation не является binding.",
         Code.UnprovenOwner => "У партии нет доказанного level-0 binding каждого original hero. Loaded save/character-pool import не допускается.",
         Code.InvalidHistory => "Несогласованная history/level, class cap12, total cap20 или более трёх классов.",
-        _ => "PendingAtomicJournal: native finalization и передача level-0 ownership всей новой партии не реализованы. Admission/XP/conversions закрыты."
+        _ => "C.2 editor candidate не является campaign owner. Trusted editor-to-party transfer требует C.3. Admission/XP/conversions закрыты."
     };
     // Installed ExperienceThresholds[level] is the next threshold for actual level1..19.
     // Read-only preview, NEVER native XP authority; an admitted original hero is still required.

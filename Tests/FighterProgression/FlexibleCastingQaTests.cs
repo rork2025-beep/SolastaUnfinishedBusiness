@@ -36,12 +36,12 @@ internal static class FlexibleCastingQaTests
                      Hero(level: 4, classes: new[] { "Sorcerer", "Wizard", "Warlock", "Fighter" }.Select(id => new KeyValuePair<string,int>(id,1)).ToArray(), history: new[] { "Sorcerer", "Wizard", "Warlock", "Fighter" })
                  })
             B(Q.Check(true, false, true, new[] { invalid }) == Q.Code.InvalidHistory, "invalid real level/history/class cap/count rejected");
-        B(Q.Check(true, false, true, valid) == Q.Code.NativeFinalizationUnavailable, "even synthetic fully-bound proof cannot bypass pending native finalization");
+        B(Q.Check(true, false, true, valid) == Q.Code.CampaignTransferUnavailable, "even synthetic fully-bound proof cannot authorize campaign transfer");
         var zero = Hero(level: 0, classes: Array.Empty<KeyValuePair<string,int>>(), history: Array.Empty<string>());
-        B(Q.Check(true, false, true, new[] { zero }) == Q.Code.NativeFinalizationUnavailable, "new level0 boundary alone does not authorize first grant");
+        B(Q.Check(true, false, true, new[] { zero }) == Q.Code.CampaignTransferUnavailable, "level0 readiness model alone does not authorize campaign ownership");
         var third = Hero(level: 20, classes: new[] { new KeyValuePair<string,int>("Sorcerer",8), new KeyValuePair<string,int>("Warlock",6), new KeyValuePair<string,int>("Fighter",6) },
             history: Enumerable.Repeat("Sorcerer",8).Concat(Enumerable.Repeat("Warlock",6)).Concat(Enumerable.Repeat("Fighter",6)).ToArray());
-        B(Q.Check(true, false, true, new[] { third }) == Q.Code.NativeFinalizationUnavailable, "valid three-class shape does not relax runtime boundary");
+        B(Q.Check(true, false, true, new[] { third }) == Q.Code.CampaignTransferUnavailable, "valid three-class shape does not relax runtime boundary");
         var refs = valid.Select(h => h.Identity).ToArray();
         for (var i = 0; i < 3; i++) Q.Check(true, false, true, valid);
         B(valid.Select(h => h.Identity).SequenceEqual(refs) && valid.All(h => h.Level == 3 && h.History.Count == 3), "readiness retries do not mutate character state or bind owners");
@@ -101,7 +101,7 @@ internal static class FlexibleCastingQaTests
         }
         check(types.Single(t => t.Name == "FlexibleCastingQaDisplay").Interfaces.Any(i => i.InterfaceType.Name == "IMenuSelectablePage"), "QA panel is discoverable through existing mod menu");
         check(!context.Methods.Concat(context.NestedTypes.SelectMany(t => t.Methods)).Where(m => m.HasBody).SelectMany(m => m.Body.Instructions)
-            .Any(i => i.Operand is MethodReference r && r.Name is "BindNewHero" or "UpdateProgression" or "GrantExperience" or "CommitManaged" or "Execute" or "CreateSorceryPoints" or "CreateSpellSlot"), "QA diagnostic entry cannot bind/spend/grant/finalize/award XP");
+            .Any(i => i.Operand is MethodReference r && r.Name is "BindNewHero" or "UpdateProgression" or "GrantExperience" or "CommitManaged" or "Execute" or "CreateSorceryPoints" or "CreateSpellSlot"), "C.1 diagnostic context cannot directly bind/spend/grant/finalize/award XP; C.2 trusted editor bridge is separate");
         check(!Calls(types.Single(t => t.Name == "UpdateContext").Methods.Single(m => m.Name == "Load"), "GetLatestVersion"), "QA does not offer ordinary updater on load");
         check(context.NestedTypes.Single(t => t.Name == "ObserveCreationPatch").CustomAttributes.Any(a => a.AttributeType.Name == "HarmonyPatch"), "QA-only level0 observation hook compiled");
         foreach (var name in new[] { "RejectCampaignConversionPatch", "RejectModalConversionPatch" })
@@ -113,5 +113,6 @@ internal static class FlexibleCastingQaTests
         check(context.Methods.Single(m => m.Name == "CheckXp").Body.Instructions.Any(i => i.OpCode.Code == Code.Throw), "direct QA XP call rejects even if disabled button is bypassed");
         check(types.Single(t => t.Name == "StandardMulticasterResourcesContext").Methods.Single(m => m.Name == "get_RuntimeEnabled").Body.Instructions.Any(i => i.OpCode.Code == Code.Ldc_I4_0), "QA does not open global mixed runtime gate");
         check(!CompressedMulticasterProgressionPlan.MixedGameplayReady, "model mixed gameplay gate remains false");
+        QaEditorFinalizationTests.AuditQa(check, qa, game);
     }
 }

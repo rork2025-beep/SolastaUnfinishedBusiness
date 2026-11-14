@@ -16,6 +16,13 @@ internal static class SorcererFinalizePreflight
         return ownsSorcerer; // missing current-class evidence remains fail-closed
     }
     internal enum Result { PassThrough, IncompleteLearning, PendingAtomicJournal }
+    internal static void RequireQaDraft(QaEditorFinalizationPlan.Ticket ticket, MultipleSpellRepertoiresPlan.Transaction transaction)
+    {
+        if (ticket == null || ticket.State != QaEditorFinalizationPlan.Phase.Issued || ticket.Target is < 1 or > 2 ||
+            transaction == null || transaction.Id != ticket.Id || transaction.ClassId != "Sorcerer" || transaction.ActualLevel != ticket.Target)
+            throw new InvalidOperationException("Unissued/out-of-scope QA Sorcerer draft");
+        transaction.ValidateComplete(); // exact owner/source authorization is held by the QA native adapter
+    }
     internal static Result Inspect(bool gate,bool bound,bool sorcererDraft,MultipleSpellRepertoiresPlan.Transaction transaction)
     {
         if(!gate||!bound||!sorcererDraft)return Result.PassThrough;

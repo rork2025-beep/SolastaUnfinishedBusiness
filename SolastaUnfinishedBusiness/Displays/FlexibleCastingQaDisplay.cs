@@ -13,7 +13,7 @@ internal sealed class FlexibleCastingQaDisplay : IMenuSelectablePage
 {
     private RulesetCharacterHero selected;
     private string status = "";
-    public string Name => "QA 13.7C.1 — BLOCKED";
+    public string Name => "QA 13.7C.2 — EDITOR ONLY";
     public int Priority => 950;
     public void OnGUI(UnityModManager.ModEntry modEntry)
     {
@@ -21,11 +21,22 @@ internal sealed class FlexibleCastingQaDisplay : IMenuSelectablePage
         UI.Label("Commit: " + FlexibleCastingQaContext.SourceCommit);
         UI.Label("НЕ ГОТОВО для conversion smoke: admission, XP и native QA conversions закрыты.");
         UI.Label(FlexibleCastingQaPlan.Reason(FlexibleCastingQaContext.Admission()));
+        UI.ActionButton("Подготовить следующего НОВОГО editor Sorcerer (C.2)", () =>
+        {
+            try { QaEditorFinalizationContext.Arm(); status = "Armed: создайте нового одноразового Sorcerer. Это НЕ admission в кампанию."; }
+            catch (Exception e) { status = e.Message; }
+        }, UI.AutoWidth());
         UI.Label("Герой для чтения диагностик (выбор НЕ допускает героя к QA):");
         var heroes = FlexibleCastingQaContext.Heroes();
         if (Array.IndexOf(heroes, selected) < 0) selected = heroes.Length == 0 ? null : heroes[0];
         foreach (var hero in heroes)
             UI.ActionButton(hero.Name + " " + hero.SurName + " [" + hero.Guid + "]", () => selected = hero, UI.AutoWidth());
+        UI.Label(QaEditorFinalizationContext.Report(selected));
+        UI.ActionButton("Открыть native editor draft Sorcerer2 (без XP/party)", () =>
+        {
+            try { QaEditorFinalizationContext.OpenLevelTwo(selected); status = "Native editor level-up requested; Unity behavior unverified."; }
+            catch (Exception e) { status = e.Message; }
+        }, UI.AutoWidth());
         var enabled = GUI.enabled;
         try
         {

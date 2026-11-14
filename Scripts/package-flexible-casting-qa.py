@@ -16,7 +16,7 @@ PRIVATE_DLLS = {
     "MonoMod.RuntimeDetour.dll", "MonoMod.Utils.dll", "NAudio.dll", "Tomlet.dll",
     "UnityExplorer.STANDALONE.Mono.dll", "UniverseLib.Mono.dll", "mcs.dll",
 }
-BUILD_ID = "13.7C.1-DIAGNOSTIC-BLOCKED"
+BUILD_ID = "13.7C.2-EDITOR-ONLY"
 
 
 def git(*args):
@@ -86,7 +86,7 @@ def main():
         for doc in ("FlexibleCastingQaSmokeChecklist.ru.md", "FlexibleCastingQaBuild.md"):
             shutil.copy2(ROOT / "Documentation" / doc, mod / doc)
         manifest = {"build_id": BUILD_ID, "source_commit": commit, "admitted": False, "mixed_gameplay_ready": False,
-                    "status": "DIAGNOSTIC ONLY; native QA admission/XP/conversion smoke blocked",
+                    "status": "C.2 EDITOR ONLY; campaign admission/XP/conversion smoke blocked until C.3",
                     "files": {str(p.relative_to(mod)).replace(os.sep, "/"): sha256(p) for p in sorted(mod.rglob("*")) if p.is_file()}}
         (mod / "QA-MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as z:
@@ -101,7 +101,7 @@ def main():
     checksum = sha256(archive)
     (out / (stem + ".sha256")).write_text(checksum + "  " + archive.name + "\n", encoding="utf-8")
     print(json.dumps({"artifact": str(archive), "source_commit": commit, "sha256": checksum, "bytes": archive.stat().st_size,
-                      "status": "DIAGNOSTIC-BLOCKED, NOT a conversion smoke-ready build"}, indent=2))
+                      "status": "EDITOR ONLY, NOT a campaign conversion smoke-ready build"}, indent=2))
 
 
 if __name__ == "__main__":

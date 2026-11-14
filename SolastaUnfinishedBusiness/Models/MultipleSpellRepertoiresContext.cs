@@ -176,13 +176,18 @@ internal static partial class MultipleSpellRepertoiresContext
         casting.SpellCastingOrigin==CastingOrigin.Class && owner && definitions!=null && definitions.TryGetValue(owner.Name,out var d) && d.Casting==casting ||
         casting.SpellCastingOrigin==CastingOrigin.Subclass && subclass && ThirdDefinitions.TryGetValue(subclass.Name,out var s) && s.Casting==casting && (!owner || s.Owner==owner);
     internal static void EnsureCanBind(RulesetCharacterHero hero)
+        => EnsureCanBindCore(hero, false);
+    internal static void EnsureCanBindCore(RulesetCharacterHero hero, bool qaEditor)
     {
-        if (!RuntimeEnabled || definitions == null || hero == null || hero.ClassesAndLevels.Values.Sum() != 0 || Sessions.TryGetValue(hero, out _))
+        if (qaEditor) StandardMulticasterResourcesContext.RequireQaEditorZero(hero);
+        if ((!RuntimeEnabled && !qaEditor) || definitions == null || hero == null || hero.ClassesAndLevels.Values.Sum() != 0 || Sessions.TryGetValue(hero, out _))
             throw new InvalidOperationException("Repertoire binding requires a new hero, captured definitions and an open gate.");
     }
     internal static void BindNewHero(RulesetCharacterHero hero)
+        => BindNewHeroCore(hero, false);
+    internal static void BindNewHeroCore(RulesetCharacterHero hero, bool qaEditor)
     {
-        EnsureCanBind(hero);
+        EnsureCanBindCore(hero, qaEditor);
         Sessions.Add(hero, new Session());
     }
     internal static void Synchronize(RulesetCharacterHero hero, CompressedMulticasterProgressionPlan.Result progression)

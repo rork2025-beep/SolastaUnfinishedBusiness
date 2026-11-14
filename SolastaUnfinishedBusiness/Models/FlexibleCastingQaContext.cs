@@ -29,6 +29,7 @@ internal static class FlexibleCastingQaContext
         if (Gui.GameCampaign && Gui.GameCampaign.Party != null)
             heroes.AddRange(Gui.GameCampaign.Party.CharactersList.Select(c => c.RulesetCharacter).OfType<RulesetCharacterHero>());
         if (lastCreated != null && lastCreated.TryGetTarget(out var fresh) && !heroes.Contains(fresh)) heroes.Add(fresh);
+        if (QaEditorFinalizationContext.EditorHero != null && !heroes.Contains(QaEditorFinalizationContext.EditorHero)) heroes.Add(QaEditorFinalizationContext.EditorHero);
         return heroes.ToArray();
     }
     private static bool Local => !Global.IsSettingUpMultiplayer && ServiceRepository.GetService<INetworkingService>()?.IsMultiplayerGame == false &&
@@ -60,7 +61,7 @@ internal static class FlexibleCastingQaContext
         b.AppendLine("UB QA " + FlexibleCastingQaPlan.BuildId).AppendLine("Source commit: " + SourceCommit)
             .AppendLine("UTC: " + DateTime.UtcNow.ToString("O")).AppendLine("MixedGameplayReady=false; ADMITTED=false; NO NATIVE QA CONVERSION ENABLED")
             .AppendLine("Admission code: " + Admission()).AppendLine(FlexibleCastingQaPlan.Reason(Admission()))
-            .AppendLine("Observed level0 heroes are NOT bound; the global resource path remains disabled.");
+            .AppendLine("Level0 observation alone is not binding. C.2 candidate may have editor-only owners; campaign resource path remains disabled.");
         if (hero == null) return b.AppendLine("Selected original hero: none").ToString();
         b.AppendLine("Selected original hero: " + hero.Name + " " + hero.SurName + "; GUID=" + hero.Guid)
             .AppendLine("Exact current object observed at level0: " + Fresh.TryGetValue(hero, out _))
@@ -95,6 +96,7 @@ internal static class FlexibleCastingQaContext
                 .AppendLine("  cantrips=" + string.Join(",", rep.KnownCantrips.Select(s => s.Name)));
         }
         b.AppendLine(FlexibleCastingPreflightContext.QaCommandSnapshot(hero));
+        b.AppendLine(QaEditorFinalizationContext.Report(hero));
         return b.ToString();
     }
     internal static void SaveReport(RulesetCharacterHero hero)

@@ -295,10 +295,15 @@ internal static class CompressedMulticasterTests
                         !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.MultipleSpellRepertoiresContext", StringComparison.Ordinal) &&
                         !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.AuxiliarySpellSources", StringComparison.Ordinal) &&
                         !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.ThirdCasterProgressionPlan", StringComparison.Ordinal) &&
+                        !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.QaEditorFinalizationPlan", StringComparison.Ordinal) &&
                         !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.PactMagicResourcePlan", StringComparison.Ordinal) &&
                         !m.DeclaringType.FullName.StartsWith("SolastaUnfinishedBusiness.Models.PactMagicMulticasterContext", StringComparison.Ordinal))
             .SelectMany(m => m.Body.Instructions).Where(i => i.Operand is MethodReference r && IsOwn(r.DeclaringType)).ToArray();
-        check(externalCalls.Length == 0, "Multicaster compiled metadata isolation: only isolated Stage13.3-13.5 standard/repertoire/Pact components may consume the calculator; existing admission paths remain isolated");
+        check(externalCalls.Length == 0, "Multicaster compiled metadata isolation: only isolated resource/repertoire/Pact components and the C.2 pure finalization adapter consume calculator results; ordinary admission remains isolated");
+        var qaPlan = types.Where(t => t.FullName.StartsWith("SolastaUnfinishedBusiness.Models.QaEditorFinalizationPlan", StringComparison.Ordinal)).ToArray();
+        check(qaPlan.All(t => t.CustomAttributes.All(a => a.AttributeType.Namespace != "HarmonyLib")) && qaPlan.SelectMany(t => t.Methods).Where(m => m.HasBody)
+            .SelectMany(m => m.Body.Instructions).Select(i => i.Operand).OfType<MethodReference>().All(m => !m.DeclaringType.Namespace.StartsWith("UnityEngine", StringComparison.Ordinal) && !m.DeclaringType.Name.StartsWith("RulesetCharacter", StringComparison.Ordinal)),
+            "C.2 ordinary-build adapter has no Unity/native hero/Harmony dependency or entry");
         check(own.All(t => t.CustomAttributes.All(a => !a.AttributeType.Namespace.StartsWith("HarmonyLib", StringComparison.Ordinal))) && root.Fields.Single(f => f.Name == "MixedGameplayReady").Constant is false, "Multicaster compiled metadata isolation: no Harmony patch and readiness gate permanently closed through Stage13.5");
         var dependencies = own.SelectMany(t => t.Methods).Where(m => m.HasBody).SelectMany(m => m.Body.Instructions).Select(i => i.Operand).OfType<MethodReference>().Select(m => m.DeclaringType).ToArray();
         check(dependencies.All(t => IsOwn(t) || t.Namespace.StartsWith("System", StringComparison.Ordinal) || t.Name.StartsWith("FighterProgressionPlan", StringComparison.Ordinal)), "Multicaster compiled metadata isolation: only immutable model/system/shared pure mapping dependencies, no Settings/hero/GetClassLevel/Unity/resource paths");

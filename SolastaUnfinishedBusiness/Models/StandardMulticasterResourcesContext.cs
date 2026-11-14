@@ -11,7 +11,7 @@ namespace SolastaUnfinishedBusiness.Models;
 
 // Stage13.3 resource adapter, deliberately unreachable during ordinary play. Admission, validated
 // native snapshots and save journals belong to later stages; no loaded hero is auto-imported here.
-internal static class StandardMulticasterResourcesContext
+internal static partial class StandardMulticasterResourcesContext
 {
     internal static bool RuntimeEnabled => CompressedMulticasterProgressionPlan.MixedGameplayReady;
     private static ResourcePlan.Tables tables;
@@ -58,18 +58,29 @@ internal static class StandardMulticasterResourcesContext
     // Future admission/finalization code must bind at creation (level0), then supply validated
     // calculator results on advancement. Deliberately no fallback that refills an existing save.
     internal static void BindNewHero(RulesetCharacterHero hero, CompressedMulticasterProgressionPlan.Result initial)
+        => BindNewHeroCore(hero, initial, false);
+    private static void BindNewHeroCore(RulesetCharacterHero hero, CompressedMulticasterProgressionPlan.Result initial, bool qaEditor)
     {
-        if (!RuntimeEnabled || hero == null || hero.ClassesAndLevels.Values.Sum() != 0 ||
+        if (qaEditor) RequireQaEditorZero(hero);
+        if ((!RuntimeEnabled && !qaEditor) || hero == null || hero.ClassesAndLevels.Values.Sum() != 0 ||
             initial == null || initial.Input.ActualCharacterLevel != 0)
             throw new InvalidOperationException("Standard resources: closed gate or non-new hero; automatic conversion is unsupported.");
         AuxiliarySpellSourcesContext.ValidateSnapshot(hero, initial);
-        MultipleSpellRepertoiresContext.EnsureCanBind(hero);
-        PactMagicMulticasterContext.EnsureCanBind(hero);
+        MultipleSpellRepertoiresContext.EnsureCanBindCore(hero, qaEditor);
+        PactMagicMulticasterContext.EnsureCanBindCore(hero, qaEditor);
         var allocation = Allocate(initial);
         var budget = new ResourcePlan.Budget(tables, allocation);
         Owners.Bind(hero, budget); Bindings.Add(hero, new Binding(initial, budget));
-        MultipleSpellRepertoiresContext.BindNewHero(hero);
-        PactMagicMulticasterContext.BindNewHero(hero, budget, initial);
+        MultipleSpellRepertoiresContext.BindNewHeroCore(hero, qaEditor);
+        PactMagicMulticasterContext.BindNewHeroCore(hero, budget, initial, qaEditor);
+    }
+    internal static void RequireQaEditorZero(RulesetCharacterHero hero)
+    {
+#if SOLASTA_FLEXIBLE_CASTING_QA
+        QaEditorFinalizationContext.RequireZeroAuthority(hero);
+#else
+        throw new InvalidOperationException("QA editor binding is absent from ordinary builds.");
+#endif
     }
     internal static void UpdateProgression(RulesetCharacterHero hero, CompressedMulticasterProgressionPlan.Result progression)
     {

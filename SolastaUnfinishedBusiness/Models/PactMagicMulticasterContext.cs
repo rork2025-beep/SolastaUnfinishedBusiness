@@ -12,7 +12,7 @@ using Plan = SolastaUnfinishedBusiness.Models.PactMagicResourcePlan;
 namespace SolastaUnfinishedBusiness.Models;
 
 // Gated Pact adapter. Same hero and standard Budget as13.3; no new native power/repertoire.
-internal static class PactMagicMulticasterContext
+internal static partial class PactMagicMulticasterContext
 {
     internal static bool RuntimeEnabled => StandardMulticasterResourcesContext.RuntimeEnabled;
     private static Plan.Tables tables;
@@ -45,14 +45,20 @@ internal static class PactMagicMulticasterContext
         tables = new Plan.Tables(casting.SlotsPerLevels.Select(r => r.Slots), grants);
     }
     internal static void EnsureCanBind(RulesetCharacterHero hero)
+        => EnsureCanBindCore(hero, false);
+    internal static void EnsureCanBindCore(RulesetCharacterHero hero, bool qaEditor)
     {
-        if (!RuntimeEnabled || tables == null || hero == null || hero.ClassesAndLevels.Values.Sum() != 0 || Owners.TryGetValue(hero, out _))
+        if (qaEditor) StandardMulticasterResourcesContext.RequireQaEditorZero(hero);
+        if ((!RuntimeEnabled && !qaEditor) || tables == null || hero == null || hero.ClassesAndLevels.Values.Sum() != 0 || Owners.TryGetValue(hero, out _))
             throw new InvalidOperationException("Pact binding requires captured tables and an unbound new hero.");
     }
     internal static void BindNewHero(RulesetCharacterHero hero, StandardCasterResourcePlan.Budget standard,
         CompressedMulticasterProgressionPlan.Result progression)
+        => BindNewHeroCore(hero, standard, progression, false);
+    internal static void BindNewHeroCore(RulesetCharacterHero hero, StandardCasterResourcePlan.Budget standard,
+        CompressedMulticasterProgressionPlan.Result progression, bool qaEditor)
     {
-        EnsureCanBind(hero);
+        EnsureCanBindCore(hero, qaEditor);
         Owners.Add(hero, new Plan.CastingLedger(standard, new Plan.Budget(new Plan.Allocation(tables, progression))));
     }
     private static RulesetCharacterHero Owner(RulesetCharacter actor) => actor as RulesetCharacterHero ?? DruidWildshapeContext.StandardResourceOwner(actor);
