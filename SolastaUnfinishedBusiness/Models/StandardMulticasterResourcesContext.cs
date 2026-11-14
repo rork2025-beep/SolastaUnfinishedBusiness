@@ -121,6 +121,15 @@ internal static class StandardMulticasterResourcesContext
         if (!TryBinding(actor, out var b)) return false;
         level = b.Budget.Current.CasterLevel; return true;
     }
+    internal static (int ActualSorcerer,int EffectiveSorcerer,bool CompressedSorcerer,string[] ActualClasses,ResourcePlan.Tables Tables,PactMagicResourcePlan.CastingLedger Resources) PreflightResources(RulesetCharacterHero hero)
+    {
+        if(!TryBinding(hero,out var binding))throw new InvalidOperationException("Unbound Flexible Casting preflight owner.");
+        var resources=PactMagicMulticasterContext.BoundLedgerForPreflight(hero);
+        if(!ReferenceEquals(resources.Standard,binding.Budget))throw new InvalidOperationException("Duplicate standard budget.");
+        var sorcerer=binding.Progression.Classes.Single(c=>c.ClassId=="Sorcerer");
+        return (sorcerer.ActualClassLevel,sorcerer.EffectiveCastingLevel,binding.Progression.Input.Classes.Single(c=>c.ClassId=="Sorcerer").CompressionEnabled,
+            binding.Progression.Input.Classes.Select(c=>c.ClassId).ToArray(),tables,resources);
+    }
     internal static bool TryMaximumCircle(RulesetCharacter actor, out int circle)
     {
         circle = 0;

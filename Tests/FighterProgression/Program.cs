@@ -110,4 +110,5 @@ EldritchInvocationSourcesTests.Run(Check, game, mod);
 AuxiliarySpellSourceVariantsTests.Run(Check, game, mod);
 EldritchAdeptCoverageTests.Run(Check, game, mod);
 SpellResourceOperationTests.Run(Check, game, mod);
+FlexibleCastingPreflightTests.Run(Check, game, mod);
 Console.WriteLine($"{count} checks passed; these are game-independent planner tests, not gameplay tests.");

@@ -66,6 +66,12 @@ internal static class PactMagicMulticasterContext
         StandardMulticasterResourcesContext.TryCasterLevel(hero, out _);
         return ledger.Pact.Current.EffectiveWarlockLevel > 0;
     }
+    internal static Plan.CastingLedger BoundLedgerForPreflight(RulesetCharacterHero hero)
+    {
+        if(!RuntimeEnabled||!Owners.TryGetValue(hero,out var ledger))throw new InvalidOperationException("Unbound conversion owner.");
+        StandardMulticasterResourcesContext.TryCasterLevel(hero,out _);
+        return ledger; // includes Sorcerer/Wizard with zero Pact, same authoritative budgets
+    }
     internal static void Synchronize(RulesetCharacterHero hero, CompressedMulticasterProgressionPlan.Result progression)
     {
         if (!RuntimeEnabled || !Owners.TryGetValue(hero, out var ledger)) throw new InvalidOperationException("Unbound Pact owner.");

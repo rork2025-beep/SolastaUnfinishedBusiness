@@ -1553,3 +1553,23 @@ Backend acceptance — только resource-domain arithmetic/planning иден
 Дополнение к20.3: source audit также охватывает **FeatMetamagicAdept** и **DomainOrder EmbodimentOfLaw**. Метамагия/Seeking/Transmuted могут иметь настоящего non-Sorcerer feat owner; существующий native Sorcery attribute сохраняется, не добавляются классы/slots/repertoires. Adept Bonus2 в actual builder использует AddHalfProficiencyBonus; Domain Order ForceIfBetter1 — UI minimum, отдельные Embodiment uses действительно WIS/LongRest, option cost0. Новый typed adapter учитывает native power use. Native ownership/option predicates обязательны, gameplay по-прежнему OFF.
 
 Pure `ResolveFlexibleInput` отдельно проверяет actual native conversion source policy (оба режима, все source/Shift/preference combinations), не создавая фиктивный known spell. Proof связывает request с теми же domain и двумя circle; source-policy change требует fresh proof. Native UI timing всё ещё13.7.
+
+## 21. Stage13.7A — Flexible Casting identity / preflight slice
+
+Baseline повторён на `d940a33b6599e6262fbc553d3158dd7c4da26d72`: SDK9.0.320, **17603 checks**, Release Workflow **0 errors/0 warnings**, diff clean. Tracked tree clean; прежний untracked Mods сохранён. Архивный Stage13.7 перечень regressions не был заданием переимплементировать13.5/13.6.
+
+Подробный audited call order, source/proof mapping, supported/rejected matrix и передача13.7B: [FlexibleCastingPreflight.md](FlexibleCastingPreflight.md).
+
+Production delta:
+
+- `FlexibleCastingPreflightPlan` вызывает существующий SpellResourceOperationPlan.Prepare, фиксирует original hero/repertoire/effect identity, separate native/consumed circles, direction, source selection/Shift/priority, native costs и resource/rules/condition snapshot. Native balances сравниваются с теми же Standard/Pact budgets; no second pool. Retry idempotent, changed intent/rules/cost/resources/cancel rejected before mutation; funding ID derived from command.
+- `FlexibleCastingPreflightContext`: registered effect proof at action entry, scoped ApplySpellSlotsForm→ShowFlexibleCasting mapping и callback preflight **до** native UI changes/dispatch. Zero/unregistered GUID не превращается в guessed/random command ID. Immediate revalidation → existing CommitNative → PendingAtomicJournal. No CommitManaged/native spending/conditions/healing/events/refunds.
+- Native LocalCommandManager entry без envelope blocked. Native networking передаёт tick/hero/level/feature; tick — clock read, не уникальный command ID. Late legacy Shift Postfix не используется как evidence earlier input и не изменяет native Shift counters за mixed gate; OFF path сохранён.
+- Narrow scalar accessor использует already validated original owner/ledger, включая Sorcerer/Wizard с zero Pact. Прямые зависимости нового native context от progression calculator устранены; прежний isolation regression сохранён без расширения whitelist.
+- `SorcererFinalizePreflight` и read-only Transaction.ValidateComplete: missing/cancelled/incomplete bound Sorcerer draft rejected в начале существующего FinalizeCharacter prefix (priority801), до race/features/spell grants. Даже complete draft ждёт atomic finalization. OFF single-caster path не проверяет mixed drafts и сохраняет прежнее поведение. Другие class finalization guards сохранены.
+
+**Итог: not ready для полного Stage13.7A native path coverage.** Registered-source UI preflight реализован/проверен на production models + ABI/source inspection. Campaign/transient power use не гарантирует registered nonzero effect GUID до ApplyForms; native RPC не сохраняет source mapping. Эти links нельзя заменить power template, owner+level, clock tick, persistent PowersUsedByMe list или post-spend hook. Нужен authorized command envelope/provenance перед их допуском. Partial preflight не означает готовность native execution.
+
+MixedGameplayReady=false; public switch/admission не добавлены. Все прежние regression suites сохранены, compressed Fighter magic не открыт, compressed Rogue magic не объявляется original20. Native commit, save/load, Respec, persistent/atomic coordinator и mixed gameplay остаются disabled/unverified. Stage13.7B не начат; его handoff задокументирован. Source/runtime safety guards13.6 сохранены.
+
+Финальная валидация21: **18196 checks passed** =17603 baseline + **593 новых** (565 executed production preflight/model,28 compiled/definition audits). Release Workflow0 errors/0 warnings, diff check clean, .NET9.0.320. Unity/native execution не выполнялась. Все14 изменённых файлов и точные команды перечислены в focused document. Общая классификация остаётся **not ready**, несмотря на passing model suite, из-за документированных native identity/transport gaps.

@@ -285,8 +285,10 @@ public static class CharacterBuildingManagerPatcher
         }
 
         [UsedImplicitly]
+        [HarmonyPriority(Priority.First+1)]
         public static bool Prefix([NotNull] CharacterBuildingManager __instance, [NotNull] RulesetCharacterHero hero)
         {
+            if (!MultipleSpellRepertoiresContext.ValidateSorcererFinalizeEntry(hero)) return false;
             if (!AuxiliarySpellSourcesContext.ValidateBeforeFinalize(hero)) return false;
             if (!MultipleSpellRepertoiresContext.ValidateBeforeFinalize(hero)) return false;
             if (!WarlockInvocationContext.BeginFinalize(hero)) return false;

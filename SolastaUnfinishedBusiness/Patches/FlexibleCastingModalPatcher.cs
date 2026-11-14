@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using HarmonyLib;
+using SolastaUnfinishedBusiness.Models;
 using JetBrains.Annotations;
 using SolastaUnfinishedBusiness.Api.GameExtensions;
 
@@ -17,6 +18,8 @@ public static class FlexibleCastingModalPatcher
         [UsedImplicitly]
         public static void Postfix(FlexibleCastingModal __instance)
         {
+            // 13.7A captures Shift before dispatch. Do not mutate native shift counters after a blocked callback.
+            if(StandardMulticasterResourcesContext.RuntimeEnabled)return;
             if (__instance.selectedSlotLevel < 0 || __instance.createSlotMode)
             {
                 return;

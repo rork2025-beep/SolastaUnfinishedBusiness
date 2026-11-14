@@ -219,6 +219,11 @@ internal sealed class MultipleSpellRepertoiresPlan
                 profile.Cantrips[n - 1] - (n == 1 ? 0 : profile.Cantrips[n - 2]))).ToArray());
         }
         internal HeroState Preview() => Replay(false);
+        internal void ValidateComplete()
+        {
+            if(cancelled)throw new InvalidOperationException("Cancelled original spell events.");
+            Replay(true); // read-only completeness validation, no Commit or publication
+        }
         internal void Select(Choice choice)
         {
             Editable();
