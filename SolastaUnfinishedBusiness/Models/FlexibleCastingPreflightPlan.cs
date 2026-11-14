@@ -49,6 +49,13 @@ internal sealed class FlexibleCastingPreflightPlan
     {
         internal Authority Authority { get; }=authority;internal Choice Choice { get; }=choice;internal O.Request Request { get; }=request;
         internal O.Receipt Preview { get; }=preview;internal string NativeSignature { get; }=nativeSignature;
+        internal void RequireStandardSlotToSorcery()
+        {
+            if(Authority.CreateSlot||Request.OperationKind!=O.Kind.SlotToSorcery||Request.Input!=O.Domain.StandardSlots||Request.Output!=O.Domain.SorceryPoints)
+                throw new O.Rejection(O.Code.WrongDomain,"13.7B.1 accepts only ordinary standard slot -> Sorcery Points");
+            if(Request.Circle is <1 or >5||Request.Circle!=Request.NativeCircle||Request.Quantity!=1||Request.Cost!=1)
+                throw new O.Rejection(O.Code.InvalidCost,"One verified actual circle1..5 standard slot required");
+        }
         internal string FundingIdentity=>Authority.CreateSlot?Request.Operation+"/AdditionalSpellSlot"+Request.NativeCircle:null;
     }
     private readonly string hero,rules;
@@ -125,6 +132,16 @@ internal sealed class FlexibleCastingPreflightPlan
         if(authority.Hero!=hero)throw new O.Rejection(O.Code.WrongOwner,"Cancel owner");
         if(tickets.ContainsKey(authority.Command))operations.Cancel(authority.Command);
         cancelled.Add(authority.Command);
+    }
+    // Model arithmetic only; this does not publish a native projection, event, parent action or acknowledgement.
+    internal O.Receipt CommitManagedStandardSlot(Ticket ticket,Live live)
+    {ticket.RequireStandardSlotToSorcery();Revalidate(ticket,live);return operations.CommitManaged(ticket.Request);}
+    internal void RevalidateManagedReceipt(Ticket ticket,O.Receipt receipt,Live live,string expectedProjection)
+    {
+        Validate(ticket.Authority,live);
+        if(!tickets.TryGetValue(ticket.Request.Operation,out var own)||!ReferenceEquals(own,ticket)||receipt.Operation!=ticket.Request.Operation||
+            operations.State!=receipt.After||live.Signature!=expectedProjection)
+            throw new O.Rejection(O.Code.StaleOperation,"Managed receipt/projection changed; never perform another debit");
     }
     internal void BlockNativeCommit(Ticket ticket,Live live)
     {Revalidate(ticket,live);operations.CommitNative(ticket.Request);}

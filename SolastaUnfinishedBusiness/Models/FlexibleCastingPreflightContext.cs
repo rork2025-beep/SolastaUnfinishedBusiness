@@ -197,7 +197,12 @@ internal static partial class FlexibleCastingPreflightContext
     private static void BlockNativeCommit(V.Envelope command)
     {
         if(!Origins.TryGetValue(command.Invocation,out var source))throw new O.Rejection(O.Code.MissingIdentity,"No invocation");
-        Invocations.BlockCommit(command,Evidence(source),source.Effect,Read(source));
+        if(!command.Create&&command.Input==O.Domain.StandardSlots)
+        {
+            var draft=Invocations.StandardSlots.Prepare(command,Evidence(source),source.Effect,Read(source));
+            Invocations.StandardSlots.CommitNative(draft,Evidence(source),source.Effect,Read(source));
+        }
+        else Invocations.BlockCommit(command,Evidence(source),source.Effect,Read(source));
     }
     private static void RejectAndClose(Origin source,FlexibleCastingModal modal,V.Status reason)
     {

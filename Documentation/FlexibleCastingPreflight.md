@@ -1,4 +1,6 @@
-> **Текущее состояние — Stage 13.7A.2:** см. раздел в конце документа. Есть typed authority для registered и проверенного base campaign transient effect, явный локальный identity-only envelope и fail-closed receiver. Native network/ordinary action completion остаются blocked; **Stage 13.7A not ready**. Описание 13.7A ниже сохранено как история baseline. В частности, прежний cached proof после termination заменён строгой проверкой lifetime и актуального registry membership.
+> **Текущее состояние — Stage13.7B.1 revised:** реализованы single-direction transaction proposal, source/ticket revalidation и existing-ledger managed arithmetic; **native commit остаётся blocked**. См. последний раздел. MixedGameplayReady=false; Unity validation pending. Предыдущие разделы13.7A/A.2 сохранены как baseline/history.
+
+> **Архивная запись — Stage 13.7A.2:** см. раздел в конце документа. Есть typed authority для registered и проверенного base campaign transient effect, явный локальный identity-only envelope и fail-closed receiver. Native network/ordinary action completion остаются blocked; **Stage 13.7A not ready**. Описание 13.7A ниже сохранено как история baseline. В частности, прежний cached proof после termination заменён строгой проверкой lifetime и актуального registry membership.
 
 # Stage13.7A — native identity / Flexible Casting preflight
 
@@ -231,3 +233,93 @@ Baseline **18 196** → final **19 373**, прирост **1 177**: **1 139** н
 **Оставшиеся Unity сценарии (не выполнялись):** gate-OFF ordinary single-caster Flexible Casting в обоих направлениях; actual base campaign factory/controller authority; registered location action и termination до выбора; точное modal ownership при двух попытках одного героя; parent/action state при PendingAtomicJournal, Hide/Cancel без refund; потеря source/repertoire/settings перед delayed local receiver; network refusal без source mint/spend. Для этих сценариев нужен отдельный контролируемый internal binder/test harness, не public setting. Native conversion commit, actual temporary-slot lifecycle, healing callbacks, durable save/load и Respec в этом slice не разрешены и не проверены.
 
 Итог: **Stage 13.7A not ready**. Native network authority seam отсутствует; ordinary native action остаётся под journal guard, а actual Harmony/GUI/control/lifetime execution требует Unity evidence. Stage13.7B/13.8, native resource commit и persistence не реализованы.
+
+## Stage13.7B.1 revised — guarded standard slot → Sorcery Points
+
+### Scope и baseline
+
+Starting commit `eba355149e4b4a54f01a8bd6375f2ab75b80256a`, branch `feature/progression-20-to-12`. Tracked tree чист до изменений; прежний untracked SolastaFiles/Mods сохранён. Baseline повторно выполнен: SDK **9.0.320**, Release Workflow **0 errors / 0 warnings**, runner **19 373 checks passed**, diff check clean. Baseline failures отсутствовали, зависимости не переустанавливались.
+
+Coding slice начинается от13.7A.2. Unity smoke test не выдаётся за prerequisite или выполненную проверку: actual Unity execution отсутствует. **Результат разделён:** production model/proposal реализован и проверен вне Unity; безопасный native transaction boundary не подтверждён, поэтому native commit блокируется до первого изменения ресурсов; Unity validation pending. Conversion не playable, Stage13.7B.1 не объявлен завершённым runtime.
+
+Поддерживается в новой модели только один verified **StandardSlots → SorceryPoints**, исходящий из actual Sorcerer repertoire оригинального hero, circle1–5 существующего modal, quantity1/cost1, UI circle=actual consumed circle. Character20/class12/three classes, real history/HP/PB/abilities, предыдущие class modules и guards не меняются. Sorcery→slot, Spell Points, Pact/Arcanum input, network, save/load, Respec и general mixed gameplay не реализованы этим slice. Наличие Pact repertoire у владельца само по себе не запрещает standard input, но Pact budget никогда не списывается новой моделью.
+
+### Точный native call order / границы отказа
+
+Installed Assembly-CSharp и compiled UB исследованы Cecil; это **не Unity execution**.
+
+1. `FlexibleCastingModal.OnConvertCb()` скрывает buttons и вызывает `CreateSorceryPoints()`; тот изменяет interactability, запускает AutoHide, подписывает `SorceryPointCreated` на SorceryPointsAltered и отправляет `IMagicCommandService.CreateSorceryPoints(caster,selectedSlotLevel,repertoire)`. Существующий gated prefix из13.7A.2 останавливает оригинальный callback **до** этих изменений, переносит issued envelope явно. Legacy local/network3arg commands по-прежнему blocked.
+2. `LocalCommandManager.CreateSorceryPoints(RulesetCharacter,int,RulesetSpellRepertoire)` вызывает `RulesetCharacter.CreateSorceryPoints(int,RulesetSpellRepertoire)`.
+3. `RulesetCharacter.CreateSorceryPoints` сначала вызывает `repertoire.SpendSpellSlot(slotLevel)`; затем `usedSorceryPoints=max(0,usedSorceryPoints-slotLevel)`; затем `SorceryPointsAltered?.Invoke(this,RemainingSorceryPoints,null)`. В методе нет transaction receipt, try/rollback/finally или atomic publication.
+4. Native `RulesetSpellRepertoire.SpendSpellSlot(int)` сначала добавляет/increments usedSpellsSlots[circle], затем синхронно вызывает **RepertoireRefreshed**, ещё до возврата к Sorcery write. Callback может бросить исключение или изменить/наблюдать состояние. Это первое установленное окно: slot уже списан, Sorcery ещё не начислены. Исключение SorceryPointsAltered возникает позже, после обоих изменений, но до нормального возврата/ack. Нельзя считать любое исключение признаком, что ничего не произошло.
+5. UB `RulesetSpellRepertoirePatcher.SpendSpellSlot_Patch.Prefix` заменяет native body. Сначала auxiliary validation / `StandardMulticasterResourcesContext.TrySpend`; для ordinary legacy режима используются ConsumeSlot и shared-repertoire propagation. ConsumeSlot также меняет usage и вызывает RepertoireRefreshed. Для bound prototype используется существующий authoritative standard ledger, затем projection.
+6. `StandardMulticasterResourcesContext.TrySpend` / Pact coordinator используют typed existing budgets; ordinary spell entry требует spellOperation от реального RulesetEffectSpell. Flexible conversion не должна подделывать spell scope. `StandardMulticasterResourcesContext.Project` назначает repertoire dictionaries и вызывает RepertoireRefreshed по каждому view. Исключение может оборвать projection между views. Эта функция не предоставляет callback-free staged publication или conversion receipt boundary.
+7. `UsedSorceryPoints` — поле original RulesetCharacter; maximum берётся из actual SorceryPoints attribute, `RemainingSorceryPoints=max(0,maximum-used)`. Operation-plan Counter — managed snapshot, а не второе native хранилище. Для bound prototype slot budget authoritative в existing StandardCasterResourcePlan.Budget; native repertoire dictionaries — projection этого же бюджета. Нельзя отдельно списать ledger и затем вызвать SpendSpellSlot на его view как вторую стоимость.
+8. `CreateSorceryPoints` **не вызывает GainSorceryPoints**, SpendSorceryPoints, Heal или AccountUsedMagicAndPower. GainSorceryPoints тоже непосредственно меняет used counter и публикует SorceryPointsAltered; это не atomic conversion API. HealingPerSpentSorceryPoint/Heal/AccountUsedMagicAndPower относятся к **расходованию** Sorcery Points в SpendSorceryPoints. Добавлять healing в рассматриваемое направление нельзя. Произвольные listeners остаются отдельным риском.
+9. Native event передаёт **final remaining**, не amount gained, и feature=null. UI OnItemSelected отображает min(usedSorceryPoints,selectedCircle). Модель сохраняет clamping, включая gain0 при полном запасе: native body всё равно расходует slot, если такая команда дошла. Это не новая рекомендация разрешать бесполезный native action; native execution остаётся blocked.
+10. Campaign parent из13.7A.2 удерживается до native UsePower; обычный power action остаётся под13.6 guard. Native OnCancelCb включает RefundActionUse и не используется как rollback. Новая модель не завершает parent, не вызывает UsePower/PowerActivated/refund, не пишет success acknowledgement.
+
+### Production proposal / managed journal
+
+Новый `Models/FlexibleCastingSlotToSorceryPlan.cs` — **не новый resource engine** и не native executor. Он хранит issued intent, immutable before/expected-after projections и managed receipt. Нет нового Standard/Pact budget, PowerSpellPoints, независимого счётчика Sorcery или автоматически импортированного hero.
+
+- `FlexibleCastingInvocationPlan.InspectStandardSlot` сначала проходит существующие Receive/source authority/current ticket проверки, затем `Ticket.RequireStandardSlotToSorcery`: только правильные definition/operation/domain/circle/quantity/cost. Возвращает references на **тот же** issued source, envelope, preflight plan и ticket. Один lazy transaction facade на registry.
+- `Prepare` возвращает тот же Draft для одинакового envelope; conflict same ID/different fields отклоняется. Immutable After содержит usage[circle]+1, RemainingSorcery+clampedGain, остальные capacities/Pact/SP/costs/conditions unchanged. Это **ожидаемая проекция**, не запись в game state.
+- `CommitManaged` существует только для проверяемой арифметики backend. Source evidence и Live читаются повторно через переданные readers непосредственно перед существующим `CommitManagedStandardSlot`; там ещё раз проверяются typed direction и полный ticket. Применяется существующий SpellResourceOperationPlan.CommitManaged к тому же Standard budget и Sorcery snapshot. Ни один native runtime caller в compiled mod не вызывает этот managed method.
+- Managed commit point — возврат существующего coordinator с **обоими** изменениями и receipt, записанным в Draft. До этого checkpoint'ы BeforeStaging/DebitStaged/CreditStaged/BeforePublish только готовят immutable delta proposal. Fault в них отбрасывает предложение, закрывает source, ничего не refund'ит.
+- AfterManagedPublish failure означает **потерю доставки уже committed model receipt**, а не failed conversion: Status=ManagedCommitted, DeliveryPending=true. Повтор с тем же issued intent и current expected projection возвращает тот же receipt без повторного debit/gain. Rules/owner/source/resource changes отклоняются даже на повторе. Expiry после managed commit может вернуть PendingAtomicJournal из прежнего registry cancellation guard: подтверждённый расход не отменяется, новый debit/gain не выполняется. Это отказ, не renewed authority или refund.
+- Managed receipt не проецирует native поля: тесты явно делают отдельную test-side scalar projection перед моделированием post-commit retry. Попытка выдать arithmetic за native publication без этой projection отвергается stale proof. NativeCompleted=false и ParentCompleted=false неизменно.
+- Исключение **внутри** старого mutable CommitManaged, если оно возникнет после входа в publish, помечает ManagedIndeterminate; повтор/rollback запрещены. Отсутствие таких исключений при произвольных concurrent writes, OOM или изменениях coordinator не доказано. Это ещё одна причина не считать arithmetic native-atomic guarantee. Fault checkpoints проверяют staging, а не невозможную инъекцию внутрь native slot write.
+- Cancel до publish terminal/idempotent, в том числе через реальный путь registry.Close от modal. Reentrant managed commit отклоняется. Cancel committed/indeterminate draft — PendingAtomicJournal; никаких refund/resets confirmed debt. Обнаруженный stale pending proof закрывается terminal, как в исходном envelope receiver: возврат старых settings не оживляет команду. State и receipts process-local, без persistent replay safety. Managed receipt retry реализован только у нового model facade; исходный native receiver остаётся preflight-only, native receipt publication/replay integration отсутствует.
+
+### Native integration: преднамеренный block
+
+Gated `FlexibleCastingPreflightContext.BlockNativeCommit` направляет только StandardSlots→SorceryPoints envelope в новый proposal и `FlexibleCastingSlotToSorceryPlan.CommitNative`. Он снова проверяет issued source/current ticket/owner/circle/rules/resources и **безусловно выбрасывает PendingAtomicJournal до любого native или managed debit**. NativeBoundaryAvailable=false. Все остальные направления сохраняют прежний block. `MixedGameplayReady=false`, нового public setting нет; ordinary gate-OFF code path остаётся прежним.
+
+**Почему native commit не реализован:** installed public API публикует slot callback между debit и credit, а общий projection helper публикует callbacks между views. Нет verified seam, который одновременно фиксирует existing ledger, raw original-hero Sorcery counter, все необходимые projections и command receipt **до** первого observer/reentrant callback и согласует parent action. Нет native outbox/ack для частично выполненного multicast listener. Catch + refund не восстанавливает effects внешних callbacks и потому запрещён. Простое подавление exceptions или замена failed на success также не применяется.
+
+Требуется будущий narrowly scoped native journal: валидированный callback-free preparation/state publication для этого owner; coherent slot+Sorcery+projection+receipt commit point; точные semantics публикации RepertoireRefreshed/SorceryPointsAltered и parent lifecycle; отказ/потеря доставки после commit без повторных callbacks/ресурсов; фактическая Unity проверка. Это описание оставшейся работы, не её реализация или разрешение native commit. Native budget/user settings/saves не менялись.
+
+### Failure / evidence matrix
+
+| Сценарий | Проверенный результат | Evidence |
+|---|---|---|
+| Valid standard slot1–5, registered/transient source, Sorcerer+Wizard/Warlock | Ровно один existing-model slot, min(circle,missing Sorcery) gain; без Pact debit | Executed production model, не Unity |
+| Cap/partial cap | Native clamped amount, включая0; никакого overflow/healing | Executed model + audited native formula |
+| Duplicate/conflicting command | Same receipt / reject; ни второго debit, ни false native ack | Executed model |
+| Insufficient slot / stale resource/rules/source/owner / cancellation | Отказ до новой mutation, parent held | Executed model |
+| Fault до staging / debit staged / credit staged / before publish | Proposal rejected, exact model/native-fixture balances unchanged | Executed **staging** fault tests, не native write fault tests |
+| Cancel в staging / native-style registry Cancel | Повторная проверка запрещает publish | Executed model |
+| После managed publish потеря receipt delivery | Committed model receipt + DeliveryPending; retry без новых ресурсов | Executed model, не native callbacks |
+| Внутренний publish failure / uncertain mutation | ManagedIndeterminate block, нет выдуманного rollback | Conservative code guard; не доказанный atomic recovery |
+| Native RepertoireRefreshed failure после debit | Возможен spent slot без Sorcery | Cecil call-order evidence + отдельно labelled counterexample fixture, не production execution |
+| Native SorceryPointsAltered failure после credit | Оба native ресурса могли измениться без normal return | Cecil evidence + отдельно labelled counterexample fixture; recovery не реализован |
+| Native CommitNative / network / excluded domains | PendingAtomicJournal либо typed domain rejection, без spending | Executed model guard + compiled bridge audit |
+| Native UI/action/real resource conversion | Не запускались | Unity validation pending |
+
+Cecil audits проверяют конкретные native signatures/field-write/callback ordering, clamp, отсутствие healing в этом направлении, existing guards, отсутствие native debit/parent/refund calls у CommitNative, отсутствие managed commit callers в runtime и gate-OFF branch. Они не считаются Unity tests.
+
+Изменённые файлы:
+
+- Models/FlexibleCastingSlotToSorceryPlan.cs (новый single-direction proposal/managed journal/native block).
+- Models/FlexibleCastingInvocationPlan.cs (verified typed intent и singleton facade).
+- Models/FlexibleCastingPreflightPlan.cs (typed ticket constraint / existing-ledger arithmetic / receipt validation).
+- Models/FlexibleCastingPreflightContext.cs (narrow gated native block route).
+- Tests/FighterProgression/FlexibleCastingSlotToSorceryTests.cs (новые production-model tests, audits и отдельные counterexample fixtures).
+- Tests/FighterProgression/FlexibleCastingPreflightTests.cs и FighterProgression.Tests.csproj (runner / production source link).
+- Documentation/FlexibleCastingPreflight.md.
+
+Финальные validation commands/results (SDK9.0.320, существующие PATH/DOTNET_ROOT/DOTNET_CLI_HOME/NUGET_PACKAGES/SolastaInstallDir):
+
+```sh
+dotnet build SolastaUnfinishedBusiness.sln --no-restore -c "Release Workflow" -m:2
+# exit0, 0 errors / 0 warnings
+dotnet run --project Tests/FighterProgression/FighterProgression.Tests.csproj
+# exit0, 20785 checks passed
+git diff --check
+# exit0, no output
+```
+
+Baseline **19 373** → final **20 785** (+**1 412**): **1 394 executed production-model checks**, отдельно **16 Cecil/definition audits** и **2 executable native-order counterexample fixtures**. Последние два только иллюстрируют недостаточность native call order; они не production execution и не Unity. Все прежние class, repertoire, invocation, Secrets, auxiliary, shared-budget и resource suites сохранены. Отдельно проверены PendingAtomicJournal на post-managed expiry (guard confirmed debt) и terminal stale-proof regression. Финальный полный прогон проходит.
+
+**Итог по трём категориям:** code/model implemented and tested outside Unity; native transaction still blocked; Unity validation pending. Conversion не объявляется playable или runtime-complete. В disposable Solasta session не проверены actual debit/gain, callbacks/healing interactions, parent/UI, rest, persistent replay/save-load и Respec. Для native реализации нужен описанный callback/parent atomic boundary; текущий slice не включает её, reverse/SP/Pact/network или расширение mixed gameplay.

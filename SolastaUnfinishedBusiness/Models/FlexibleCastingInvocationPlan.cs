@@ -58,6 +58,21 @@ internal sealed class FlexibleCastingInvocationPlan
         internal readonly F.Choice Choice = choice; internal readonly F.Ticket Ticket = ticket; internal readonly Envelope Envelope = envelope;
         internal Acknowledgement Ack;
     }
+    internal sealed class StandardSlotIntent(Authority source,F model,F.Ticket ticket,Envelope command)
+    {
+        internal readonly Authority Source=source;
+        internal readonly F Model=model;
+        internal readonly F.Ticket Ticket=ticket;
+        internal readonly Envelope Command=command;
+    }
+    internal StandardSlotIntent InspectStandardSlot(Envelope command,Evidence current,object effect,F.Live live,bool network=false)
+    {
+        Receive(command,current,effect,live,network);
+        var p=pending[command.Command];p.Ticket.RequireStandardSlotToSorcery();
+        return new StandardSlotIntent(p.Source,p.Model,p.Ticket,p.Envelope);
+    }
+    private FlexibleCastingSlotToSorceryPlan standardSlots;
+    internal FlexibleCastingSlotToSorceryPlan StandardSlots=>standardSlots??=new FlexibleCastingSlotToSorceryPlan(this);
     private readonly Func<string> mint;
     private readonly Dictionary<string, Authority> sources = new(StringComparer.Ordinal);
     private readonly ConditionalWeakTable<object, Authority> effects = new();
