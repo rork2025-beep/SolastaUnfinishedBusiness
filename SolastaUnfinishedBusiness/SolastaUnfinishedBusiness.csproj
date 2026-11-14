@@ -17,6 +17,32 @@
     <Platforms>AnyCPU</Platforms>
   </PropertyGroup>
 
+  <!-- Deliberately separate diagnostic artifact; never opens the mixed gameplay gate. -->
+  <PropertyGroup Condition="'$(SolastaFlexibleCastingQa)' == 'true'">
+    <DefineConstants>$(DefineConstants);SOLASTA_FLEXIBLE_CASTING_QA</DefineConstants>
+    <QaCommitValid>$([System.Text.RegularExpressions.Regex]::IsMatch('$(QaSourceCommit)', '^[0-9a-f]{40}$'))</QaCommitValid>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(SolastaFlexibleCastingQa)' == 'true'">
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>FlexibleCastingQaBuild</_Parameter1>
+      <_Parameter2>13.7C.1-DIAGNOSTIC-BLOCKED</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>FlexibleCastingQaSourceCommit</_Parameter1>
+      <_Parameter2>$(QaSourceCommit)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+  <Target Name="ValidateFlexibleCastingQaIdentity" BeforeTargets="CoreCompile" Condition="'$(SolastaFlexibleCastingQa)' == 'true'">
+    <PropertyGroup>
+      <QaOutputNormalized>$([MSBuild]::NormalizeDirectory('$(OutputPath)'))</QaOutputNormalized>
+      <QaInstalledOutput>$([MSBuild]::NormalizeDirectory('$(SolastaInstallDir)', 'Mods', 'SolastaUnfinishedBusiness'))</QaInstalledOutput>
+    </PropertyGroup>
+    <Error Condition="'$(QaCommitValid)' != 'True'"
+           Text="QA requires -p:QaSourceCommit=full_40_character_git_sha." />
+    <Error Condition="'$(QaOutputNormalized)' == '$(QaInstalledOutput)'"
+           Text="QA requires an isolated OutputPath outside the installed ordinary mod." />
+  </Target>
+
   <Target Name="CheckEnvironmentVars">
     <Error Text="Please set the SolastaInstallDir environment variable." Condition="'$(SolastaInstallDir)' == ''" ContinueOnError="false" />
   </Target>

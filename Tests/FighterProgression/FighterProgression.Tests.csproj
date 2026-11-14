@@ -51,4 +51,5 @@
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/FlexibleCastingInvocationPlan.cs" Link="FlexibleCastingInvocationPlan.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/FlexibleCastingSlotToSorceryPlan.cs" Link="FlexibleCastingSlotToSorceryPlan.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/FlexibleCastingNativeCommitPlan.cs" Link="FlexibleCastingNativeCommitPlan.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../SolastaUnfinishedBusiness/Models/FlexibleCastingQaPlan.cs" Link="FlexibleCastingQaPlan.cs" /></ItemGroup>
 </Project>

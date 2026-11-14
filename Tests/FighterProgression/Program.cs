@@ -13,6 +13,13 @@ void Check(bool condition, string name)
     Console.WriteLine("PASS: " + name);
     count++;
 }
+if (args.Length == 3 && args[0] == "--qa-audit")
+{
+    using var qa = AssemblyDefinition.ReadAssembly(args[1]);
+    FlexibleCastingQaTests.AuditQa(Check, qa, args[2]);
+    Console.WriteLine($"{count} QA compiled audits passed; no Unity execution.");
+    return;
+}
 var features = Enumerable.Range(1, 20).Select(i => (Feature: "Feature" + i, Level: i)).ToArray();
 var plan = new FighterProgressionPlan<string>(features);
 Check(plan.Events.Count == 20 && plan.Events.Select(x => x.Feature).SequenceEqual(features.Select(x => x.Feature)),
@@ -64,6 +71,7 @@ resolver.AddSearchDirectory("SolastaFiles/Solasta_Data/Managed");
 resolver.AddSearchDirectory("lib");
 using var mod = AssemblyDefinition.ReadAssembly("SolastaFiles/Mods/SolastaUnfinishedBusiness/SolastaUnfinishedBusiness.dll",
     new ReaderParameters { AssemblyResolver = resolver });
+FlexibleCastingQaTests.Run(Check, game, mod);
 var context = mod.MainModule.Types.Single(x => x.Name == "FighterProgressionContext");
 var bindings = 0;
 foreach (var patch in context.NestedTypes)

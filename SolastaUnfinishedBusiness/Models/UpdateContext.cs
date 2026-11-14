@@ -35,6 +35,10 @@ internal static class UpdateContext
 
     internal static void Load()
     {
+#if SOLASTA_FLEXIBLE_CASTING_QA
+        ShouldUpdate = false;
+        Main.Info("QA " + FlexibleCastingQaPlan.BuildId + "; updates disabled; source=" + FlexibleCastingQaContext.SourceCommit);
+#else
         var infoPayload = File.ReadAllText(Path.Combine(Main.ModFolder, "Info.json"));
         Info = JsonConvert.DeserializeObject<InfoJson>(infoPayload);
 
@@ -60,6 +64,7 @@ internal static class UpdateContext
 
         // display mod message every 100 launches
         Main.Settings.DisplayModMessage = (Main.Settings.DisplayModMessage + 1) % 100;
+#endif
     }
 
     private static string GetPreviousVersion()
@@ -108,6 +113,13 @@ internal static class UpdateContext
 
     internal static void UpdateMod(bool toLatest = true)
     {
+#if SOLASTA_FLEXIBLE_CASTING_QA
+        if (FlexibleCastingQaContext.SourceCommit.Length == 40)
+        {
+            Main.Error("QA artifact cannot update itself. End QA and restore the ordinary mod manually.");
+            return;
+        }
+#endif
         if (InProgress) { return; }
 
         if (!ShouldUpdate && toLatest)

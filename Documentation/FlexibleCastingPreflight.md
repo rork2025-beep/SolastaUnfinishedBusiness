@@ -650,3 +650,8 @@ git diff --check
 Baseline **22 930** → final **23 251**, delta **321**: **298 executed production rejection/budget checks**, separately **23 native/compiled/definition audits**. All earlier class, auxiliary, invocation, spell-learning and four-route B.3 regressions are included. Initial new-test runs exposed the acknowledged-rejection defect above; metadata assertions were corrected to reflect distinct native bulk-removal orders and IL argument macros. Baseline itself passed. Final build/test/diff checks all pass; no Unity execution occurred.
 
 Delivery contains the five listed source/test/documentation files only, on the feature branch. No generated DLL/game assembly/settings/save is included. **Final classification: NOT CODE-COMPLETE / fifth route BLOCKED; four previous routes retained and Unity-unverified.**
+
+
+## Stage13.7C.1 — diagnostic QA artifact, smoke admission BLOCKED
+
+См. [FlexibleCastingQaBuild.md](FlexibleCastingQaBuild.md) и [русский checklist](FlexibleCastingQaSmokeChecklist.ru.md). Compile-only QA variant содержит read-only panel, full SHA и диагностику; не открывает MixedGameplayReady или resource binding. Native finalization и trusted transfer level0 editor→fresh party отсутствуют, поэтому **это не готовый conversion smoke build**. Все четыре implemented B.3 routes остаются backend-only/Unity-unverified; пятая condition route по-прежнему blocked. QA XP action disabled, Respec и identity-less conversions закрыты. Ordinary build не содержит QA UI/hooks.
